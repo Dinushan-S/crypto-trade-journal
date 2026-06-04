@@ -6,7 +6,7 @@
   const stats = $derived(data.stats);
   const recentTrades = $derived(data.recentTrades);
   const recentLedger = $derived(data.recentLedger);
-  const chartData = $derived((data as any).chartData ?? { monthlyPnl: [], coinPnl: [], winCount: 0, lossCount: 0, beCount: 0 });
+  const chartData = $derived((data as any).chartData ?? { monthlyPnl: [], coinPnl: [], winCount: 0, lossCount: 0, beCount: 0, dailyStats: {} });
 
   let monthlyCanvas = $state<HTMLCanvasElement | null>(null);
   let coinCanvas = $state<HTMLCanvasElement | null>(null);
@@ -14,6 +14,10 @@
   let monthlyChart: any;
   let coinChart: any;
   let wlbChart: any;
+
+  // Calendar state
+  let calendarMonth = $state(new Date().toISOString().slice(0, 7)); // YYYY-MM
+  let expandedDay = $state<string | null>(null);
 
   onMount(() => {
     let destroyed = false;
@@ -144,6 +148,77 @@
     { label: 'Total Withdrawn', value: `$${stats.totalWithdrawn.toFixed(2)}`, accent: false },
     { label: 'Net Contribution', value: `LKR ${stats.netContributionLkr.toLocaleString('en-US', { maximumFractionDigits: 0 })}`, accent: false },
   ]);
+
+  function calendarPrevMonth() {
+    const [y, m] = calendarMonth.split('-').map(Number);
+    const d = new Date(y, m - 2, 1); // m-2 because Date months are 0-indexed
+    calendarMonth = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+    expandedDay = null;
+  }
+
+  function calendarNextMonth() {
+    const [y, m] = calendarMonth.split('-').map(Number);
+    const d = new Date(y, m, 1);
+    calendarMonth = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+    expandedDay = null;
+  }
+
+  function toggleDay(dateStr: string) {
+    expandedDay = expandedDay === dateStr ? null : dateStr;
+  }
+
+  function formatMonthLabel(ym: string): string {
+    const [y, m] = ym.split('-').map(Number);
+    return new Date(y, m - 1, 1).toLocaleString('default', { month: 'long', year: 'numeric' });
+  }
+
+  function pnlIntensity(pnl: number, maxAbsPnl: number): number {
+    // Returns 0.08–0.25 opacity for background color scaling
+    if (maxAbsPnl === 0) return 0.1;
+    return 0.08 + (Math.abs(pnl) / maxAbsPnl) * 0.17;
+  }
+
+  // Derived calendar grid data
+  const calendarDays = $derived.by(() => {
+    const [y, m] = calendarMonth.split('-').map(Number);
+    const daysInMonth = new Date(y, m, 0).getDate();
+    const firstDow = new Date(y, m - 1, 1).getDay(); // 0=Sun…6=Sat
+    // Convert to Mon-first: Mon=0…Sun=6
+    const leadingBlanks = firstDow === 0 ? 6 : firstDow - 1;
+
+    const days = [];
+    // Leading invisible placeholders
+    for (let i = 0; i < leadingBlanks; i++) {
+      days.push({ blank: true, date: '', dayNum: 0, stat: null });
+    }
+    // Actual days
+    for (let d = 1; d <= daysInMonth; d++) {
+      const date = `${calendarMonth}-${String(d).padStart(2, '0')}`;
+      const stat = (chartData.dailyStats as Record<string, any>)[date] ?? null;
+      days.push({ blank: false, date, dayNum: d, stat });
+    }
+    return days;
+  });
+
+  const calendarMonthSummary = $derived.by(() => {
+    const days = calendarDays.filter(d => !d.blank && d.stat);
+    const netPnl = days.reduce((s, d) => s + (d.stat?.netPnl ?? 0), 0);
+    const trades = days.reduce((s, d) => s + (d.stat?.tradeCount ?? 0), 0);
+    const allTrades = days.flatMap(d => d.stat?.trades ?? []);
+    const wins = allTrades.filter((t: any) => t.pnl > 0).length;
+    const winRate = allTrades.length > 0 ? (wins / allTrades.length) * 100 : 0;
+    const dayPnls = days.map(d => d.stat?.netPnl ?? 0);
+    const bestDay = dayPnls.length > 0 ? Math.max(...dayPnls) : 0;
+    const worstDay = dayPnls.length > 0 ? Math.min(...dayPnls) : 0;
+    return { netPnl, trades, winRate, bestDay, worstDay };
+  });
+
+  const calendarMaxAbsPnl = $derived.by(() => {
+    const pnls = calendarDays
+      .filter(d => !d.blank && d.stat)
+      .map(d => Math.abs(d.stat?.netPnl ?? 0));
+    return pnls.length > 0 ? Math.max(...pnls) : 0;
+  });
 </script>
 
 <svelte:head><title>Dashboard — Qulem-Trade</title></svelte:head>
