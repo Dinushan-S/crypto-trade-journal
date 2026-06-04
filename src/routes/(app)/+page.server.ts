@@ -35,8 +35,9 @@ export const load: PageServerLoad = async ({ locals: { supabase } }) => {
   // Monthly PnL (cumulative running total per month)
   const monthlyMap: Record<string, number> = {};
   for (const t of allTrades ?? []) {
-    if (!t.date || t.pnl == null) continue;
-    const month = t.date.slice(0, 7); // YYYY-MM
+    const closeDate = (t.date_closed ?? t.date)?.slice(0, 10);
+    if (!closeDate || t.pnl == null) continue;
+    const month = closeDate.slice(0, 7); // YYYY-MM
     monthlyMap[month] = (monthlyMap[month] ?? 0) + t.pnl;
   }
   const sortedMonths = Object.keys(monthlyMap).sort();
@@ -78,7 +79,7 @@ export const load: PageServerLoad = async ({ locals: { supabase } }) => {
 
   for (const t of allTrades ?? []) {
     // Group by close date — a trade belongs to the day it closed
-    const day = t.date_closed ?? t.date;
+    const day = (t.date_closed ?? t.date)?.slice(0, 10);
     if (!day || t.pnl == null) continue;
     if (!dailyStats[day]) dailyStats[day] = { netPnl: 0, tradeCount: 0, trades: [] };
     dailyStats[day].netPnl += t.pnl;
