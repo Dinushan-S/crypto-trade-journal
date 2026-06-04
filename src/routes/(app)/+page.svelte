@@ -418,7 +418,7 @@
             <table style="width:100%;border-collapse:collapse;font-size:0.775rem;">
               <thead>
                 <tr style="border-bottom:1px solid var(--border);">
-                  {#each ['Time','Coin','Side','Entry','Exit','PnL'] as col}
+                  {#each ['Coin','Side','Opened','Closed','Entry','Exit','PnL'] as col}
                     <th style="padding:4px 8px;text-align:{col === 'Entry' || col === 'Exit' || col === 'PnL' ? 'right' : 'left'};font-size:0.65rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;font-weight:500;">{col}</th>
                   {/each}
                 </tr>
@@ -426,9 +426,10 @@
               <tbody>
                 {#each dayStat.trades as trade}
                   <tr style="border-bottom:1px solid var(--border);">
-                    <td style="padding:5px 8px;color:var(--text-muted);font-family:'JetBrains Mono',monospace;">{trade.time ?? '—'}</td>
                     <td style="padding:5px 8px;font-weight:600;color:var(--text-primary);">{trade.coin}</td>
-                    <td style="padding:5px 8px;color:{trade.position === 'Long' ? 'var(--win)' : 'var(--loss)'};">{trade.position}</td>
+                    <td style="padding:5px 8px;color:{trade.position === 'Long' ? 'var(--win)' : trade.position === 'Short' ? 'var(--loss)' : 'var(--text-muted)'};">{trade.position || '—'}</td>
+                    <td style="padding:5px 8px;font-family:'JetBrains Mono',monospace;color:var(--text-muted);font-size:0.7rem;">{trade.date_opened ?? '—'}</td>
+                    <td style="padding:5px 8px;font-family:'JetBrains Mono',monospace;color:var(--text-muted);font-size:0.7rem;">{trade.date_closed ?? '—'}</td>
                     <td style="padding:5px 8px;text-align:right;font-family:'JetBrains Mono',monospace;color:var(--text-muted);">{trade.entry_price != null ? trade.entry_price.toLocaleString() : '—'}</td>
                     <td style="padding:5px 8px;text-align:right;font-family:'JetBrains Mono',monospace;color:var(--text-muted);">{trade.exit_price != null ? trade.exit_price.toLocaleString() : '—'}</td>
                     <td style="padding:5px 8px;text-align:right;font-family:'JetBrains Mono',monospace;font-weight:600;color:{trade.pnl >= 0 ? 'var(--win)' : 'var(--loss)'};">

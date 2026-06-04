@@ -28,8 +28,8 @@ export const load: PageServerLoad = async ({ locals: { supabase } }) => {
   // Chart data: fetch all trades for aggregation
   const { data: allTrades } = await supabase
     .from('trades')
-    .select('id, date, pnl, coin, win, position, time, entry_price, exit_price')
-    .order('date', { ascending: true })
+    .select('id, date, date_closed, pnl, coin, win, position, time, entry_price, exit_price')
+    .order('date_closed', { ascending: true })
     .order('time', { ascending: true });
 
   // Monthly PnL (cumulative running total per month)
@@ -66,6 +66,8 @@ export const load: PageServerLoad = async ({ locals: { supabase } }) => {
     id: string;
     coin: string;
     position: string;
+    date_opened: string | null;
+    date_closed: string | null;
     time: string | null;
     entry_price: number | null;
     exit_price: number | null;
@@ -75,8 +77,9 @@ export const load: PageServerLoad = async ({ locals: { supabase } }) => {
   const dailyStats: Record<string, DayStat> = {};
 
   for (const t of allTrades ?? []) {
-    if (!t.date || t.pnl == null) continue;
-    const day = t.date; // already YYYY-MM-DD
+    // Group by close date — a trade belongs to the day it closed
+    const day = t.date_closed ?? t.date;
+    if (!day || t.pnl == null) continue;
     if (!dailyStats[day]) dailyStats[day] = { netPnl: 0, tradeCount: 0, trades: [] };
     dailyStats[day].netPnl += t.pnl;
     dailyStats[day].tradeCount += 1;
@@ -84,6 +87,8 @@ export const load: PageServerLoad = async ({ locals: { supabase } }) => {
       id: t.id,
       coin: t.coin ?? '',
       position: t.position ?? '',
+      date_opened: t.date ?? null,
+      date_closed: t.date_closed ?? null,
       time: t.time ?? null,
       entry_price: t.entry_price ?? null,
       exit_price: t.exit_price ?? null,
