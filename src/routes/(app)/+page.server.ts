@@ -1,6 +1,15 @@
 import type { PageServerLoad } from './$types';
 
-export const load: PageServerLoad = async ({ locals: { supabase } }) => {
+function effectiveDate(dateStr: string, timeStr: string | null, tz: string): string {
+  if (tz === 'utc' && timeStr) {
+    // CSV timestamps are UTC+5; subtract 5h to get UTC date
+    return new Date(`${dateStr}T${timeStr}+05:00`).toISOString().slice(0, 10);
+  }
+  return dateStr;
+}
+
+export const load: PageServerLoad = async ({ locals: { supabase }, cookies }) => {
+  const calendarTz = cookies.get('calendarTz') ?? 'local';
   const [tradesRes, ledgerRes, recentTradesRes, recentLedgerRes] = await Promise.all([
     supabase.from('trades').select('pnl, win, loss, be', { count: 'exact' }),
     supabase.from('ledger').select('type, fiat_sent, usd_received, usd_quantity, usd_rate, fiat_amount'),
@@ -78,8 +87,9 @@ export const load: PageServerLoad = async ({ locals: { supabase } }) => {
   const dailyStats: Record<string, DayStat> = {};
 
   for (const t of allTrades ?? []) {
-    // Group by close date — a trade belongs to the day it closed
-    const day = (t.date_closed ?? t.date)?.slice(0, 10);
+    // Group by close date — adjusted for display timezone
+    const rawDate = (t.date_closed ?? t.date)?.slice(0, 10);
+    const day = rawDate ? effectiveDate(rawDate, t.time ?? null, calendarTz) : null;
     if (!day || t.pnl == null) continue;
     if (!dailyStats[day]) dailyStats[day] = { netPnl: 0, tradeCount: 0, trades: [] };
     dailyStats[day].netPnl += t.pnl;

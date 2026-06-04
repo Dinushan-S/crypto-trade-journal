@@ -99,6 +99,31 @@
     </form>
   </div>
 
+  <!-- Calendar Timezone -->
+  <div style="background:var(--surface);border:1px solid var(--border);border-radius:0.75rem;padding:1.25rem;margin-bottom:1rem;">
+    <h2 style="font-size:0.75rem;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:0.375rem;">Calendar Timezone</h2>
+    <p style="font-size:0.8rem;color:var(--text-muted);margin-bottom:1rem;">Controls how trade dates are grouped on the dashboard calendar. Binance's own calendar uses UTC — select UTC to match it.</p>
+    <div style="display:flex;gap:0.5rem;flex-wrap:wrap;">
+      <form method="POST" action="?/setTimezone">
+        <input type="hidden" name="tz" value="local" />
+        <button type="submit"
+          style="padding:0.5rem 1.125rem;border-radius:0.5rem;font-size:0.8rem;font-weight:600;cursor:pointer;border:1px solid {(data as any).calendarTz === 'local' ? 'var(--accent)' : 'var(--border)'};background:{(data as any).calendarTz === 'local' ? 'color-mix(in srgb,var(--accent) 15%,var(--bg))' : 'var(--bg)'};color:{(data as any).calendarTz === 'local' ? 'var(--accent)' : 'var(--text-muted)'};">
+          Local (UTC+5)
+        </button>
+      </form>
+      <form method="POST" action="?/setTimezone">
+        <input type="hidden" name="tz" value="utc" />
+        <button type="submit"
+          style="padding:0.5rem 1.125rem;border-radius:0.5rem;font-size:0.8rem;font-weight:600;cursor:pointer;border:1px solid {(data as any).calendarTz === 'utc' ? 'var(--accent)' : 'var(--border)'};background:{(data as any).calendarTz === 'utc' ? 'color-mix(in srgb,var(--accent) 15%,var(--bg))' : 'var(--bg)'};color:{(data as any).calendarTz === 'utc' ? 'var(--accent)' : 'var(--text-muted)'};">
+          UTC (Matches Binance)
+        </button>
+      </form>
+    </div>
+    {#if (form as any)?.tzUpdated}
+      <p style="font-size:0.775rem;color:var(--win);margin-top:0.625rem;">Timezone updated.</p>
+    {/if}
+  </div>
+
   <!-- App Info -->
   <div style="background:var(--surface);border:1px solid var(--border);border-radius:0.75rem;padding:1.25rem;margin-bottom:1rem;">
     <h2 style="font-size:0.75rem;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:1rem;">Application</h2>

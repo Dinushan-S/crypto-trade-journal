@@ -1,9 +1,10 @@
 import { fail } from '@sveltejs/kit';
 import type { PageServerLoad, Actions } from './$types';
 
-export const load: PageServerLoad = async ({ locals: { supabase, safeGetSession } }) => {
+export const load: PageServerLoad = async ({ locals: { supabase, safeGetSession }, cookies }) => {
   const { user } = await safeGetSession();
-  return { user };
+  const calendarTz = (cookies.get('calendarTz') ?? 'local') as 'local' | 'utc';
+  return { user, calendarTz };
 };
 
 export const actions: Actions = {
@@ -41,5 +42,13 @@ export const actions: Actions = {
     if (error) return fail(500, { clearError: error.message });
 
     return { clearSuccess: 'ledger' };
+  },
+
+  setTimezone: async ({ request, cookies }) => {
+    const tz = (await request.formData()).get('tz') as string;
+    if (tz === 'utc' || tz === 'local') {
+      cookies.set('calendarTz', tz, { path: '/', maxAge: 60 * 60 * 24 * 365 });
+    }
+    return { tzUpdated: true };
   },
 };
