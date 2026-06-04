@@ -5,11 +5,17 @@
 
   let saving = $state(false);
   let saved = $state(false);
+  let confirmingClear = $state<'trades' | 'ledger' | null>(null);
+  let clearing = $state(false);
 
   $effect(() => {
     if (form?.success) {
       saved = true;
       setTimeout(() => { saved = false; }, 2500);
+    }
+    if ((form as any)?.clearSuccess) {
+      confirmingClear = null;
+      clearing = false;
     }
   });
 </script>
@@ -94,7 +100,7 @@
   </div>
 
   <!-- App Info -->
-  <div style="background:var(--surface);border:1px solid var(--border);border-radius:0.75rem;padding:1.25rem;">
+  <div style="background:var(--surface);border:1px solid var(--border);border-radius:0.75rem;padding:1.25rem;margin-bottom:1rem;">
     <h2 style="font-size:0.75rem;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:1rem;">Application</h2>
     <div style="display:flex;flex-direction:column;gap:0.625rem;">
       <div style="display:flex;justify-content:space-between;align-items:center;">
@@ -109,6 +115,92 @@
         <span style="font-size:0.875rem;color:var(--text-muted);">Stack</span>
         <span style="font-size:0.875rem;color:var(--text-muted);">SvelteKit · Supabase · Tailwind</span>
       </div>
+    </div>
+  </div>
+
+  <!-- Danger Zone -->
+  <div style="background:var(--surface);border:1px solid color-mix(in srgb,var(--loss) 35%,var(--border));border-radius:0.75rem;padding:1.25rem;">
+    <h2 style="font-size:0.75rem;font-weight:600;color:var(--loss);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:0.375rem;">Danger Zone</h2>
+    <p style="font-size:0.8rem;color:var(--text-muted);margin-bottom:1rem;">These actions are permanent and cannot be undone.</p>
+
+    {#if (form as any)?.clearError}
+      <div style="padding:0.625rem 0.875rem;background:color-mix(in srgb,var(--loss) 10%,transparent);border:1px solid color-mix(in srgb,var(--loss) 30%,transparent);border-radius:0.5rem;color:var(--loss);font-size:0.8rem;margin-bottom:1rem;">
+        {(form as any).clearError}
+      </div>
+    {/if}
+
+    {#if (form as any)?.clearSuccess}
+      <div style="padding:0.625rem 0.875rem;background:color-mix(in srgb,var(--win) 10%,transparent);border:1px solid color-mix(in srgb,var(--win) 30%,transparent);border-radius:0.5rem;color:var(--win);font-size:0.8rem;margin-bottom:1rem;">
+        {(form as any).clearSuccess === 'trades' ? 'All trade history deleted.' : 'All ledger entries deleted.'}
+      </div>
+    {/if}
+
+    <div style="display:flex;flex-direction:column;gap:0.875rem;">
+
+      <!-- Clear Trades -->
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap;">
+        <div>
+          <div style="font-size:0.875rem;font-weight:600;color:var(--text-primary);">Clear Trade History</div>
+          <div style="font-size:0.775rem;color:var(--text-muted);margin-top:1px;">Deletes all imported and manual trades. Allows re-importing fresh CSV data.</div>
+        </div>
+        {#if confirmingClear === 'trades'}
+          <div style="display:flex;gap:0.5rem;align-items:center;">
+            <span style="font-size:0.775rem;color:var(--loss);font-weight:600;">Delete all trades?</span>
+            <form method="POST" action="?/clearTrades" use:enhance={() => {
+              clearing = true;
+              return async ({ update }) => { await update(); clearing = false; };
+            }}>
+              <button type="submit" disabled={clearing}
+                style="padding:0.375rem 0.875rem;background:var(--loss);color:#fff;border:none;border-radius:0.375rem;font-size:0.8rem;font-weight:600;cursor:pointer;opacity:{clearing ? 0.6 : 1};">
+                {clearing ? 'Deleting…' : 'Yes, delete'}
+              </button>
+            </form>
+            <button type="button" onclick={() => confirmingClear = null}
+              style="padding:0.375rem 0.75rem;background:transparent;border:1px solid var(--border);border-radius:0.375rem;font-size:0.8rem;color:var(--text-muted);cursor:pointer;">
+              Cancel
+            </button>
+          </div>
+        {:else}
+          <button type="button" onclick={() => confirmingClear = 'trades'}
+            style="padding:0.375rem 1rem;background:transparent;border:1px solid color-mix(in srgb,var(--loss) 50%,transparent);color:var(--loss);border-radius:0.375rem;font-size:0.8rem;font-weight:600;cursor:pointer;white-space:nowrap;">
+            Reset Trades
+          </button>
+        {/if}
+      </div>
+
+      <div style="border-top:1px solid var(--border);"></div>
+
+      <!-- Clear Ledger -->
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap;">
+        <div>
+          <div style="font-size:0.875rem;font-weight:600;color:var(--text-primary);">Clear Ledger</div>
+          <div style="font-size:0.775rem;color:var(--text-muted);margin-top:1px;">Deletes all deposit and withdrawal records.</div>
+        </div>
+        {#if confirmingClear === 'ledger'}
+          <div style="display:flex;gap:0.5rem;align-items:center;">
+            <span style="font-size:0.775rem;color:var(--loss);font-weight:600;">Delete all ledger?</span>
+            <form method="POST" action="?/clearLedger" use:enhance={() => {
+              clearing = true;
+              return async ({ update }) => { await update(); clearing = false; };
+            }}>
+              <button type="submit" disabled={clearing}
+                style="padding:0.375rem 0.875rem;background:var(--loss);color:#fff;border:none;border-radius:0.375rem;font-size:0.8rem;font-weight:600;cursor:pointer;opacity:{clearing ? 0.6 : 1};">
+                {clearing ? 'Deleting…' : 'Yes, delete'}
+              </button>
+            </form>
+            <button type="button" onclick={() => confirmingClear = null}
+              style="padding:0.375rem 0.75rem;background:transparent;border:1px solid var(--border);border-radius:0.375rem;font-size:0.8rem;color:var(--text-muted);cursor:pointer;">
+              Cancel
+            </button>
+          </div>
+        {:else}
+          <button type="button" onclick={() => confirmingClear = 'ledger'}
+            style="padding:0.375rem 1rem;background:transparent;border:1px solid color-mix(in srgb,var(--loss) 50%,transparent);color:var(--loss);border-radius:0.375rem;font-size:0.8rem;font-weight:600;cursor:pointer;white-space:nowrap;">
+            Reset Ledger
+          </button>
+        {/if}
+      </div>
+
     </div>
   </div>
 </div>

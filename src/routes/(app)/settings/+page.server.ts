@@ -19,4 +19,27 @@ export const actions: Actions = {
     if (error) return fail(500, { error: error.message });
     return { success: true };
   },
+
+  clearTrades: async ({ locals: { supabase, safeGetSession } }) => {
+    const { user } = await safeGetSession();
+    if (!user) return fail(401, { clearError: 'Not authenticated.' });
+
+    const { error } = await supabase.from('trades').delete().eq('user_id', user.id);
+    if (error) return fail(500, { clearError: error.message });
+
+    // Also clear the import log so re-imports aren't blocked by old dedup records
+    await supabase.from('binance_imports').delete().eq('user_id', user.id);
+
+    return { clearSuccess: 'trades' };
+  },
+
+  clearLedger: async ({ locals: { supabase, safeGetSession } }) => {
+    const { user } = await safeGetSession();
+    if (!user) return fail(401, { clearError: 'Not authenticated.' });
+
+    const { error } = await supabase.from('ledger').delete().eq('user_id', user.id);
+    if (error) return fail(500, { clearError: error.message });
+
+    return { clearSuccess: 'ledger' };
+  },
 };
