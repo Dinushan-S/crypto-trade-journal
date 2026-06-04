@@ -16,7 +16,8 @@
   let wlbChart: any;
 
   // Calendar state
-  let calendarMonth = $state(new Date().toISOString().slice(0, 7)); // YYYY-MM
+  const _now = new Date();
+  let calendarMonth = $state(`${_now.getFullYear()}-${String(_now.getMonth() + 1).padStart(2, '0')}`); // YYYY-MM (local time)
   let expandedDay = $state<string | null>(null);
 
   onMount(() => {
@@ -206,7 +207,8 @@
     const trades = days.reduce((s, d) => s + (d.stat?.tradeCount ?? 0), 0);
     const allTrades = days.flatMap(d => d.stat?.trades ?? []);
     const wins = allTrades.filter((t: any) => t.pnl > 0).length;
-    const winRate = allTrades.length > 0 ? (wins / allTrades.length) * 100 : 0;
+    const nonBeTrades = allTrades.filter((t: any) => t.pnl !== 0);
+    const winRate = nonBeTrades.length > 0 ? (wins / nonBeTrades.length) * 100 : 0;
     const dayPnls = days.map(d => d.stat?.netPnl ?? 0);
     const bestDay = dayPnls.length > 0 ? Math.max(...dayPnls) : 0;
     const worstDay = dayPnls.length > 0 ? Math.min(...dayPnls) : 0;
