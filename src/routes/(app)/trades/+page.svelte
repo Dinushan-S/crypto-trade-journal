@@ -106,7 +106,7 @@
   ];
 </script>
 
-<svelte:head><title>Trades — INEVITRADE</title></svelte:head>
+<svelte:head><title>Trades — Qulem-Trade</title></svelte:head>
 
 <div style="padding:1.5rem;max-width:100%;">
   <!-- Header -->

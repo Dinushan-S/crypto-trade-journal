@@ -65,7 +65,7 @@
   ]);
 </script>
 
-<svelte:head><title>{trade.coin} Trade — INEVITRADE</title></svelte:head>
+<svelte:head><title>{trade.coin} Trade — Qulem-Trade</title></svelte:head>
 
 <div style="padding:1.5rem;max-width:900px;">
   <!-- Header -->

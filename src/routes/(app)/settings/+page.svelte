@@ -14,7 +14,7 @@
   });
 </script>
 
-<svelte:head><title>Settings — INEVITRADE</title></svelte:head>
+<svelte:head><title>Settings — Qulem-Trade</title></svelte:head>
 
 <div style="padding:1.5rem;max-width:600px;">
   <div style="margin-bottom:1.5rem;">
@@ -99,7 +99,7 @@
     <div style="display:flex;flex-direction:column;gap:0.625rem;">
       <div style="display:flex;justify-content:space-between;align-items:center;">
         <span style="font-size:0.875rem;color:var(--text-muted);">App name</span>
-        <span style="font-family:'JetBrains Mono',monospace;font-size:0.875rem;color:var(--text-primary);">INEVITRADE</span>
+        <span style="font-family:'JetBrains Mono',monospace;font-size:0.875rem;color:var(--text-primary);">Qulem-Trade</span>
       </div>
       <div style="display:flex;justify-content:space-between;align-items:center;">
         <span style="font-size:0.875rem;color:var(--text-muted);">Version</span>

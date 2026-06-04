@@ -31,7 +31,7 @@
   });
 </script>
 
-<svelte:head><title>Session {data.date} — INEVITRADE</title></svelte:head>
+<svelte:head><title>Session {data.date} — Qulem-Trade</title></svelte:head>
 
 <div style="padding:1.5rem;max-width:760px;">
   <!-- Header -->

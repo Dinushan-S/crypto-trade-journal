@@ -9,7 +9,7 @@
   const today = new Date().toISOString().split('T')[0];
 </script>
 
-<svelte:head><title>Sessions — INEVITRADE</title></svelte:head>
+<svelte:head><title>Sessions — Qulem-Trade</title></svelte:head>
 
 <div style="padding:1.5rem;max-width:700px;">
   <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.5rem;">

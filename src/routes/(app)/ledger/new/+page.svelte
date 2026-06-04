@@ -59,7 +59,7 @@
   }
 </script>
 
-<svelte:head><title>Add Ledger Entry — INEVITRADE</title></svelte:head>
+<svelte:head><title>Add Ledger Entry — Qulem-Trade</title></svelte:head>
 
 <div style="padding:1.5rem;max-width:700px;">
   <div style="display:flex;align-items:center;gap:1rem;margin-bottom:1.5rem;">

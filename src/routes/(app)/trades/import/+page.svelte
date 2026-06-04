@@ -123,7 +123,7 @@
   const statusLabel: Record<string, string> = { new: '🟢 New', duplicate: '🟡 Duplicate' };
 </script>
 
-<svelte:head><title>Import Trades — INEVITRADE</title></svelte:head>
+<svelte:head><title>Import Trades — Qulem-Trade</title></svelte:head>
 
 <div style="padding:1.5rem;max-width:900px;">
   <div style="display:flex;align-items:center;gap:1rem;margin-bottom:1.5rem;">

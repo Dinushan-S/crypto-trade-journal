@@ -146,7 +146,7 @@
   ]);
 </script>
 
-<svelte:head><title>Dashboard — INEVITRADE</title></svelte:head>
+<svelte:head><title>Dashboard — Qulem-Trade</title></svelte:head>
 
 <div style="padding:1.5rem;">
   <!-- Header -->

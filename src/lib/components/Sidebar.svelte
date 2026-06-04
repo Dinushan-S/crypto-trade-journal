@@ -58,7 +58,7 @@
       </svg>
     </div>
     {#if !collapsed}
-      <span style="font-family:'JetBrains Mono',monospace;font-weight:600;font-size:0.9rem;color:var(--text-primary);white-space:nowrap;">INEVITRADE</span>
+      <span style="font-family:'JetBrains Mono',monospace;font-weight:600;font-size:0.9rem;color:var(--text-primary);white-space:nowrap;">Qulem-Trade</span>
     {/if}
   </div>
 

@@ -96,7 +96,7 @@
   const labelStyle = `display:block;font-size:0.7rem;font-weight:600;color:var(--text-muted);margin-bottom:0.25rem;text-transform:uppercase;letter-spacing:0.05em;`;
 </script>
 
-<svelte:head><title>New Trade — INEVITRADE</title></svelte:head>
+<svelte:head><title>New Trade — Qulem-Trade</title></svelte:head>
 
 <div style="padding:1.5rem;max-width:960px;">
   <!-- Header -->

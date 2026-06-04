@@ -3,7 +3,7 @@
   let { data } = $props();
 </script>
 
-<svelte:head><title>Liquidations — INEVITRADE</title></svelte:head>
+<svelte:head><title>Liquidations — Qulem-Trade</title></svelte:head>
 
 <div style="padding:1.5rem;max-width:900px;">
   <!-- Header -->

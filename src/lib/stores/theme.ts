@@ -3,9 +3,10 @@ import { browser } from '$app/environment';
 
 function createThemeStore() {
   const stored = browser ? localStorage.getItem('theme') : null;
-  const initial = stored ?? 'dark';
+  const systemDark = browser ? window.matchMedia('(prefers-color-scheme: dark)').matches : false;
+  const initial = (stored ?? (systemDark ? 'dark' : 'light')) as 'dark' | 'light';
 
-  const { subscribe, set } = writable<'dark' | 'light'>(initial as 'dark' | 'light');
+  const { subscribe, set } = writable<'dark' | 'light'>(initial);
 
   if (browser) {
     document.documentElement.classList.toggle('dark', initial === 'dark');

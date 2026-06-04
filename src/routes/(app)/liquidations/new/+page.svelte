@@ -36,7 +36,7 @@
   }
 </script>
 
-<svelte:head><title>Add Liquidation — INEVITRADE</title></svelte:head>
+<svelte:head><title>Add Liquidation — Qulem-Trade</title></svelte:head>
 
 <div style="padding:1.5rem;max-width:600px;">
   <div style="display:flex;align-items:center;gap:1rem;margin-bottom:1.5rem;">

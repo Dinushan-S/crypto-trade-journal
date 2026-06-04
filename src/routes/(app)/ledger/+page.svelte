@@ -39,7 +39,7 @@
   let netLkr = $derived(totalLkrIn - totalLkrOut);
 </script>
 
-<svelte:head><title>Ledger — INEVITRADE</title></svelte:head>
+<svelte:head><title>Ledger — Qulem-Trade</title></svelte:head>
 
 <div style="padding:1.5rem;max-width:100%;">
   <!-- Header -->

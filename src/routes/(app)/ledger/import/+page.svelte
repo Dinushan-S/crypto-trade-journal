@@ -104,7 +104,7 @@
   }
 </script>
 
-<svelte:head><title>Import Ledger — INEVITRADE</title></svelte:head>
+<svelte:head><title>Import Ledger — Qulem-Trade</title></svelte:head>
 
 <div style="padding:1.5rem;max-width:900px;">
   <div style="display:flex;align-items:center;gap:1rem;margin-bottom:1.5rem;">
