@@ -28,8 +28,9 @@ export const load: PageServerLoad = async ({ locals: { supabase } }) => {
   // Chart data: fetch all trades for aggregation
   const { data: allTrades } = await supabase
     .from('trades')
-    .select('date, pnl, coin, win')
-    .order('date', { ascending: true });
+    .select('id, date, pnl, coin, win, position, time, entry_price, exit_price')
+    .order('date', { ascending: true })
+    .order('time', { ascending: true });
 
   // Monthly PnL (cumulative running total per month)
   const monthlyMap: Record<string, number> = {};
@@ -60,10 +61,40 @@ export const load: PageServerLoad = async ({ locals: { supabase } }) => {
   const lossCount = (allTrades ?? []).filter(t => t.win === false && t.pnl !== null && t.pnl < 0).length;
   const beCount = (allTrades ?? []).filter(t => t.pnl === 0).length;
 
+  // Daily stats map for calendar heatmap
+  type DayTrade = {
+    id: string;
+    coin: string;
+    position: string;
+    time: string | null;
+    entry_price: number | null;
+    exit_price: number | null;
+    pnl: number;
+  };
+  type DayStat = { netPnl: number; tradeCount: number; trades: DayTrade[] };
+  const dailyStats: Record<string, DayStat> = {};
+
+  for (const t of allTrades ?? []) {
+    if (!t.date || t.pnl == null) continue;
+    const day = t.date; // already YYYY-MM-DD
+    if (!dailyStats[day]) dailyStats[day] = { netPnl: 0, tradeCount: 0, trades: [] };
+    dailyStats[day].netPnl += t.pnl;
+    dailyStats[day].tradeCount += 1;
+    dailyStats[day].trades.push({
+      id: t.id,
+      coin: t.coin ?? '',
+      position: t.position ?? '',
+      time: t.time ?? null,
+      entry_price: t.entry_price ?? null,
+      exit_price: t.exit_price ?? null,
+      pnl: t.pnl,
+    });
+  }
+
   return {
     stats: { totalTrades, winRate, netPnl, avgPnl, totalDeposited, totalWithdrawn, netContributionLkr },
     recentTrades: recentTradesRes.data ?? [],
     recentLedger: recentLedgerRes.data ?? [],
-    chartData: { monthlyPnl, coinPnl, winCount, lossCount, beCount },
+    chartData: { monthlyPnl, coinPnl, winCount, lossCount, beCount, dailyStats },
   };
 };
