@@ -10,11 +10,12 @@ function effectiveDate(dateStr: string, timeStr: string | null, tz: string): str
 
 export const load: PageServerLoad = async ({ locals: { supabase }, cookies }) => {
   const calendarTz = cookies.get('calendarTz') ?? 'local';
-  const [tradesRes, ledgerRes, recentTradesRes, recentLedgerRes] = await Promise.all([
+  const [tradesRes, ledgerRes, recentTradesRes, recentLedgerRes, allLedgerRes] = await Promise.all([
     supabase.from('trades').select('pnl, win, loss, be', { count: 'exact' }),
     supabase.from('ledger').select('type, fiat_sent, usd_received, usd_quantity, usd_rate, fiat_amount'),
     supabase.from('trades').select('id, coin, position, pnl, date, win, loss, be').order('date', { ascending: false }).order('created_at', { ascending: false }).limit(5),
     supabase.from('ledger').select('id, type, date, fiat_sent, usd_received, usd_quantity').order('date', { ascending: false }).limit(3),
+    supabase.from('ledger').select('type, date, fiat_sent, usd_received, usd_quantity, fiat_amount').order('date', { ascending: false }),
   ]);
 
   const trades = tradesRes.data ?? [];
@@ -107,10 +108,39 @@ export const load: PageServerLoad = async ({ locals: { supabase }, cookies }) =>
     });
   }
 
+  // Monthly ledger summary (newest first)
+  type MonthLedger = {
+    month: string; // YYYY-MM
+    depositedUsd: number;
+    withdrawnUsd: number;
+    depositedLkr: number;
+    withdrawnLkr: number;
+    netUsd: number;
+  };
+  const ledgerMonthMap: Record<string, MonthLedger> = {};
+  for (const entry of allLedgerRes.data ?? []) {
+    if (!entry.date) continue;
+    const month = entry.date.slice(0, 7);
+    if (!ledgerMonthMap[month]) {
+      ledgerMonthMap[month] = { month, depositedUsd: 0, withdrawnUsd: 0, depositedLkr: 0, withdrawnLkr: 0, netUsd: 0 };
+    }
+    if (entry.type === 'deposit') {
+      ledgerMonthMap[month].depositedUsd += entry.usd_received ?? 0;
+      ledgerMonthMap[month].depositedLkr += entry.fiat_sent ?? 0;
+    } else if (entry.type === 'withdrawal') {
+      ledgerMonthMap[month].withdrawnUsd += entry.usd_quantity ?? 0;
+      ledgerMonthMap[month].withdrawnLkr += entry.fiat_amount ?? 0;
+    }
+  }
+  const monthlyLedger = Object.values(ledgerMonthMap)
+    .map(m => ({ ...m, netUsd: m.depositedUsd - m.withdrawnUsd }))
+    .sort((a, b) => b.month.localeCompare(a.month)); // newest first
+
   return {
     stats: { totalTrades, winRate, netPnl, avgPnl, totalDeposited, totalWithdrawn, netContributionLkr },
     recentTrades: recentTradesRes.data ?? [],
     recentLedger: recentLedgerRes.data ?? [],
     chartData: { monthlyPnl, coinPnl, winCount, lossCount, beCount, dailyStats },
+    monthlyLedger,
   };
 };

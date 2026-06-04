@@ -7,6 +7,30 @@
   const recentTrades = $derived(data.recentTrades);
   const recentLedger = $derived(data.recentLedger);
   const chartData = $derived((data as any).chartData ?? { monthlyPnl: [], coinPnl: [], winCount: 0, lossCount: 0, beCount: 0, dailyStats: {} });
+  const monthlyLedger = $derived((data as any).monthlyLedger ?? []);
+
+  let ledgerPage = $state(0); // 0-based, 6 months per page
+  const ledgerPageMonths = $derived(monthlyLedger.slice(ledgerPage * 6, ledgerPage * 6 + 6));
+  const ledgerTotalPages = $derived(Math.ceil(monthlyLedger.length / 6));
+
+  const ledgerAllTime = $derived({
+    totalIn:   monthlyLedger.reduce((s: number, m: any) => s + m.depositedUsd, 0),
+    totalOut:  monthlyLedger.reduce((s: number, m: any) => s + m.withdrawnUsd, 0),
+    totalInLkr:  monthlyLedger.reduce((s: number, m: any) => s + m.depositedLkr, 0),
+    totalOutLkr: monthlyLedger.reduce((s: number, m: any) => s + m.withdrawnLkr, 0),
+    months: monthlyLedger.length,
+  });
+
+  function fmtMonth(ym: string): string {
+    const [y, m] = ym.split('-').map(Number);
+    return new Date(y, m - 1, 1).toLocaleString('default', { month: 'short', year: '2-digit' }).toUpperCase();
+  }
+
+  function fmtLkr(n: number): string {
+    if (n >= 1000000) return `LKR ${(n / 1000000).toFixed(1)}M`;
+    if (n >= 1000) return `LKR ${Math.round(n / 1000)}k`;
+    return `LKR ${n.toFixed(0)}`;
+  }
 
   let monthlyCanvas = $state<HTMLCanvasElement | null>(null);
   let coinCanvas = $state<HTMLCanvasElement | null>(null);
@@ -443,6 +467,93 @@
         </div>
       {/if}
 
+    </div>
+
+    <!-- Deposits & Withdrawals -->
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:0.75rem;padding:1rem;margin-bottom:1.5rem;">
+
+      <!-- Header -->
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.875rem;flex-wrap:wrap;gap:0.5rem;">
+        <div>
+          <div style="font-family:'JetBrains Mono',monospace;font-size:0.875rem;font-weight:700;color:var(--text-primary);">Deposits & Withdrawals</div>
+          <div style="font-size:0.7rem;color:var(--text-muted);margin-top:1px;">Monthly capital flow summary</div>
+        </div>
+        {#if ledgerTotalPages > 1}
+          <div style="display:flex;align-items:center;gap:0.5rem;">
+            <button type="button" onclick={() => ledgerPage = Math.max(0, ledgerPage - 1)} disabled={ledgerPage === 0}
+              style="background:var(--bg);border:1px solid var(--border);color:var(--text-muted);border-radius:0.375rem;padding:3px 10px;font-size:0.75rem;cursor:pointer;opacity:{ledgerPage === 0 ? 0.4 : 1};">← Prev</button>
+            <span style="font-size:0.7rem;color:var(--text-muted);">{ledgerPage + 1} / {ledgerTotalPages}</span>
+            <button type="button" onclick={() => ledgerPage = Math.min(ledgerTotalPages - 1, ledgerPage + 1)} disabled={ledgerPage === ledgerTotalPages - 1}
+              style="background:var(--bg);border:1px solid var(--border);color:var(--text-muted);border-radius:0.375rem;padding:3px 10px;font-size:0.75rem;cursor:pointer;opacity:{ledgerPage === ledgerTotalPages - 1 ? 0.4 : 1};">Next →</button>
+          </div>
+        {/if}
+      </div>
+
+      {#if monthlyLedger.length === 0}
+        <div style="text-align:center;padding:2rem;color:var(--text-muted);font-size:0.8rem;">No ledger entries yet. <a href="/ledger/new" style="color:var(--accent);text-decoration:none;">Add a deposit →</a></div>
+      {:else}
+        <!-- All-time summary strip -->
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:0.5rem;margin-bottom:1rem;">
+          {#each [
+            { label: 'Total Deposited', usd: ledgerAllTime.totalIn,  lkr: ledgerAllTime.totalInLkr,  color: 'var(--win)' },
+            { label: 'Total Withdrawn', usd: ledgerAllTime.totalOut, lkr: ledgerAllTime.totalOutLkr, color: 'var(--loss)' },
+            { label: 'Net Flow',        usd: ledgerAllTime.totalIn - ledgerAllTime.totalOut, lkr: null, color: (ledgerAllTime.totalIn - ledgerAllTime.totalOut) >= 0 ? 'var(--win)' : 'var(--loss)' },
+            { label: 'Months',          usd: null, lkr: null, months: ledgerAllTime.months, color: 'var(--text-primary)' },
+          ] as s}
+            <div style="background:var(--bg);border:1px solid var(--border);border-radius:0.5rem;padding:0.625rem 0.75rem;">
+              <div style="font-size:0.65rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:0.25rem;">{s.label}</div>
+              {#if s.months != null}
+                <div style="font-family:'JetBrains Mono',monospace;font-size:1.1rem;font-weight:700;color:{s.color};">{s.months}</div>
+              {:else}
+                <div style="font-family:'JetBrains Mono',monospace;font-size:1rem;font-weight:700;color:{s.color};">
+                  {(s.usd ?? 0) >= 0 && s.label === 'Net Flow' ? '+' : ''}{s.usd != null ? `$${(s.usd).toFixed(2)}` : '—'}
+                </div>
+                {#if s.lkr != null && s.lkr > 0}
+                  <div style="font-size:0.65rem;color:var(--text-muted);margin-top:1px;">{fmtLkr(s.lkr)}</div>
+                {/if}
+              {/if}
+            </div>
+          {/each}
+        </div>
+
+        <!-- Monthly cards — 6 per row -->
+        <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:0.5rem;">
+          {#each ledgerPageMonths as m}
+            {@const isInflow = m.netUsd >= 0}
+            <div style="background:var(--bg);border:1px solid var(--border);border-left:3px solid {isInflow ? 'var(--win)' : 'var(--loss)'};border-radius:0.5rem;padding:0.625rem 0.75rem;display:flex;flex-direction:column;gap:0.25rem;">
+              <!-- Month label -->
+              <div style="font-family:'JetBrains Mono',monospace;font-size:0.65rem;font-weight:700;color:var(--text-muted);letter-spacing:0.04em;">{fmtMonth(m.month)}</div>
+
+              <!-- Deposit row -->
+              <div style="margin-top:0.25rem;">
+                <div style="font-size:0.6rem;color:var(--text-muted);">↓ Dep</div>
+                <div style="font-family:'JetBrains Mono',monospace;font-size:0.7rem;font-weight:600;color:var(--win);">${m.depositedUsd.toFixed(2)}</div>
+                {#if m.depositedLkr > 0}
+                  <div style="font-size:0.6rem;color:var(--text-muted);">{fmtLkr(m.depositedLkr)}</div>
+                {/if}
+              </div>
+
+              <!-- Withdraw row -->
+              <div>
+                <div style="font-size:0.6rem;color:var(--text-muted);">↑ Wdr</div>
+                <div style="font-family:'JetBrains Mono',monospace;font-size:0.7rem;font-weight:600;color:{m.withdrawnUsd > 0 ? 'var(--loss)' : 'var(--text-muted)'};">${m.withdrawnUsd.toFixed(2)}</div>
+                {#if m.withdrawnLkr > 0}
+                  <div style="font-size:0.6rem;color:var(--text-muted);">{fmtLkr(m.withdrawnLkr)}</div>
+                {/if}
+              </div>
+
+              <!-- Divider + net -->
+              <div style="border-top:1px solid var(--border);margin-top:0.25rem;padding-top:0.25rem;">
+                <div style="font-size:0.6rem;color:var(--text-muted);">Net</div>
+                <div style="font-family:'JetBrains Mono',monospace;font-size:0.75rem;font-weight:700;color:{isInflow ? 'var(--win)' : 'var(--loss)'};">
+                  {isInflow ? '+' : ''}{m.netUsd.toFixed(2)}
+                </div>
+                <div style="font-size:0.6rem;font-weight:600;color:{isInflow ? 'var(--win)' : 'var(--loss)'};">{isInflow ? '▲' : '▼'} {isInflow ? 'IN' : 'OUT'}</div>
+              </div>
+            </div>
+          {/each}
+        </div>
+      {/if}
     </div>
 
     <!-- Recent activity -->
