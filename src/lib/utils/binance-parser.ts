@@ -27,13 +27,34 @@ function parseBinanceDate(raw: string): { date: string; time: string } {
 }
 
 export function parseFuturesCSV(csvText: string): FuturesTrade[] {
-  const result = Papa.parse<Record<string, string>>(csvText, {
+  // Strip UTF-8 BOM that Binance includes in exported CSVs
+  const cleaned = csvText.replace(/^﻿/, '');
+
+  const result = Papa.parse<Record<string, string>>(cleaned, {
     header: true,
     skipEmptyLines: true,
   });
 
-  return result.data
-    .filter(row => row['Status']?.trim() === 'Closed')
+  const rows = result.data;
+
+  if (rows.length === 0) {
+    throw new Error('The CSV file appears to be empty.');
+  }
+
+  // Normalise headers to handle BOM remnants or extra whitespace
+  const headers = Object.keys(rows[0]).map(h => h.trim());
+  const statusValues = [...new Set(rows.map(r => r['Status']?.trim()).filter(Boolean))];
+
+  const closed = rows.filter(row => row['Status']?.trim().toLowerCase() === 'closed');
+
+  if (closed.length === 0) {
+    const hint = statusValues.length
+      ? `Status values found: ${statusValues.slice(0, 5).join(', ')}`
+      : `Columns found: ${headers.join(', ')}`;
+    throw new Error(`No closed positions found in this CSV. ${hint}`);
+  }
+
+  return closed
     .map(row => {
       const symbol = row['Symbol']?.trim() ?? '';
       const coin = symbol.endsWith('USDT') ? symbol.slice(0, -4) : symbol;

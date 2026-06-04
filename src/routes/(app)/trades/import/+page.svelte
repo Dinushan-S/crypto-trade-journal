@@ -44,7 +44,6 @@
     error = '';
     try {
       const trades = parseFuturesCSV(csvText);
-      if (trades.length === 0) { error = 'No closed positions found in this CSV.'; return; }
 
       // Check existing order_ids
       const orderIds = trades.map(t => t.order_id);
