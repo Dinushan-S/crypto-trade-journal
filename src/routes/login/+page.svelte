@@ -1,13 +1,16 @@
 <script lang="ts">
   import { createSupabaseClient } from '$lib/supabase';
   import { goto } from '$app/navigation';
+  import { page } from '$app/stores';
 
   const supabase = createSupabaseClient();
 
   let email = $state('');
   let password = $state('');
   let loading = $state(false);
-  let error = $state('');
+  let error = $state($page.url.searchParams.get('error') === 'auth_callback_failed'
+    ? 'The sign-in link expired or was already used. Please request a new one.'
+    : '');
   let successMsg = $state('');
   let mode = $state<'login' | 'signup' | 'magic'>('login');
 
@@ -23,7 +26,7 @@
     const { error: err } = await supabase.auth.signUp({
       email,
       password,
-      options: { emailRedirectTo: `${window.location.origin}/` },
+      options: { emailRedirectTo: `${window.location.origin}/auth/callback` },
     });
     if (err) { error = err.message; loading = false; return; }
     successMsg = 'Account created! Check your email to confirm, then sign in.';
@@ -34,7 +37,7 @@
     loading = true; error = '';
     const { error: err } = await supabase.auth.signInWithOtp({
       email,
-      options: { emailRedirectTo: `${window.location.origin}/` },
+      options: { emailRedirectTo: `${window.location.origin}/auth/callback` },
     });
     if (err) { error = err.message; loading = false; return; }
     successMsg = 'Magic link sent! Check your email.';
