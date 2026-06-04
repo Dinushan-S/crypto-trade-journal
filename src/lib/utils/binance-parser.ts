@@ -7,13 +7,14 @@ export interface FuturesTrade {
   exit_price: number | null;
   quantity: number | null;
   pnl: number;
+  fee?: number | null;
   date: string;        // YYYY-MM-DD
   time: string;        // HH:mm:ss
   date_closed: string; // YYYY-MM-DD
   win: boolean;
   loss: boolean;
   be: boolean;
-  order_id: string;    // Symbol + Opened (unique key)
+  order_id: string;
   source: 'futures_import';
 }
 

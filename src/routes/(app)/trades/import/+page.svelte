@@ -1,7 +1,7 @@
 <script lang="ts">
   import { createSupabaseClient } from '$lib/supabase';
   import { user } from '$lib/stores/auth';
-  import { parseFuturesCSV, type FuturesTrade } from '$lib/utils/binance-parser';
+  import { parseTradeHistoryCSV, type TradeHistoryTrade } from '$lib/utils/binance-trade-history-parser';
   import { goto } from '$app/navigation';
 
   const supabase = createSupabaseClient();
@@ -9,7 +9,7 @@
   let step = $state<1 | 2 | 3>(1);
   let fileName = $state('');
   let csvText = $state('');
-  let parsedTrades = $state<FuturesTrade[]>([]);
+  let parsedTrades = $state<TradeHistoryTrade[]>([]);
   let existingOrderIds = $state<Set<string>>(new Set());
   let selected = $state<Set<number>>(new Set());
   let importing = $state(false);
@@ -17,7 +17,7 @@
   let error = $state('');
   let dragOver = $state(false);
 
-  type TradeWithStatus = FuturesTrade & { status: 'new' | 'duplicate' };
+  type TradeWithStatus = TradeHistoryTrade & { status: 'new' | 'duplicate' };
   let tradesWithStatus = $derived(
     parsedTrades.map((t) => ({
       ...t,
@@ -43,7 +43,7 @@
   async function processCSV() {
     error = '';
     try {
-      const trades = parseFuturesCSV(csvText);
+      const trades = parseTradeHistoryCSV(csvText);
 
       // Check existing order_ids
       const orderIds = trades.map(t => t.order_id);
@@ -88,6 +88,7 @@
       exit_price: t.exit_price,
       quantity: t.quantity,
       pnl: t.pnl,
+      fee: t.fee ?? null,
       win: t.win,
       loss: t.loss,
       be: t.be,
@@ -127,7 +128,7 @@
 <div style="padding:1.5rem;max-width:900px;">
   <div style="display:flex;align-items:center;gap:1rem;margin-bottom:1.5rem;">
     <a href="/trades" style="color:var(--text-muted);text-decoration:none;font-size:0.875rem;">← Trades</a>
-    <h1 style="font-family:'JetBrains Mono',monospace;font-size:1.25rem;font-weight:600;color:var(--text-primary);">Import Futures CSV</h1>
+    <h1 style="font-family:'JetBrains Mono',monospace;font-size:1.25rem;font-weight:600;color:var(--text-primary);">Import Trade History CSV</h1>
   </div>
 
   <!-- Progress bar -->
@@ -154,7 +155,7 @@
       ondrop={(e) => { e.preventDefault(); dragOver = false; const f = e.dataTransfer?.files[0]; if (f) handleFile(f); }}
     >
       <div style="font-size:2.5rem;margin-bottom:1rem;">📂</div>
-      <p style="color:var(--text-primary);font-weight:600;margin-bottom:0.5rem;">Drop your Binance Futures Position History CSV here</p>
+      <p style="color:var(--text-primary);font-weight:600;margin-bottom:0.5rem;">Drop your Binance Futures Trade History CSV here</p>
       <p style="color:var(--text-muted);font-size:0.875rem;margin-bottom:1.5rem;">Or click to browse · .csv files only</p>
       <input
         type="file" accept=".csv" id="csv-input" style="display:none;"
@@ -163,7 +164,7 @@
       <label for="csv-input" style="padding:0.625rem 1.5rem;background:var(--accent);color:#fff;border-radius:0.5rem;font-size:0.875rem;font-weight:500;cursor:pointer;">Browse Files</label>
     </div>
     <div style="margin-top:1rem;padding:0.75rem 1rem;background:var(--surface);border:1px solid var(--border);border-radius:0.5rem;">
-      <p style="font-size:0.8rem;color:var(--text-muted);">Expected format: <span style="font-family:'JetBrains Mono',monospace;color:var(--text-primary);">Binance → Orders → Futures → Position History → Export</span></p>
+      <p style="font-size:0.8rem;color:var(--text-muted);">Expected format: <span style="font-family:'JetBrains Mono',monospace;color:var(--text-primary);">Binance → Orders → Futures → Trade History → Export</span></p>
     </div>
 
   {:else if step === 2}
@@ -171,7 +172,7 @@
     <div style="margin-bottom:1rem;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:0.5rem;">
       <div>
         <span style="font-size:0.875rem;color:var(--text-primary);font-weight:600;">{fileName}</span>
-        <span style="margin-left:0.75rem;font-size:0.8rem;color:var(--text-muted);">{parsedTrades.length} positions parsed</span>
+        <span style="margin-left:0.75rem;font-size:0.8rem;color:var(--text-muted);">{parsedTrades.length} trades parsed</span>
       </div>
       <div style="display:flex;gap:1rem;font-size:0.8rem;">
         <span style="color:var(--win);">🟢 {tradesWithStatus.filter(t => t.status === 'new').length} new</span>
