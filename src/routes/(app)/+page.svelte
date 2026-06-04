@@ -296,6 +296,146 @@
       </div>
     </div>
 
+    <!-- Period Analysis: Calendar Heatmap -->
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:0.75rem;padding:1rem;margin-bottom:1.5rem;">
+
+      <!-- Header: month nav + summary strip -->
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.875rem;flex-wrap:wrap;gap:0.5rem;">
+        <div style="display:flex;align-items:center;gap:0.625rem;">
+          <button
+            onclick={calendarPrevMonth}
+            style="background:var(--bg);border:1px solid var(--border);color:var(--text-muted);border-radius:0.375rem;padding:3px 10px;font-size:0.75rem;cursor:pointer;">
+            ← Prev
+          </button>
+          <span style="font-family:'JetBrains Mono',monospace;font-size:0.875rem;font-weight:700;color:var(--text-primary);min-width:140px;text-align:center;">
+            {formatMonthLabel(calendarMonth)}
+          </span>
+          <button
+            onclick={calendarNextMonth}
+            style="background:var(--bg);border:1px solid var(--border);color:var(--text-muted);border-radius:0.375rem;padding:3px 10px;font-size:0.75rem;cursor:pointer;">
+            Next →
+          </button>
+        </div>
+        <div style="display:flex;gap:1.25rem;font-size:0.75rem;">
+          <div style="text-align:center;">
+            <div style="color:var(--text-muted);font-size:0.65rem;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:1px;">Net PnL</div>
+            <div style="font-family:'JetBrains Mono',monospace;font-weight:700;color:{calendarMonthSummary.netPnl >= 0 ? 'var(--win)' : 'var(--loss)'};">
+              {calendarMonthSummary.netPnl >= 0 ? '+' : ''}{calendarMonthSummary.netPnl.toFixed(2)}
+            </div>
+          </div>
+          <div style="text-align:center;">
+            <div style="color:var(--text-muted);font-size:0.65rem;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:1px;">Trades</div>
+            <div style="font-family:'JetBrains Mono',monospace;font-weight:700;color:var(--text-primary);">{calendarMonthSummary.trades}</div>
+          </div>
+          <div style="text-align:center;">
+            <div style="color:var(--text-muted);font-size:0.65rem;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:1px;">Win Rate</div>
+            <div style="font-family:'JetBrains Mono',monospace;font-weight:700;color:{calendarMonthSummary.winRate >= 50 ? 'var(--win)' : 'var(--loss)'};">
+              {calendarMonthSummary.winRate.toFixed(1)}%
+            </div>
+          </div>
+          <div style="text-align:center;">
+            <div style="color:var(--text-muted);font-size:0.65rem;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:1px;">Best Day</div>
+            <div style="font-family:'JetBrains Mono',monospace;font-weight:700;color:var(--win);">
+              {calendarMonthSummary.bestDay > 0 ? '+' : ''}{calendarMonthSummary.bestDay.toFixed(2)}
+            </div>
+          </div>
+          <div style="text-align:center;">
+            <div style="color:var(--text-muted);font-size:0.65rem;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:1px;">Worst Day</div>
+            <div style="font-family:'JetBrains Mono',monospace;font-weight:700;color:var(--loss);">
+              {calendarMonthSummary.worstDay.toFixed(2)}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Day-of-week headers -->
+      <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-bottom:4px;">
+        {#each ['MON','TUE','WED','THU','FRI','SAT','SUN'] as dow}
+          <div style="text-align:center;font-size:0.6rem;color:var(--text-muted);padding:3px 0;font-weight:600;letter-spacing:0.04em;">{dow}</div>
+        {/each}
+      </div>
+
+      <!-- Calendar grid -->
+      <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-bottom:0.75rem;">
+        {#each calendarDays as day}
+          {#if day.blank}
+            <div style="height:56px;"></div>
+          {:else if !day.stat}
+            <div style="background:var(--bg);border:1px solid var(--border);border-radius:6px;height:56px;display:flex;flex-direction:column;align-items:center;justify-content:center;">
+              <span style="font-size:0.6rem;color:var(--text-muted);">{day.dayNum}</span>
+            </div>
+          {:else}
+            {@const isWin = day.stat.netPnl >= 0}
+            {@const intensity = pnlIntensity(day.stat.netPnl, calendarMaxAbsPnl)}
+            {@const isSelected = expandedDay === day.date}
+            <div
+              onclick={() => toggleDay(day.date)}
+              style="background:{isSelected ? (isWin ? 'color-mix(in srgb,var(--win) 22%,var(--surface))' : 'color-mix(in srgb,var(--loss) 22%,var(--surface))') : `color-mix(in srgb,${isWin ? 'var(--win)' : 'var(--loss)'} ${Math.round(intensity * 100)}%,var(--bg))`};
+                border:{isSelected ? `1.5px solid ${isWin ? 'var(--win)' : 'var(--loss)'}` : `1px solid color-mix(in srgb,${isWin ? 'var(--win)' : 'var(--loss)'} 35%,transparent)`};
+                border-radius:6px;height:56px;
+                display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;
+                cursor:pointer;transition:opacity 0.1s;"
+              onmouseenter={(e) => { if (!isSelected) (e.currentTarget as HTMLElement).style.opacity = '0.8'; }}
+              onmouseleave={(e) => { (e.currentTarget as HTMLElement).style.opacity = '1'; }}>
+              <span style="font-size:0.6rem;color:var(--text-muted);">{day.dayNum}</span>
+              <span style="font-family:'JetBrains Mono',monospace;font-size:0.7rem;font-weight:700;color:{isWin ? 'var(--win)' : 'var(--loss)'};">
+                {day.stat.netPnl >= 0 ? '+' : ''}{day.stat.netPnl.toFixed(2)}
+              </span>
+              <span style="font-size:0.6rem;color:var(--text-muted);">{day.stat.tradeCount} trade{day.stat.tradeCount !== 1 ? 's' : ''}</span>
+            </div>
+          {/if}
+        {/each}
+      </div>
+
+      <!-- Expanded day trade panel -->
+      {#if expandedDay && (chartData.dailyStats as Record<string, any>)[expandedDay]}
+        {@const dayStat = (chartData.dailyStats as Record<string, any>)[expandedDay]}
+        {@const [, , dd] = expandedDay.split('-')}
+        {@const dayLabel = `${formatMonthLabel(calendarMonth).split(' ')[0]} ${parseInt(dd)}`}
+        <div style="background:var(--bg);border:1px solid var(--border);border-radius:0.5rem;padding:0.875rem;">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.625rem;">
+            <span style="font-size:0.75rem;font-weight:600;color:var(--text-primary);">
+              {dayLabel} — {dayStat.tradeCount} trade{dayStat.tradeCount !== 1 ? 's' : ''} ·
+              <span style="color:{dayStat.netPnl >= 0 ? 'var(--win)' : 'var(--loss)'};">
+                {dayStat.netPnl >= 0 ? '+' : ''}{dayStat.netPnl.toFixed(2)}
+              </span>
+            </span>
+            <button
+              onclick={() => expandedDay = null}
+              style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:0.75rem;padding:0;">
+              ✕ Close
+            </button>
+          </div>
+          <div style="overflow-x:auto;">
+            <table style="width:100%;border-collapse:collapse;font-size:0.775rem;">
+              <thead>
+                <tr style="border-bottom:1px solid var(--border);">
+                  {#each ['Time','Coin','Side','Entry','Exit','PnL'] as col}
+                    <th style="padding:4px 8px;text-align:{col === 'Entry' || col === 'Exit' || col === 'PnL' ? 'right' : 'left'};font-size:0.65rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;font-weight:500;">{col}</th>
+                  {/each}
+                </tr>
+              </thead>
+              <tbody>
+                {#each dayStat.trades as trade}
+                  <tr style="border-bottom:1px solid var(--border);">
+                    <td style="padding:5px 8px;color:var(--text-muted);font-family:'JetBrains Mono',monospace;">{trade.time ?? '—'}</td>
+                    <td style="padding:5px 8px;font-weight:600;color:var(--text-primary);">{trade.coin}</td>
+                    <td style="padding:5px 8px;color:{trade.position === 'Long' ? 'var(--win)' : 'var(--loss)'};">{trade.position}</td>
+                    <td style="padding:5px 8px;text-align:right;font-family:'JetBrains Mono',monospace;color:var(--text-muted);">{trade.entry_price != null ? trade.entry_price.toLocaleString() : '—'}</td>
+                    <td style="padding:5px 8px;text-align:right;font-family:'JetBrains Mono',monospace;color:var(--text-muted);">{trade.exit_price != null ? trade.exit_price.toLocaleString() : '—'}</td>
+                    <td style="padding:5px 8px;text-align:right;font-family:'JetBrains Mono',monospace;font-weight:600;color:{trade.pnl >= 0 ? 'var(--win)' : 'var(--loss)'};">
+                      {trade.pnl >= 0 ? '+' : ''}{trade.pnl.toFixed(4)}
+                    </td>
+                  </tr>
+                {/each}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      {/if}
+
+    </div>
+
     <!-- Recent activity -->
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.75rem;">
       <!-- Recent trades -->
