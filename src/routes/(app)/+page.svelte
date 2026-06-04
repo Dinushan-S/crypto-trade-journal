@@ -303,6 +303,8 @@
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.875rem;flex-wrap:wrap;gap:0.5rem;">
         <div style="display:flex;align-items:center;gap:0.625rem;">
           <button
+            type="button"
+            aria-label="Previous month"
             onclick={calendarPrevMonth}
             style="background:var(--bg);border:1px solid var(--border);color:var(--text-muted);border-radius:0.375rem;padding:3px 10px;font-size:0.75rem;cursor:pointer;">
             ← Prev
@@ -311,6 +313,8 @@
             {formatMonthLabel(calendarMonth)}
           </span>
           <button
+            type="button"
+            aria-label="Next month"
             onclick={calendarNextMonth}
             style="background:var(--bg);border:1px solid var(--border);color:var(--text-muted);border-radius:0.375rem;padding:3px 10px;font-size:0.75rem;cursor:pointer;">
             Next →
@@ -369,7 +373,10 @@
             {@const intensity = pnlIntensity(day.stat.netPnl, calendarMaxAbsPnl)}
             {@const isSelected = expandedDay === day.date}
             <div
+              role="button"
+              tabindex="0"
               onclick={() => toggleDay(day.date)}
+              onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleDay(day.date); } }}
               style="background:{isSelected ? (isWin ? 'color-mix(in srgb,var(--win) 22%,var(--surface))' : 'color-mix(in srgb,var(--loss) 22%,var(--surface))') : `color-mix(in srgb,${isWin ? 'var(--win)' : 'var(--loss)'} ${Math.round(intensity * 100)}%,var(--bg))`};
                 border:{isSelected ? `1.5px solid ${isWin ? 'var(--win)' : 'var(--loss)'}` : `1px solid color-mix(in srgb,${isWin ? 'var(--win)' : 'var(--loss)'} 35%,transparent)`};
                 border-radius:6px;height:56px;
@@ -401,6 +408,7 @@
               </span>
             </span>
             <button
+              type="button"
               onclick={() => expandedDay = null}
               style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:0.75rem;padding:0;">
               ✕ Close
