@@ -495,8 +495,8 @@
         <!-- All-time summary strip -->
         <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:0.5rem;margin-bottom:1rem;">
           {#each [
-            { label: 'Total Deposited', usd: ledgerAllTime.totalIn,  lkr: ledgerAllTime.totalInLkr,  color: 'var(--win)' },
-            { label: 'Total Withdrawn', usd: ledgerAllTime.totalOut, lkr: ledgerAllTime.totalOutLkr, color: 'var(--loss)' },
+            { label: 'Total Deposited', usd: ledgerAllTime.totalIn,  lkr: ledgerAllTime.totalInLkr,  color: 'var(--loss)' },
+            { label: 'Total Withdrawn', usd: ledgerAllTime.totalOut, lkr: ledgerAllTime.totalOutLkr, color: 'var(--win)' },
             { label: 'Net Flow',        usd: ledgerAllTime.totalIn - ledgerAllTime.totalOut, lkr: null, color: (ledgerAllTime.totalIn - ledgerAllTime.totalOut) >= 0 ? 'var(--win)' : 'var(--loss)' },
             { label: 'Months',          usd: null, lkr: null, months: ledgerAllTime.months, color: 'var(--text-primary)' },
           ] as s}
@@ -520,36 +520,41 @@
         <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:0.5rem;">
           {#each ledgerPageMonths as m}
             {@const isInflow = m.netUsd >= 0}
-            <div style="background:var(--bg);border:1px solid var(--border);border-left:3px solid {isInflow ? 'var(--win)' : 'var(--loss)'};border-radius:0.5rem;padding:0.625rem 0.75rem;display:flex;flex-direction:column;gap:0.25rem;">
+            <div style="background:var(--bg);border:1px solid var(--border);border-left:3px solid {isInflow ? 'var(--win)' : 'var(--loss)'};border-radius:0.5rem;padding:0.625rem 0.75rem;display:flex;flex-direction:column;gap:0.3rem;">
+
               <!-- Month label -->
-              <div style="font-family:'JetBrains Mono',monospace;font-size:0.65rem;font-weight:700;color:var(--text-muted);letter-spacing:0.04em;">{fmtMonth(m.month)}</div>
+              <div style="font-family:'JetBrains Mono',monospace;font-size:0.65rem;font-weight:700;color:var(--text-muted);letter-spacing:0.04em;margin-bottom:0.1rem;">{fmtMonth(m.month)}</div>
 
               <!-- Deposit row -->
-              <div style="margin-top:0.25rem;">
-                <div style="font-size:0.6rem;color:var(--text-muted);">↓ Dep</div>
-                <div style="font-family:'JetBrains Mono',monospace;font-size:0.7rem;font-weight:600;color:var(--win);">${m.depositedUsd.toFixed(2)}</div>
-                {#if m.depositedLkr > 0}
-                  <div style="font-size:0.6rem;color:var(--text-muted);">{fmtLkr(m.depositedLkr)}</div>
-                {/if}
+              <div style="display:flex;justify-content:space-between;align-items:baseline;gap:0.25rem;">
+                <span style="font-size:0.6rem;color:var(--text-muted);white-space:nowrap;">↓ Dep</span>
+                <div style="text-align:right;">
+                  <div style="font-family:'JetBrains Mono',monospace;font-size:0.7rem;font-weight:600;color:var(--loss);">${m.depositedUsd.toFixed(2)}</div>
+                  {#if m.depositedLkr > 0}
+                    <div style="font-size:0.58rem;color:var(--text-muted);line-height:1.2;">{fmtLkr(m.depositedLkr)}</div>
+                  {/if}
+                </div>
               </div>
 
               <!-- Withdraw row -->
-              <div>
-                <div style="font-size:0.6rem;color:var(--text-muted);">↑ Wdr</div>
-                <div style="font-family:'JetBrains Mono',monospace;font-size:0.7rem;font-weight:600;color:{m.withdrawnUsd > 0 ? 'var(--loss)' : 'var(--text-muted)'};">${m.withdrawnUsd.toFixed(2)}</div>
-                {#if m.withdrawnLkr > 0}
-                  <div style="font-size:0.6rem;color:var(--text-muted);">{fmtLkr(m.withdrawnLkr)}</div>
-                {/if}
+              <div style="display:flex;justify-content:space-between;align-items:baseline;gap:0.25rem;">
+                <span style="font-size:0.6rem;color:var(--text-muted);white-space:nowrap;">↑ Wdr</span>
+                <div style="text-align:right;">
+                  <div style="font-family:'JetBrains Mono',monospace;font-size:0.7rem;font-weight:600;color:{m.withdrawnUsd > 0 ? 'var(--win)' : 'var(--text-muted)'};">${m.withdrawnUsd.toFixed(2)}</div>
+                  {#if m.withdrawnLkr > 0}
+                    <div style="font-size:0.58rem;color:var(--text-muted);line-height:1.2;">{fmtLkr(m.withdrawnLkr)}</div>
+                  {/if}
+                </div>
               </div>
 
-              <!-- Divider + net -->
-              <div style="border-top:1px solid var(--border);margin-top:0.25rem;padding-top:0.25rem;">
-                <div style="font-size:0.6rem;color:var(--text-muted);">Net</div>
-                <div style="font-family:'JetBrains Mono',monospace;font-size:0.75rem;font-weight:700;color:{isInflow ? 'var(--win)' : 'var(--loss)'};">
+              <!-- Divider + net row -->
+              <div style="border-top:1px solid var(--border);padding-top:0.3rem;display:flex;justify-content:space-between;align-items:center;gap:0.25rem;">
+                <span style="font-size:0.6rem;font-weight:600;color:{isInflow ? 'var(--win)' : 'var(--loss)'};">{isInflow ? '▲ IN' : '▼ OUT'}</span>
+                <div style="font-family:'JetBrains Mono',monospace;font-size:0.75rem;font-weight:700;color:{isInflow ? 'var(--win)' : 'var(--loss)'};text-align:right;">
                   {isInflow ? '+' : ''}{m.netUsd.toFixed(2)}
                 </div>
-                <div style="font-size:0.6rem;font-weight:600;color:{isInflow ? 'var(--win)' : 'var(--loss)'};">{isInflow ? '▲' : '▼'} {isInflow ? 'IN' : 'OUT'}</div>
               </div>
+
             </div>
           {/each}
         </div>
