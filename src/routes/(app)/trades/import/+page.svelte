@@ -3,6 +3,7 @@
   import { user } from '$lib/stores/auth';
   import { parseTradeHistoryCSV, type TradeHistoryTrade } from '$lib/utils/binance-trade-history-parser';
   import { goto } from '$app/navigation';
+  import TradeLoader from '$lib/components/TradeLoader.svelte';
 
   const supabase = createSupabaseClient();
 
@@ -13,6 +14,7 @@
   let existingOrderIds = $state<Set<string>>(new Set());
   let selected = $state<Set<number>>(new Set());
   let importing = $state(false);
+  let processing = $state(false); // true while parsing CSV + checking Supabase duplicates
   let importResult = $state<{ imported: number; skipped: number } | null>(null);
   let error = $state('');
   let dragOver = $state(false);
@@ -42,6 +44,7 @@
 
   async function processCSV() {
     error = '';
+    processing = true;
     try {
       const trades = parseTradeHistoryCSV(csvText);
 
@@ -63,6 +66,8 @@
       step = 2;
     } catch (e: unknown) {
       error = `Parse error: ${e instanceof Error ? e.message : String(e)}`;
+    } finally {
+      processing = false;
     }
   }
 
@@ -148,24 +153,31 @@
 
   {#if step === 1}
     <!-- STEP 1: Upload -->
-    <div
-      style="background:var(--surface);border:2px dashed {dragOver ? 'var(--accent)' : 'var(--border)'};border-radius:0.75rem;padding:3rem;text-align:center;transition:border-color 0.15s;cursor:pointer;"
-      ondragover={(e) => { e.preventDefault(); dragOver = true; }}
-      ondragleave={() => dragOver = false}
-      ondrop={(e) => { e.preventDefault(); dragOver = false; const f = e.dataTransfer?.files[0]; if (f) handleFile(f); }}
-    >
-      <div style="font-size:2.5rem;margin-bottom:1rem;">📂</div>
-      <p style="color:var(--text-primary);font-weight:600;margin-bottom:0.5rem;">Drop your Binance Futures Trade History CSV here</p>
-      <p style="color:var(--text-muted);font-size:0.875rem;margin-bottom:1.5rem;">Or click to browse · .csv files only</p>
-      <input
-        type="file" accept=".csv" id="csv-input" style="display:none;"
-        onchange={(e) => { const f = (e.target as HTMLInputElement).files?.[0]; if (f) handleFile(f); }}
-      />
-      <label for="csv-input" style="padding:0.625rem 1.5rem;background:var(--accent);color:#fff;border-radius:0.5rem;font-size:0.875rem;font-weight:500;cursor:pointer;">Browse Files</label>
-    </div>
-    <div style="margin-top:1rem;padding:0.75rem 1rem;background:var(--surface);border:1px solid var(--border);border-radius:0.5rem;">
-      <p style="font-size:0.8rem;color:var(--text-muted);">Expected format: <span style="font-family:'JetBrains Mono',monospace;color:var(--text-primary);">Binance → Orders → Futures → Trade History → Export</span></p>
-    </div>
+    {#if processing}
+      <!-- Processing overlay: shown while CSV is parsed and Supabase duplicate check runs -->
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:0.75rem;padding:3rem;text-align:center;">
+        <TradeLoader label="Analysing trades…" />
+      </div>
+    {:else}
+      <div
+        style="background:var(--surface);border:2px dashed {dragOver ? 'var(--accent)' : 'var(--border)'};border-radius:0.75rem;padding:3rem;text-align:center;transition:border-color 0.15s;cursor:pointer;"
+        ondragover={(e) => { e.preventDefault(); dragOver = true; }}
+        ondragleave={() => dragOver = false}
+        ondrop={(e) => { e.preventDefault(); dragOver = false; const f = e.dataTransfer?.files[0]; if (f) handleFile(f); }}
+      >
+        <div style="font-size:2.5rem;margin-bottom:1rem;">📂</div>
+        <p style="color:var(--text-primary);font-weight:600;margin-bottom:0.5rem;">Drop your Binance Futures Trade History CSV here</p>
+        <p style="color:var(--text-muted);font-size:0.875rem;margin-bottom:1.5rem;">Or click to browse · .csv files only</p>
+        <input
+          type="file" accept=".csv" id="csv-input" style="display:none;"
+          onchange={(e) => { const f = (e.target as HTMLInputElement).files?.[0]; if (f) handleFile(f); }}
+        />
+        <label for="csv-input" style="padding:0.625rem 1.5rem;background:var(--accent);color:#fff;border-radius:0.5rem;font-size:0.875rem;font-weight:500;cursor:pointer;">Browse Files</label>
+      </div>
+      <div style="margin-top:1rem;padding:0.75rem 1rem;background:var(--surface);border:1px solid var(--border);border-radius:0.5rem;">
+        <p style="font-size:0.8rem;color:var(--text-muted);">Expected format: <span style="font-family:'JetBrains Mono',monospace;color:var(--text-primary);">Binance → Orders → Futures → Trade History → Export</span></p>
+      </div>
+    {/if}
 
   {:else if step === 2}
     <!-- STEP 2: Preview -->
@@ -233,12 +245,17 @@
       </div>
     </div>
 
-    <div style="display:flex;gap:0.75rem;">
+    <div style="display:flex;gap:0.75rem;align-items:center;">
       <button
         onclick={confirmImport}
         disabled={importing || selectedNewTrades.length === 0}
-        style="padding:0.625rem 1.5rem;background:var(--accent);color:#fff;border:none;border-radius:0.5rem;font-weight:600;font-size:0.875rem;cursor:pointer;opacity:{importing || selectedNewTrades.length === 0 ? 0.5 : 1};">
-        {importing ? 'Importing…' : `Import ${selectedNewTrades.length} Trades`}
+        style="padding:0.625rem 1.5rem;background:var(--accent);color:#fff;border:none;border-radius:0.5rem;font-weight:600;font-size:0.875rem;cursor:pointer;opacity:{importing || selectedNewTrades.length === 0 ? 0.5 : 1};display:inline-flex;align-items:center;gap:0.5rem;">
+        {#if importing}
+          <TradeLoader />
+          Importing…
+        {:else}
+          Import {selectedNewTrades.length} Trades
+        {/if}
       </button>
       <button onclick={() => { step = 1; parsedTrades = []; fileName = ''; }} style="padding:0.625rem 1rem;border:1px solid var(--border);border-radius:0.5rem;background:transparent;color:var(--text-muted);font-size:0.875rem;cursor:pointer;">
         ← Back
