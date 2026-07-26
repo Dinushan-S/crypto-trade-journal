@@ -91,7 +91,11 @@
         <p style="color:var(--text-muted);font-size:0.8rem;margin-top:0.125rem;">{formatDate(trade.date)} · {trade.source === 'futures_import' ? '📥 Imported' : '✏️ Manual'}</p>
       </div>
     </div>
-    <div style="display:flex;gap:0.5rem;">
+    <div style="display:flex;gap:0.5rem;align-items:center;">
+      <a href="/mistakes/new?trade_id={trade.id}" style="padding:0.5rem 0.875rem;border:1px solid var(--accent);border-radius:0.5rem;background:color-mix(in srgb, var(--accent) 12%, transparent);color:var(--accent);font-size:0.875rem;font-weight:600;text-decoration:none;display:inline-flex;align-items:center;gap:0.375rem;">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 9v4"/><path d="M12 17h.01"/><path d="M3.88 18.88 10.94 4.76a1.2 1.2 0 0 1 2.12 0l7.06 14.12A1.2 1.2 0 0 1 19.06 20.5H4.94a1.2 1.2 0 0 1-1.06-1.62z"/></svg>
+        Log Mistake
+      </a>
       <button onclick={() => editing = !editing} style="padding:0.5rem 0.875rem;border:1px solid var(--border);border-radius:0.5rem;background:transparent;color:var(--text-muted);font-size:0.875rem;cursor:pointer;">
         {editing ? '✕ Cancel' : '✏️ Edit'}
       </button>
