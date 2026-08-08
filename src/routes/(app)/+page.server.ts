@@ -1,53 +1,64 @@
 import type { PageServerLoad } from './$types';
+import { api } from '../../../convex/_generated/api';
 
 function effectiveDate(dateStr: string, timeStr: string | null, tz: string): string {
   if (tz === 'utc' && timeStr) {
-    // CSV timestamps are UTC+5; subtract 5h to get UTC date
     return new Date(`${dateStr}T${timeStr}+05:00`).toISOString().slice(0, 10);
   }
   return dateStr;
 }
 
-export const load: PageServerLoad = async ({ locals: { supabase }, cookies }) => {
+export const load: PageServerLoad = async ({ locals: { convex }, cookies }) => {
   const calendarTz = cookies.get('calendarTz') ?? 'local';
-  const [tradesRes, ledgerRes, recentTradesRes, recentLedgerRes, allLedgerRes] = await Promise.all([
-    supabase.from('trades').select('pnl, win, loss, be', { count: 'exact' }),
-    supabase.from('ledger').select('type, fiat_sent, usd_received, usd_quantity, usd_rate, fiat_amount'),
-    supabase.from('trades').select('id, coin, position, pnl, date, win, loss, be').order('date', { ascending: false }).order('created_at', { ascending: false }).limit(5),
-    supabase.from('ledger').select('id, type, date, fiat_sent, usd_received, usd_quantity').order('date', { ascending: false }).limit(3),
-    supabase.from('ledger').select('type, date, fiat_sent, usd_received, usd_quantity, fiat_amount').order('date', { ascending: false }),
+
+  const [allTrades, allLedger] = await Promise.all([
+    convex.query(api.trades.getTrades, {}).catch(() => []),
+    convex.query(api.ledger.getLedger, {}).catch(() => []),
   ]);
 
-  const trades = tradesRes.data ?? [];
-  const ledger = ledgerRes.data ?? [];
+  const trades: any[] = allTrades ?? [];
+  const ledger: any[] = allLedger ?? [];
 
-  const totalTrades = tradesRes.count ?? 0;
-  const wins = trades.filter(t => t.win).length;
+  const totalTrades = trades.length;
+  const wins = trades.filter((t: any) => t.win).length;
   const winRate = totalTrades > 0 ? ((wins / totalTrades) * 100) : 0;
-  const netPnl = trades.reduce((s, t) => s + (t.pnl ?? 0), 0);
+  const netPnl = trades.reduce((s: number, t: any) => s + (t.pnl ?? 0), 0);
   const avgPnl = totalTrades > 0 ? netPnl / totalTrades : 0;
 
-  const deposits = ledger.filter(l => l.type === 'deposit');
-  const withdrawals = ledger.filter(l => l.type === 'withdrawal');
-  const totalDeposited = deposits.reduce((s, l) => s + (l.usd_received ?? 0), 0);
-  const totalWithdrawn = withdrawals.reduce((s, l) => s + (l.usd_quantity ?? 0), 0);
-  const totalLkrIn = deposits.reduce((s, l) => s + (l.fiat_sent ?? 0), 0);
-  const totalLkrOut = withdrawals.reduce((s, l) => s + (l.fiat_amount ?? 0), 0);
+  const deposits = ledger.filter((l: any) => l.type === 'deposit');
+  const withdrawals = ledger.filter((l: any) => l.type === 'withdrawal');
+  const totalDeposited = deposits.reduce((s: number, l: any) => s + (l.usd_received ?? 0), 0);
+  const totalWithdrawn = withdrawals.reduce((s: number, l: any) => s + (l.usd_quantity ?? 0), 0);
+  const totalLkrIn = deposits.reduce((s: number, l: any) => s + (l.fiat_sent ?? 0), 0);
+  const totalLkrOut = withdrawals.reduce((s: number, l: any) => s + (l.fiat_amount ?? 0), 0);
   const netContributionLkr = totalLkrIn - totalLkrOut;
 
-  // Chart data: fetch all trades for aggregation
-  const { data: allTrades } = await supabase
-    .from('trades')
-    .select('id, date, date_closed, pnl, coin, win, position, time, entry_price, exit_price')
-    .order('date_closed', { ascending: true })
-    .order('time', { ascending: true });
+  const recentTrades = trades.slice(0, 5).map((t: any) => ({
+    id: t._id,
+    coin: t.coin,
+    position: t.position,
+    pnl: t.pnl,
+    date: t.date,
+    win: t.win,
+    loss: t.loss,
+    be: t.be,
+  }));
 
-  // Monthly PnL (cumulative running total per month)
+  const recentLedger = ledger.slice(0, 3).map((l: any) => ({
+    id: l._id,
+    type: l.type,
+    date: l.date,
+    fiat_sent: l.fiat_sent,
+    usd_received: l.usd_received,
+    usd_quantity: l.usd_quantity,
+  }));
+
+  // Monthly PnL
   const monthlyMap: Record<string, number> = {};
-  for (const t of allTrades ?? []) {
+  for (const t of trades) {
     const closeDate = (t.date_closed ?? t.date)?.slice(0, 10);
     if (!closeDate || t.pnl == null) continue;
-    const month = closeDate.slice(0, 7); // YYYY-MM
+    const month = closeDate.slice(0, 7);
     monthlyMap[month] = (monthlyMap[month] ?? 0) + t.pnl;
   }
   const sortedMonths = Object.keys(monthlyMap).sort();
@@ -57,9 +68,9 @@ export const load: PageServerLoad = async ({ locals: { supabase }, cookies }) =>
     return { month: m, cumulative: running, monthly: monthlyMap[m] };
   });
 
-  // PnL by coin (top 10)
+  // PnL by coin
   const coinMap: Record<string, number> = {};
-  for (const t of allTrades ?? []) {
+  for (const t of trades) {
     if (!t.coin || t.pnl == null) continue;
     coinMap[t.coin] = (coinMap[t.coin] ?? 0) + t.pnl;
   }
@@ -68,11 +79,11 @@ export const load: PageServerLoad = async ({ locals: { supabase }, cookies }) =>
     .slice(0, 10);
 
   // Win/Loss/BE counts
-  const winCount = (allTrades ?? []).filter(t => t.win === true).length;
-  const lossCount = (allTrades ?? []).filter(t => t.win === false && t.pnl !== null && t.pnl < 0).length;
-  const beCount = (allTrades ?? []).filter(t => t.pnl === 0).length;
+  const winCount = trades.filter((t: any) => t.win === true).length;
+  const lossCount = trades.filter((t: any) => t.win === false && t.pnl !== null && t.pnl! < 0).length;
+  const beCount = trades.filter((t: any) => t.pnl === 0).length;
 
-  // Daily stats map for calendar heatmap
+  // Daily stats
   type DayTrade = {
     id: string;
     coin: string;
@@ -87,8 +98,7 @@ export const load: PageServerLoad = async ({ locals: { supabase }, cookies }) =>
   type DayStat = { netPnl: number; tradeCount: number; trades: DayTrade[] };
   const dailyStats: Record<string, DayStat> = {};
 
-  for (const t of allTrades ?? []) {
-    // Group by close date — adjusted for display timezone
+  for (const t of trades) {
     const rawDate = (t.date_closed ?? t.date)?.slice(0, 10);
     const day = rawDate ? effectiveDate(rawDate, t.time ?? null, calendarTz) : null;
     if (!day || t.pnl == null) continue;
@@ -96,7 +106,7 @@ export const load: PageServerLoad = async ({ locals: { supabase }, cookies }) =>
     dailyStats[day].netPnl += t.pnl;
     dailyStats[day].tradeCount += 1;
     dailyStats[day].trades.push({
-      id: t.id,
+      id: t._id,
       coin: t.coin ?? '',
       position: t.position ?? '',
       date_opened: t.date ?? null,
@@ -108,9 +118,9 @@ export const load: PageServerLoad = async ({ locals: { supabase }, cookies }) =>
     });
   }
 
-  // Monthly ledger summary (newest first)
+  // Monthly ledger summary
   type MonthLedger = {
-    month: string; // YYYY-MM
+    month: string;
     depositedUsd: number;
     withdrawnUsd: number;
     depositedLkr: number;
@@ -118,7 +128,7 @@ export const load: PageServerLoad = async ({ locals: { supabase }, cookies }) =>
     netUsd: number;
   };
   const ledgerMonthMap: Record<string, MonthLedger> = {};
-  for (const entry of allLedgerRes.data ?? []) {
+  for (const entry of ledger) {
     if (!entry.date) continue;
     const month = entry.date.slice(0, 7);
     if (!ledgerMonthMap[month]) {
@@ -134,12 +144,12 @@ export const load: PageServerLoad = async ({ locals: { supabase }, cookies }) =>
   }
   const monthlyLedger = Object.values(ledgerMonthMap)
     .map(m => ({ ...m, netUsd: m.depositedUsd - m.withdrawnUsd }))
-    .sort((a, b) => b.month.localeCompare(a.month)); // newest first
+    .sort((a, b) => b.month.localeCompare(a.month));
 
   return {
     stats: { totalTrades, winRate, netPnl, avgPnl, totalDeposited, totalWithdrawn, netContributionLkr },
-    recentTrades: recentTradesRes.data ?? [],
-    recentLedger: recentLedgerRes.data ?? [],
+    recentTrades,
+    recentLedger,
     chartData: { monthlyPnl, coinPnl, winCount, lossCount, beCount, dailyStats },
     monthlyLedger,
   };

@@ -1,30 +1,17 @@
 <script lang="ts">
-  import { createSupabaseClient } from '$lib/supabase';
-  import { user } from '$lib/stores/auth';
   import { parseC2CCSV, type C2CEntry } from '$lib/utils/c2c-parser';
-
-  const supabase = createSupabaseClient();
 
   let step = $state<1 | 2 | 3>(1);
   let fileName = $state('');
   let parsedEntries = $state<C2CEntry[]>([]);
-  let existingOrderNumbers = $state<Set<string>>(new Set());
   let selected = $state<Set<number>>(new Set());
   let importing = $state(false);
   let importResult = $state<{ imported: number; skipped: number } | null>(null);
   let error = $state('');
   let dragOver = $state(false);
 
-  type EntryWithStatus = C2CEntry & { status: 'new' | 'duplicate' };
-  let entriesWithStatus = $derived(
-    parsedEntries.map(e => ({
-      ...e,
-      status: existingOrderNumbers.has(e.order_number) ? 'duplicate' : 'new'
-    } as EntryWithStatus))
-  );
-
-  let selectedNewEntries = $derived(
-    entriesWithStatus.filter((e, i) => e.status === 'new' && selected.has(i))
+  let selectedEntries = $derived(
+    parsedEntries.filter((_, i) => selected.has(i))
   );
 
   function handleFile(file: File) {
@@ -40,19 +27,8 @@
     try {
       const entries = parseC2CCSV(csv);
       if (entries.length === 0) { error = 'No completed orders found in this CSV.'; return; }
-
-      const orderNumbers = entries.map(e => e.order_number).filter(Boolean);
-      const { data: existing } = await supabase
-        .from('ledger')
-        .select('order_number')
-        .in('order_number', orderNumbers);
-
-      existingOrderNumbers = new Set((existing ?? []).map((r: { order_number: string | null }) => r.order_number).filter((n): n is string => Boolean(n)));
       parsedEntries = entries;
-
-      const newSelected = new Set<number>();
-      entries.forEach((e, i) => { if (!existingOrderNumbers.has(e.order_number)) newSelected.add(i); });
-      selected = newSelected;
+      selected = new Set(entries.map((_, i) => i));
       step = 2;
     } catch (e: unknown) {
       error = `Parse error: ${e instanceof Error ? e.message : String(e)}`;
@@ -68,39 +44,27 @@
   async function confirmImport() {
     importing = true;
     error = '';
-    const toImport = entriesWithStatus.filter((e, i) => selected.has(i) && e.status === 'new');
+    const toImport = parsedEntries.filter((_, i) => selected.has(i));
 
-    const rows = toImport.map(e => ({
-      user_id: $user?.id,
-      type: e.type,
-      date: e.date,
-      time: e.time,
-      fiat_sent: e.fiat_sent,
-      usd_rate: e.usd_rate,
-      usd_received: e.usd_received,
-      usd_quantity: e.usd_quantity,
-      counterparty: e.counterparty,
-      order_number: e.order_number,
-      source: 'c2c_import' as const,
-    }));
+    try {
+      const res = await fetch('/api/ledger/import', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ filename: fileName, entries: toImport }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || 'Import failed');
 
-    const { error: err } = await supabase.from('ledger').insert(rows);
-    if (err) { error = err.message; importing = false; return; }
-
-    await supabase.from('binance_imports').insert({
-      user_id: $user?.id,
-      filename: fileName,
-      import_type: 'c2c',
-      trades_count: rows.length,
-      skipped_count: entriesWithStatus.filter(e => e.status === 'duplicate').length,
-    });
-
-    importResult = {
-      imported: rows.length,
-      skipped: entriesWithStatus.filter(e => e.status === 'duplicate').length
-    };
-    step = 3;
-    importing = false;
+      importResult = {
+        imported: data.inserted ?? toImport.length,
+        skipped: toImport.length - (data.inserted ?? toImport.length),
+      };
+      step = 3;
+    } catch (err: any) {
+      error = err.message;
+    } finally {
+      importing = false;
+    }
   }
 </script>
 
@@ -112,7 +76,6 @@
     <h1 style="font-family:'JetBrains Mono',monospace;font-size:1.25rem;font-weight:600;color:var(--text-primary);">Import C2C Orders</h1>
   </div>
 
-  <!-- Progress bar -->
   <div style="display:flex;gap:0;margin-bottom:1.5rem;background:var(--surface);border:1px solid var(--border);border-radius:0.5rem;overflow:hidden;">
     {#each [[1,'Upload'],[2,'Preview'],[3,'Done']] as [s, label]}
       <div style="flex:1;padding:0.625rem;text-align:center;font-size:0.8rem;font-weight:{step >= (s as number) ? '600' : '400'};
@@ -147,10 +110,6 @@
   {:else if step === 2}
     <div style="margin-bottom:1rem;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:0.5rem;">
       <span style="font-size:0.875rem;color:var(--text-primary);font-weight:600;">{fileName}</span>
-      <div style="display:flex;gap:1rem;font-size:0.8rem;">
-        <span style="color:var(--win);">🟢 {entriesWithStatus.filter(e => e.status === 'new').length} new</span>
-        <span style="color:#f59e0b;">🟡 {entriesWithStatus.filter(e => e.status === 'duplicate').length} duplicates</span>
-      </div>
     </div>
 
     <div style="background:var(--surface);border:1px solid var(--border);border-radius:0.75rem;overflow:hidden;margin-bottom:1rem;">
@@ -159,19 +118,16 @@
           <thead style="position:sticky;top:0;background:var(--bg);">
             <tr style="border-bottom:1px solid var(--border);">
               <th style="padding:0.5rem 0.75rem;text-align:left;font-size:0.7rem;color:var(--text-muted);text-transform:uppercase;width:40px;"></th>
-              {#each ['Status','Date','Type','LKR Sent','Rate','USDT','Counterparty'] as col}
+              {#each ['Date','Type','LKR Sent','Rate','USDT','Counterparty'] as col}
                 <th style="padding:0.5rem 0.75rem;text-align:left;font-size:0.7rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;">{col}</th>
               {/each}
             </tr>
           </thead>
           <tbody>
-            {#each entriesWithStatus as entry, i}
-              <tr style="border-bottom:1px solid var(--border);opacity:{entry.status === 'duplicate' ? 0.5 : 1};">
+            {#each parsedEntries as entry, i}
+              <tr style="border-bottom:1px solid var(--border);">
                 <td style="padding:0.5rem 0.75rem;">
-                  <input type="checkbox" checked={selected.has(i)} disabled={entry.status === 'duplicate'} onchange={() => toggleSelect(i)} />
-                </td>
-                <td style="padding:0.5rem 0.75rem;font-size:0.7rem;font-weight:600;color:{entry.status === 'new' ? 'var(--win)' : '#f59e0b'};">
-                  {entry.status === 'new' ? '🟢 New' : '🟡 Dup'}
+                  <input type="checkbox" checked={selected.has(i)} onchange={() => toggleSelect(i)} />
                 </td>
                 <td style="padding:0.5rem 0.75rem;font-family:'JetBrains Mono',monospace;color:var(--text-muted);">{entry.date}</td>
                 <td style="padding:0.5rem 0.75rem;">
@@ -193,9 +149,9 @@
     <div style="display:flex;gap:0.75rem;">
       <button
         onclick={confirmImport}
-        disabled={importing || selectedNewEntries.length === 0}
-        style="padding:0.625rem 1.5rem;background:var(--accent);color:#fff;border:none;border-radius:0.5rem;font-weight:600;font-size:0.875rem;cursor:pointer;opacity:{importing || selectedNewEntries.length === 0 ? 0.5 : 1};">
-        {importing ? 'Importing…' : `Import ${selectedNewEntries.length} Entries`}
+        disabled={importing || selectedEntries.length === 0}
+        style="padding:0.625rem 1.5rem;background:var(--accent);color:#fff;border:none;border-radius:0.5rem;font-weight:600;font-size:0.875rem;cursor:pointer;opacity:{importing || selectedEntries.length === 0 ? 0.5 : 1};">
+        {importing ? 'Importing…' : `Import ${selectedEntries.length} Entries`}
       </button>
       <button onclick={() => { step = 1; parsedEntries = []; }} style="padding:0.625rem 1rem;border:1px solid var(--border);border-radius:0.5rem;background:transparent;color:var(--text-muted);font-size:0.875rem;cursor:pointer;">← Back</button>
     </div>

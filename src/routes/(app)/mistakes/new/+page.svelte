@@ -39,7 +39,7 @@
     selectedTradeId = tId;
 
     if (tId) {
-      const found = data.trades.find((t) => t.id === tId);
+      const found = data.trades.find((t: any) => t.id === tId);
       if (found) {
         tradeDate = found.date;
         coin = found.coin || '';

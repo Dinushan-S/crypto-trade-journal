@@ -43,7 +43,7 @@
       <div style="display:flex;justify-content:space-between;align-items:center;">
         <span style="font-size:0.875rem;color:var(--text-muted);">Member since</span>
         <span style="font-size:0.875rem;color:var(--text-primary);">
-          {data.user?.created_at ? new Date(data.user.created_at).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }) : '—'}
+          {(data.user as any)?.created_at ? new Date((data.user as any).created_at).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }) : '—'}
         </span>
       </div>
     </div>

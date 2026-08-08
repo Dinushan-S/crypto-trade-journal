@@ -31,7 +31,7 @@
   }
 
   let filteredMistakes = $derived(
-    data.mistakes.filter((m) => {
+    data.mistakes.filter((m: any) => {
       const matchesCategory = selectedCategory === 'All' || m.category === selectedCategory;
       const q = searchQuery.toLowerCase().trim();
       const matchesSearch =

@@ -25,3 +25,5 @@ vite.config.ts.timestamp-*
 .superpowers/
 csv/
 "PLAN (1).md"
+.agents
+.claude

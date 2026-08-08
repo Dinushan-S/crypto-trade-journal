@@ -1,6 +1,7 @@
 import type { PageServerLoad } from './$types';
+import { api } from '../../../../convex/_generated/api';
 
-export const load: PageServerLoad = async ({ locals: { supabase }, url }) => {
+export const load: PageServerLoad = async ({ locals: { convex }, url }) => {
   const coin = url.searchParams.get('coin') ?? '';
   const position = url.searchParams.get('position') ?? 'all';
   const result = url.searchParams.get('result') ?? 'all';
@@ -10,30 +11,28 @@ export const load: PageServerLoad = async ({ locals: { supabase }, url }) => {
   const dateTo = url.searchParams.get('dateTo') ?? '';
   const page = parseInt(url.searchParams.get('page') ?? '1');
   const limit = 50;
+
+  const allTrades = await convex.query(api.trades.getTrades, {}).catch(() => []);
+
+  let filtered: any[] = allTrades.map((t: any) => ({ ...t, id: t._id }));
+
+  if (coin) filtered = filtered.filter((t: any) => t.coin?.toLowerCase().includes(coin.toLowerCase()));
+  if (position !== 'all') filtered = filtered.filter((t: any) => t.position === position);
+  if (strategy) filtered = filtered.filter((t: any) => t.strategy?.toLowerCase().includes(strategy.toLowerCase()));
+  if (source !== 'all') filtered = filtered.filter((t: any) => t.source === (source === 'imported' ? 'futures_import' : 'manual'));
+  if (dateFrom) filtered = filtered.filter((t: any) => t.date >= dateFrom);
+  if (dateTo) filtered = filtered.filter((t: any) => t.date <= dateTo);
+  if (result === 'win') filtered = filtered.filter((t: any) => t.win === true);
+  if (result === 'loss') filtered = filtered.filter((t: any) => t.loss === true);
+  if (result === 'be') filtered = filtered.filter((t: any) => t.be === true);
+
+  const total = filtered.length;
   const offset = (page - 1) * limit;
-
-  let query = supabase
-    .from('trades')
-    .select('*', { count: 'exact' })
-    .order('date', { ascending: false })
-    .order('created_at', { ascending: false })
-    .range(offset, offset + limit - 1);
-
-  if (coin) query = query.ilike('coin', `%${coin}%`);
-  if (position !== 'all') query = query.eq('position', position);
-  if (strategy) query = query.ilike('strategy', `%${strategy}%`);
-  if (source !== 'all') query = query.eq('source', source === 'imported' ? 'futures_import' : 'manual');
-  if (dateFrom) query = query.gte('date', dateFrom);
-  if (dateTo) query = query.lte('date', dateTo);
-  if (result === 'win') query = query.eq('win', true);
-  if (result === 'loss') query = query.eq('loss', true);
-  if (result === 'be') query = query.eq('be', true);
-
-  const { data: trades, count, error } = await query;
+  const trades = filtered.slice(offset, offset + limit);
 
   return {
-    trades: trades ?? [],
-    total: count ?? 0,
+    trades,
+    total,
     page,
     filters: { coin, position, result, strategy, source, dateFrom, dateTo }
   };

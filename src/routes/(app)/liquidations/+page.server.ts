@@ -1,11 +1,9 @@
 import type { PageServerLoad } from './$types';
+import { api } from '../../../../convex/_generated/api';
 
-export const load: PageServerLoad = async ({ locals: { supabase } }) => {
-  const { data: liquidations, count } = await supabase
-    .from('liquidations')
-    .select('*', { count: 'exact' })
-    .order('date', { ascending: false });
-
-  const totalLost = (liquidations ?? []).reduce((s, l) => s + (l.amount_lost ?? 0), 0);
-  return { liquidations: liquidations ?? [], total: count ?? 0, totalLost };
+export const load: PageServerLoad = async ({ locals: { convex } }) => {
+  const liquidations: any[] = await convex.query(api.liquidations.getLiquidations, {}).catch(() => []);
+  const mapped = liquidations.map((l: any) => ({ ...l, id: l._id }));
+  const totalLost = mapped.reduce((s: number, l: any) => s + (l.amount_lost ?? 0), 0);
+  return { liquidations: mapped, total: mapped.length, totalLost };
 };

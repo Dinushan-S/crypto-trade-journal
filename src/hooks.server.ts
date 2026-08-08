@@ -1,25 +1,18 @@
-import { createSupabaseServerClient } from '$lib/supabase';
+import { createConvexServerClient } from '$lib/convex';
 import type { Handle } from '@sveltejs/kit';
 
 export const handle: Handle = async ({ event, resolve }) => {
-  event.locals.supabase = createSupabaseServerClient(event.fetch, event.cookies);
+  event.locals.convex = createConvexServerClient();
+  const token = event.cookies.get('convex_auth_token') || null;
+  event.locals.token = token;
 
-  event.locals.safeGetSession = async () => {
-    const {
-      data: { session },
-    } = await event.locals.supabase.auth.getSession();
-    if (!session) return { session: null, user: null };
-    const {
-      data: { user },
-      error,
-    } = await event.locals.supabase.auth.getUser();
-    if (error) return { session: null, user: null };
-    return { session, user };
-  };
+  if (token) {
+    event.locals.convex.setAuth(token);
+    // In Convex, setting auth on ConvexHttpClient authenticates subsequent query/mutation calls
+    event.locals.user = { id: 'authenticated_user' };
+  } else {
+    event.locals.user = null;
+  }
 
-  return resolve(event, {
-    filterSerializedResponseHeaders(name) {
-      return name === 'content-range' || name === 'x-supabase-api-version';
-    },
-  });
+  return resolve(event);
 };

@@ -1,10 +1,7 @@
 <script lang="ts">
   import { page } from '$app/stores';
-  import { createSupabaseClient } from '$lib/supabase';
   import { goto } from '$app/navigation';
   import ThemeToggle from './ThemeToggle.svelte';
-
-  const supabase = createSupabaseClient();
 
   let collapsed = $state(false);
 
@@ -25,7 +22,7 @@
   }
 
   async function signOut() {
-    await supabase.auth.signOut();
+    document.cookie = 'convex_auth_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
     goto('/login');
   }
 

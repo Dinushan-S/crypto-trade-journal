@@ -1,5 +1,4 @@
 import { writable } from 'svelte/store';
-import type { User, Session } from '@supabase/supabase-js';
+import type { User } from '../../app';
 
 export const user = writable<User | null>(null);
-export const session = writable<Session | null>(null);

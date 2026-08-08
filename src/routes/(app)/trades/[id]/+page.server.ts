@@ -1,19 +1,16 @@
 import { error } from '@sveltejs/kit';
 import type { PageServerLoad, Actions } from './$types';
+import { api } from '../../../../../convex/_generated/api';
+import type { Id } from '../../../../../convex/_generated/dataModel';
 
-export const load: PageServerLoad = async ({ locals: { supabase }, params }) => {
-  const { data: trade, error: err } = await supabase
-    .from('trades')
-    .select('*')
-    .eq('id', params.id)
-    .single();
-
-  if (err || !trade) error(404, 'Trade not found');
-  return { trade };
+export const load: PageServerLoad = async ({ locals: { convex }, params }) => {
+  const trade = await convex.query(api.trades.getTradeById, { id: params.id as Id<"trades"> }).catch(() => null);
+  if (!trade) error(404, 'Trade not found');
+  return { trade: { ...trade, id: trade._id } };
 };
 
 export const actions: Actions = {
-  update: async ({ locals: { supabase }, params, request }) => {
+  update: async ({ locals: { convex }, params, request }) => {
     const form = await request.formData();
     const updates: Record<string, any> = {};
 
@@ -29,8 +26,8 @@ export const actions: Actions = {
       if (val !== null) {
         const numFields = ['entry_price', 'exit_price', 'stop_loss', 'quantity', 'pnl', 'fee', 'confidence', 'risk_pct', 'range_pct'];
         updates[field] = numFields.includes(field)
-          ? (val === '' ? null : Number(val))
-          : (val === '' ? null : val);
+          ? (val === '' ? undefined : Number(val))
+          : (val === '' ? undefined : val);
       }
     }
 
@@ -38,19 +35,26 @@ export const actions: Actions = {
     if (tf.length > 0) updates.timeframes = tf as string[];
 
     const pnl = updates.pnl;
-    if (pnl != null) {
+    if (pnl !== undefined) {
       updates.win = pnl > 0;
       updates.loss = pnl < 0;
       updates.be = pnl === 0;
     }
 
-    const { error: err } = await supabase.from('trades').update(updates).eq('id', params.id);
-    if (err) return { success: false, error: err.message };
-    return { success: true };
+    try {
+      await convex.mutation(api.trades.updateTrade, { id: params.id as Id<"trades">, ...updates });
+      return { success: true };
+    } catch (err: any) {
+      return { success: false, error: err.message };
+    }
   },
 
-  delete: async ({ locals: { supabase }, params }) => {
-    await supabase.from('trades').delete().eq('id', params.id);
-    return { deleted: true };
+  delete: async ({ locals: { convex }, params }) => {
+    try {
+      await convex.mutation(api.trades.deleteTrade, { id: params.id as Id<"trades"> });
+      return { deleted: true };
+    } catch (err: any) {
+      return { deleted: false, error: err.message };
+    }
   }
 };
