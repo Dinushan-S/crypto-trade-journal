@@ -38,13 +38,10 @@
 	"dependencies": {
 		"@convex-dev/auth": "^0.0.94",
 		"@types/papaparse": "^5.5.2",
-		"bits-ui": "^1.0.0-next.98",
 		"chart.js": "^4.5.1",
 		"clsx": "^2.1.1",
 		"convex": "^1.43.0",
 		"papaparse": "^5.5.3",
-		"shadcn-svelte": "^1.0.0-next.19",
-		"svelte-chartjs": "^4.0.1",
 		"tailwind-merge": "^3.6.0"
 	}
 }

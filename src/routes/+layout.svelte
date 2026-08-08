@@ -1,12 +1,7 @@
 <script lang="ts">
   import './layout.css';
-  import { user } from '$lib/stores/auth';
 
-  let { children, data } = $props();
-
-  $effect(() => {
-    user.set(data.user ?? null);
-  });
+  let { children } = $props();
 </script>
 
 {@render children()}

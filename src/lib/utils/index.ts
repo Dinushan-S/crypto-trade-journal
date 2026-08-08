@@ -1,27 +1,13 @@
 import { type ClassValue, clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
-export function cn(...inputs: ClassValue[]) {
-  return twMerge(clsx(inputs));
-}
+export const cn = (...inputs: ClassValue[]) => twMerge(clsx(inputs));
 
-export function formatCurrency(value: number | null | undefined, decimals = 2): string {
-  if (value == null) return '—';
-  return value >= 0
-    ? `+$${value.toFixed(decimals)}`
-    : `-$${Math.abs(value).toFixed(decimals)}`;
-}
+export const formatCurrency = (val: number | null | undefined, decimals = 2): string =>
+  val == null ? '—' : `${val >= 0 ? '+' : '-'}$${Math.abs(val).toFixed(decimals)}`;
 
-export function formatDate(date: string | Date | null | undefined): string {
-  if (!date) return '—';
-  return new Date(date).toLocaleDateString('en-US', {
-    year: 'numeric', month: 'short', day: 'numeric'
-  });
-}
+export const formatDate = (date: string | Date | null | undefined): string =>
+  date ? new Date(date).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) : '—';
 
-export function getPnlClass(pnl: number | null | undefined): string {
-  if (pnl == null) return 'text-[var(--text-muted)]';
-  if (pnl > 0) return 'text-[var(--win)]';
-  if (pnl < 0) return 'text-[var(--loss)]';
-  return 'text-[var(--text-muted)]';
-}
+export const getPnlClass = (pnl: number | null | undefined): string =>
+  pnl ? (pnl > 0 ? 'text-[var(--win)]' : 'text-[var(--loss)]') : 'text-[var(--text-muted)]';
