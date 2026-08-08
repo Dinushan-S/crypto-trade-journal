@@ -389,7 +389,7 @@
           {#if day.blank}
             <div style="height:56px;"></div>
           {:else if !day.stat}
-            <div style="background:var(--bg);border:1px solid var(--border);border-radius:6px;height:56px;display:flex;flex-direction:column;align-items:center;justify-content:center;">
+            <div style="background:var(--bg);border-radius:6px;height:56px;display:flex;flex-direction:column;align-items:center;justify-content:center;">
               <span style="font-size:0.6rem;color:var(--text-muted);">{day.dayNum}</span>
             </div>
           {:else}
@@ -401,8 +401,8 @@
               tabindex="0"
               onclick={() => toggleDay(day.date)}
               onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleDay(day.date); } }}
-              style="background:{isSelected ? (isWin ? 'color-mix(in srgb,var(--win) 22%,var(--surface))' : 'color-mix(in srgb,var(--loss) 22%,var(--surface))') : `color-mix(in srgb,${isWin ? 'var(--win)' : 'var(--loss)'} ${Math.round(intensity * 100)}%,var(--bg))`};
-                border:{isSelected ? `1.5px solid ${isWin ? 'var(--win)' : 'var(--loss)'}` : `1px solid color-mix(in srgb,${isWin ? 'var(--win)' : 'var(--loss)'} 35%,transparent)`};
+              style="background:{isSelected ? 'color-mix(in srgb,#3b82f6 20%,var(--surface))' : `color-mix(in srgb,${isWin ? 'var(--win)' : 'var(--loss)'} ${Math.round(intensity * 100)}%,var(--bg))`};
+                border:{isSelected ? '1.5px solid #3b82f6' : `1px solid color-mix(in srgb,${isWin ? 'var(--win)' : 'var(--loss)'} 35%,transparent)`};
                 border-radius:6px;height:56px;
                 display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;
                 cursor:pointer;transition:opacity 0.1s;"
@@ -442,7 +442,7 @@
             <table style="width:100%;border-collapse:collapse;font-size:0.775rem;">
               <thead>
                 <tr style="border-bottom:1px solid var(--border);">
-                  {#each ['Coin','Side','Opened','Closed','Entry','Exit','PnL'] as col}
+                  {#each ['Time','Coin','Side','Entry','Exit','PnL'] as col}
                     <th style="padding:4px 8px;text-align:{col === 'Entry' || col === 'Exit' || col === 'PnL' ? 'right' : 'left'};font-size:0.65rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;font-weight:500;">{col}</th>
                   {/each}
                 </tr>
@@ -450,10 +450,9 @@
               <tbody>
                 {#each dayStat.trades as trade}
                   <tr style="border-bottom:1px solid var(--border);">
+                    <td style="padding:5px 8px;font-family:'JetBrains Mono',monospace;color:var(--text-muted);font-size:0.7rem;">{trade.time ?? '—'}</td>
                     <td style="padding:5px 8px;font-weight:600;color:var(--text-primary);">{trade.coin}</td>
                     <td style="padding:5px 8px;color:{trade.position === 'Long' ? 'var(--win)' : trade.position === 'Short' ? 'var(--loss)' : 'var(--text-muted)'};">{trade.position || '—'}</td>
-                    <td style="padding:5px 8px;font-family:'JetBrains Mono',monospace;color:var(--text-muted);font-size:0.7rem;">{trade.date_opened ?? '—'}</td>
-                    <td style="padding:5px 8px;font-family:'JetBrains Mono',monospace;color:var(--text-muted);font-size:0.7rem;">{trade.date_closed ?? '—'}</td>
                     <td style="padding:5px 8px;text-align:right;font-family:'JetBrains Mono',monospace;color:var(--text-muted);">{trade.entry_price != null ? trade.entry_price.toLocaleString() : '—'}</td>
                     <td style="padding:5px 8px;text-align:right;font-family:'JetBrains Mono',monospace;color:var(--text-muted);">{trade.exit_price != null ? trade.exit_price.toLocaleString() : '—'}</td>
                     <td style="padding:5px 8px;text-align:right;font-family:'JetBrains Mono',monospace;font-weight:600;color:{trade.pnl >= 0 ? 'var(--win)' : 'var(--loss)'};">

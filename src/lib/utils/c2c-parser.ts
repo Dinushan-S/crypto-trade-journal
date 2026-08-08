@@ -1,4 +1,5 @@
 import Papa from 'papaparse';
+import { parseBinanceDate } from './binance-parser';
 
 export interface C2CEntry {
   type: 'deposit' | 'withdrawal';
@@ -12,12 +13,6 @@ export interface C2CEntry {
   order_number: string;
   notes: string | null;
   source: 'c2c_import';
-}
-
-function parseBinanceDate(raw: string): { date: string; time: string } {
-  const [datePart, timePart] = raw.trim().split(' ');
-  const [yy, mm, dd] = datePart.split('-');
-  return { date: `20${yy}-${mm}-${dd}`, time: timePart ?? '00:00:00' };
 }
 
 export function parseC2CCSV(csvText: string): C2CEntry[] {

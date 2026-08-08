@@ -16,7 +16,7 @@ export const load: PageServerLoad = async ({ url, locals: { convex } }) => {
   }
 
   return {
-    trades: mappedTrades.slice(0, 50),
+    trades: mappedTrades,
     selectedTrade,
     prefilledTradeId: tradeIdParam || '',
   };

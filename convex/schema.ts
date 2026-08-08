@@ -42,8 +42,8 @@ export default defineSchema({
     created_at: v.optional(v.string()),
   })
     .index("by_user", ["userId"])
-    .index("by_user_date", ["userId", "date"])
-    .index("by_user_order", ["userId", "order_id"]),
+    .index("by_userId_and_date", ["userId", "date"])
+    .index("by_userId_and_order_id", ["userId", "order_id"]),
 
   ledger: defineTable({
     userId: v.string(),
@@ -68,8 +68,8 @@ export default defineSchema({
     created_at: v.optional(v.string()),
   })
     .index("by_user", ["userId"])
-    .index("by_user_date", ["userId", "date"])
-    .index("by_user_order", ["userId", "order_number"]),
+    .index("by_userId_and_date", ["userId", "date"])
+    .index("by_userId_and_order_number", ["userId", "order_number"]),
 
   liquidations: defineTable({
     userId: v.string(),
@@ -83,7 +83,7 @@ export default defineSchema({
     created_at: v.optional(v.string()),
   })
     .index("by_user", ["userId"])
-    .index("by_user_date", ["userId", "date"]),
+    .index("by_userId_and_date", ["userId", "date"]),
 
   sessions: defineTable({
     userId: v.string(),
@@ -91,9 +91,9 @@ export default defineSchema({
     session_type: v.string(),
     status: v.optional(v.string()),
     market_bias: v.optional(v.string()),
-    news_events: v.optional(v.any()),
-    watchlist: v.optional(v.any()),
-    live_trades: v.optional(v.any()),
+    news_events: v.optional(v.array(v.string())),
+    watchlist: v.optional(v.array(v.string())),
+    live_trades: v.optional(v.array(v.string())),
     session_notes: v.optional(v.string()),
     what_seen: v.optional(v.string()),
     what_skipped: v.optional(v.string()),
@@ -104,11 +104,11 @@ export default defineSchema({
     what_right: v.optional(v.string()),
     what_wrong: v.optional(v.string()),
     tomorrow_plan: v.optional(v.string()),
-    checklist: v.optional(v.any()),
+    checklist: v.optional(v.array(v.string())),
     created_at: v.optional(v.string()),
   })
     .index("by_user", ["userId"])
-    .index("by_user_date_type", ["userId", "date", "session_type"]),
+    .index("by_userId_and_date_and_session_type", ["userId", "date", "session_type"]),
 
   binance_imports: defineTable({
     userId: v.string(),
@@ -134,6 +134,6 @@ export default defineSchema({
     created_at: v.optional(v.string()),
   })
     .index("by_user", ["userId"])
-    .index("by_user_date", ["userId", "trade_date"])
-    .index("by_user_category", ["userId", "category"]),
+    .index("by_userId_and_trade_date", ["userId", "trade_date"])
+    .index("by_userId_and_category", ["userId", "category"]),
 });

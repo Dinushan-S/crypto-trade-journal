@@ -18,7 +18,7 @@ export interface FuturesTrade {
   source: 'futures_import';
 }
 
-function parseBinanceDate(raw: string): { date: string; time: string } {
+export function parseBinanceDate(raw: string): { date: string; time: string } {
   // Input: "25-12-31 13:40:14" or "26-01-02 08:48:21"
   // Output: { date: "2025-12-31", time: "13:40:14" }
   const [datePart, timePart] = raw.trim().split(' ');

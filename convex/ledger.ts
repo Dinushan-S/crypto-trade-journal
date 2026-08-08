@@ -11,7 +11,7 @@ export const getLedger = query({
       .query("ledger")
       .withIndex("by_user", (q) => q.eq("userId", userId))
       .order("desc")
-      .collect();
+      .take(1000);
   },
 });
 
@@ -80,7 +80,7 @@ export const batchCreateLedger = mutation({
       if (entry.order_number) {
         const existing = await ctx.db
           .query("ledger")
-          .withIndex("by_user_order", (q) =>
+          .withIndex("by_userId_and_order_number", (q) =>
             q.eq("userId", userId).eq("order_number", entry.order_number)
           )
           .first();

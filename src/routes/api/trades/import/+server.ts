@@ -3,8 +3,15 @@ import type { RequestHandler } from './$types';
 import { api } from '../../../../../convex/_generated/api';
 
 export const POST: RequestHandler = async ({ request, locals: { convex } }) => {
-  const body = await request.json();
-  const { filename, trades } = body;
+  const body: unknown = await request.json();
+  if (typeof body !== 'object' || body === null) {
+    return json({ success: false, message: 'Invalid request body' }, { status: 400 });
+  }
+
+  const { filename, trades } = body as { filename?: string; trades?: any[] };
+  if (!Array.isArray(trades)) {
+    return json({ success: false, message: 'Trades array required' }, { status: 400 });
+  }
 
   try {
     const inserted = await convex.mutation(api.trades.batchCreateTrades, { trades });

@@ -11,7 +11,7 @@ export const getTrades = query({
       .query("trades")
       .withIndex("by_user", (q) => q.eq("userId", userId))
       .order("desc")
-      .collect();
+      .take(1000);
   },
 });
 
@@ -173,7 +173,7 @@ export const batchCreateTrades = mutation({
       if (trade.order_id) {
         const existing = await ctx.db
           .query("trades")
-          .withIndex("by_user_order", (q) =>
+          .withIndex("by_userId_and_order_id", (q) =>
             q.eq("userId", userId).eq("order_id", trade.order_id)
           )
           .first();

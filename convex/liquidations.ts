@@ -11,7 +11,7 @@ export const getLiquidations = query({
       .query("liquidations")
       .withIndex("by_user", (q) => q.eq("userId", userId))
       .order("desc")
-      .collect();
+      .take(1000);
   },
 });
 

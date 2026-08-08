@@ -10,7 +10,7 @@ export const getSessions = query({
     return await ctx.db
       .query("sessions")
       .withIndex("by_user", (q) => q.eq("userId", userId))
-      .collect();
+      .take(1000);
   },
 });
 
@@ -21,7 +21,7 @@ export const getSessionByDateAndType = query({
     if (!userId) return null;
     return await ctx.db
       .query("sessions")
-      .withIndex("by_user_date_type", (q) =>
+      .withIndex("by_userId_and_date_and_session_type", (q) =>
         q.eq("userId", userId).eq("date", args.date).eq("session_type", args.session_type)
       )
       .first();
@@ -34,9 +34,9 @@ export const upsertSession = mutation({
     session_type: v.string(),
     status: v.optional(v.string()),
     market_bias: v.optional(v.string()),
-    news_events: v.optional(v.any()),
-    watchlist: v.optional(v.any()),
-    live_trades: v.optional(v.any()),
+    news_events: v.optional(v.array(v.string())),
+    watchlist: v.optional(v.array(v.string())),
+    live_trades: v.optional(v.array(v.string())),
     session_notes: v.optional(v.string()),
     what_seen: v.optional(v.string()),
     what_skipped: v.optional(v.string()),
@@ -47,14 +47,14 @@ export const upsertSession = mutation({
     what_right: v.optional(v.string()),
     what_wrong: v.optional(v.string()),
     tomorrow_plan: v.optional(v.string()),
-    checklist: v.optional(v.any()),
+    checklist: v.optional(v.array(v.string())),
   },
   handler: async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
     if (!userId) throw new Error("Unauthenticated");
     const existing = await ctx.db
       .query("sessions")
-      .withIndex("by_user_date_type", (q) =>
+      .withIndex("by_userId_and_date_and_session_type", (q) =>
         q.eq("userId", userId).eq("date", args.date).eq("session_type", args.session_type)
       )
       .first();
