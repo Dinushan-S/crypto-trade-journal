@@ -27,3 +27,6 @@ csv/
 "PLAN (1).md"
 .agents
 .claude
+
+# Migration scratch
+.import/

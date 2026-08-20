@@ -1,6 +1,5 @@
 <script lang="ts">
   import { page } from '$app/stores';
-  import { goto } from '$app/navigation';
   import ThemeToggle from './ThemeToggle.svelte';
 
   let collapsed = $state(false);
@@ -19,11 +18,6 @@
   function isActive(href: string) {
     if (href === '/') return $page.url.pathname === '/';
     return $page.url.pathname.startsWith(href);
-  }
-
-  async function signOut() {
-    document.cookie = 'convex_auth_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
-    goto('/login');
   }
 
   // SVG icon strings
@@ -93,8 +87,9 @@
   <!-- Bottom actions -->
   <div style="padding:0.75rem 0.5rem;border-top:1px solid var(--border);display:flex;flex-direction:column;gap:0.5rem;">
     <ThemeToggle />
+    <form method="POST" action="/logout" style="margin:0;">
     <button
-      onclick={signOut}
+      type="submit"
       style="display:flex;align-items:center;gap:0.75rem;padding:0.5rem 0.75rem;border-radius:0.5rem;border:none;background:transparent;color:var(--text-muted);cursor:pointer;font-size:0.875rem;text-align:left;width:100%;transition:color 0.15s;"
       title={collapsed ? 'Sign out' : ''}
     >
@@ -107,5 +102,6 @@
         <span>Sign out</span>
       {/if}
     </button>
+    </form>
   </div>
 </aside>

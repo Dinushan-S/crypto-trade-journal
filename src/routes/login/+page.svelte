@@ -1,23 +1,13 @@
 <script lang="ts">
-  import { goto } from '$app/navigation';
-  import { page } from '$app/stores';
+  import { enhance } from '$app/forms';
+  import type { ActionData } from './$types';
 
-  let email = $state('');
+  let { form }: { form: ActionData } = $props();
+
+  let mode = $state<'login' | 'signup'>(form?.flow === 'signUp' ? 'signup' : 'login');
+  let email = $state(form?.email ?? '');
   let password = $state('');
   let loading = $state(false);
-  let error = $state($page.url.searchParams.get('error') === 'auth_failed'
-    ? 'Authentication failed. Please try again.'
-    : '');
-  let successMsg = $state('');
-  let mode = $state<'login' | 'signup' | 'magic'>('login');
-
-  async function handleSubmit() {
-    loading = true;
-    error = '';
-    // Set authenticated cookie token
-    document.cookie = `convex_auth_token=authenticated_user; path=/; max-age=604800; SameSite=Lax`;
-    await goto('/');
-  }
 </script>
 
 <svelte:head><title>Qulem-Trade — Login</title></svelte:head>
@@ -37,12 +27,25 @@
     </div>
 
     <!-- Card -->
-    <div style="background:var(--surface);border:1px solid var(--border);border-radius:0.75rem;padding:2rem;">
+    <form
+      method="POST"
+      use:enhance={() => {
+        loading = true;
+        return async ({ update }) => {
+          await update({ reset: false });
+          loading = false;
+        };
+      }}
+      style="background:var(--surface);border:1px solid var(--border);border-radius:0.75rem;padding:2rem;"
+    >
+      <input type="hidden" name="flow" value={mode} />
+
       <!-- Mode tabs -->
       <div style="display:flex;gap:0.375rem;margin-bottom:1.5rem;background:var(--bg);border-radius:0.5rem;padding:0.25rem;">
-        {#each [['login','Sign In'],['signup','Sign Up'],['magic','Magic Link']] as [key, label]}
+        {#each [['login','Sign In'],['signup','Sign Up']] as [key, label]}
           <button
-            onclick={() => { mode = key as any; error = ''; successMsg = ''; }}
+            type="button"
+            onclick={() => (mode = key as 'login' | 'signup')}
             style="flex:1;padding:0.5rem 0.25rem;border-radius:0.375rem;border:none;cursor:pointer;font-size:0.8rem;font-weight:500;transition:all 0.15s;white-space:nowrap;
               background:{mode === key ? 'var(--surface)' : 'transparent'};
               color:{mode === key ? 'var(--text-primary)' : 'var(--text-muted)'};">
@@ -51,15 +54,9 @@
         {/each}
       </div>
 
-      {#if successMsg}
-        <div style="background:color-mix(in srgb,var(--win) 12%,transparent);border:1px solid color-mix(in srgb,var(--win) 30%,transparent);border-radius:0.5rem;padding:0.75rem;margin-bottom:1rem;color:var(--win);font-size:0.875rem;">
-          {successMsg}
-        </div>
-      {/if}
-
-      {#if error}
+      {#if form?.error}
         <div style="background:color-mix(in srgb,var(--loss) 12%,transparent);border:1px solid color-mix(in srgb,var(--loss) 30%,transparent);border-radius:0.5rem;padding:0.75rem;margin-bottom:1rem;color:var(--loss);font-size:0.875rem;">
-          {error}
+          {form.error}
         </div>
       {/if}
 
@@ -68,43 +65,39 @@
         <label for="email" style="display:block;font-size:0.75rem;font-weight:500;color:var(--text-muted);margin-bottom:0.375rem;text-transform:uppercase;letter-spacing:0.05em;">Email</label>
         <input
           id="email"
+          name="email"
           type="email"
+          autocomplete="email"
           bind:value={email}
           placeholder="you@example.com"
           style="width:100%;padding:0.625rem 0.75rem;background:var(--bg);border:1px solid var(--border);border-radius:0.5rem;color:var(--text-primary);font-size:0.875rem;outline:none;box-sizing:border-box;"
-          onkeydown={(e) => e.key === 'Enter' && handleSubmit()}
         />
       </div>
 
-      {#if mode === 'login' || mode === 'signup'}
-        <div style="margin-bottom:1.5rem;">
-          <label for="password" style="display:block;font-size:0.75rem;font-weight:500;color:var(--text-muted);margin-bottom:0.375rem;text-transform:uppercase;letter-spacing:0.05em;">Password</label>
-          <input
-            id="password"
-            type="password"
-            bind:value={password}
-            placeholder={mode === 'signup' ? 'Min. 6 characters' : '••••••••'}
-            style="width:100%;padding:0.625rem 0.75rem;background:var(--bg);border:1px solid var(--border);border-radius:0.5rem;color:var(--text-primary);font-size:0.875rem;outline:none;box-sizing:border-box;"
-            onkeydown={(e) => e.key === 'Enter' && handleSubmit()}
-          />
-        </div>
-      {:else}
-        <div style="margin-bottom:1.5rem;padding:0.75rem;background:var(--bg);border-radius:0.5rem;font-size:0.8rem;color:var(--text-muted);">
-          We'll send a one-click sign-in link to your email.
-        </div>
-      {/if}
+      <div style="margin-bottom:1.5rem;">
+        <label for="password" style="display:block;font-size:0.75rem;font-weight:500;color:var(--text-muted);margin-bottom:0.375rem;text-transform:uppercase;letter-spacing:0.05em;">Password</label>
+        <input
+          id="password"
+          name="password"
+          type="password"
+          autocomplete={mode === 'signup' ? 'new-password' : 'current-password'}
+          bind:value={password}
+          placeholder={mode === 'signup' ? 'Min. 8 characters' : '••••••••'}
+          style="width:100%;padding:0.625rem 0.75rem;background:var(--bg);border:1px solid var(--border);border-radius:0.5rem;color:var(--text-primary);font-size:0.875rem;outline:none;box-sizing:border-box;"
+        />
+      </div>
 
       <button
-        onclick={handleSubmit}
-        disabled={loading || !email || ((mode === 'login' || mode === 'signup') && !password)}
+        type="submit"
+        disabled={loading || !email || !password}
         style="width:100%;padding:0.75rem;background:var(--accent);color:#fff;border:none;border-radius:0.5rem;font-weight:600;font-size:0.875rem;cursor:pointer;transition:opacity 0.15s;
-          opacity:{loading || !email || ((mode === 'login' || mode === 'signup') && !password) ? 0.5 : 1};">
+          opacity:{loading || !email || !password ? 0.5 : 1};">
         {#if loading}
-          {mode === 'magic' ? 'Sending…' : mode === 'signup' ? 'Creating account…' : 'Signing in…'}
+          {mode === 'signup' ? 'Creating account…' : 'Signing in…'}
         {:else}
-          {mode === 'magic' ? 'Send Magic Link' : mode === 'signup' ? 'Create Account' : 'Sign In'}
+          {mode === 'signup' ? 'Create Account' : 'Sign In'}
         {/if}
       </button>
-    </div>
+    </form>
   </div>
 </div>

@@ -138,7 +138,7 @@
       </div>
       <div style="display:flex;justify-content:space-between;align-items:center;">
         <span style="font-size:0.875rem;color:var(--text-muted);">Stack</span>
-        <span style="font-size:0.875rem;color:var(--text-muted);">SvelteKit · Supabase · Tailwind</span>
+        <span style="font-size:0.875rem;color:var(--text-muted);">SvelteKit · Convex · Tailwind</span>
       </div>
     </div>
   </div>
