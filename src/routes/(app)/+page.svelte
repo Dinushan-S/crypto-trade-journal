@@ -1,6 +1,7 @@
 <script lang="ts">
   import { formatCurrency, formatDate } from '$lib/utils';
-  import { onMount } from 'svelte';
+  import { formatSessionTime, type ViewTz } from '$lib/utils/sessions';
+  import { onMount, untrack } from 'svelte';
 
   let { data } = $props();
   const stats = $derived(data.stats);
@@ -43,6 +44,12 @@
   const _now = new Date();
   let calendarMonth = $state(`${_now.getFullYear()}-${String(_now.getMonth() + 1).padStart(2, '0')}`); // YYYY-MM (local time)
   let expandedDay = $state<string | null>(null);
+  let dayTz = $state<ViewTz>(untrack(() => (data as any).calendarTz === 'utc' ? 'utc' : 'colombo'));
+  $effect(() => {
+    const tz = (data as any).calendarTz;
+    const mapped: ViewTz = tz === 'utc' ? 'utc' : 'colombo';
+    if (mapped !== dayTz) dayTz = mapped;
+  });
 
   onMount(() => {
     let destroyed = false;
@@ -424,33 +431,42 @@
         {@const [, , dd] = expandedDay.split('-')}
         {@const dayLabel = `${formatMonthLabel(calendarMonth).split(' ')[0]} ${parseInt(dd)}`}
         <div style="background:var(--bg);border:1px solid var(--border);border-radius:0.5rem;padding:0.875rem;">
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.625rem;">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.625rem;gap:0.75rem;flex-wrap:wrap;">
             <span style="font-size:0.75rem;font-weight:600;color:var(--text-primary);">
               {dayLabel} — {dayStat.tradeCount} trade{dayStat.tradeCount !== 1 ? 's' : ''} ·
               <span style="color:{dayStat.netPnl >= 0 ? 'var(--win)' : 'var(--loss)'};">
                 {dayStat.netPnl >= 0 ? '+' : ''}{dayStat.netPnl.toFixed(2)}
               </span>
             </span>
-            <button
-              type="button"
-              onclick={() => expandedDay = null}
-              style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:0.75rem;padding:0;">
-              ✕ Close
-            </button>
+            <div style="display:flex;align-items:center;gap:0.5rem;">
+              <div style="display:flex;border:1px solid var(--border);border-radius:999px;overflow:hidden;">
+                <button type="button" onclick={() => dayTz = 'utc'} style="padding:3px 10px;font-size:0.68rem;font-weight:600;cursor:pointer;border:none;background:{dayTz === 'utc' ? 'var(--accent)' : 'transparent'};color:{dayTz === 'utc' ? '#fff' : 'var(--text-muted)'};">UTC</button>
+                <button type="button" onclick={() => dayTz = 'colombo'} style="padding:3px 10px;font-size:0.68rem;font-weight:600;cursor:pointer;border:none;background:{dayTz === 'colombo' ? 'var(--accent)' : 'transparent'};color:{dayTz === 'colombo' ? '#fff' : 'var(--text-muted)'};">LKR</button>
+              </div>
+              <button
+                type="button"
+                onclick={() => expandedDay = null}
+                style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:0.75rem;padding:0;">
+                ✕ Close
+              </button>
+            </div>
           </div>
           <div style="overflow-x:auto;">
             <table style="width:100%;border-collapse:collapse;font-size:0.775rem;">
               <thead>
                 <tr style="border-bottom:1px solid var(--border);">
-                  {#each ['Time','Coin','Side','Entry','Exit','PnL'] as col}
-                    <th style="padding:4px 8px;text-align:{col === 'Entry' || col === 'Exit' || col === 'PnL' ? 'right' : 'left'};font-size:0.65rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;font-weight:500;">{col}</th>
-                  {/each}
+                  <th style="padding:4px 8px;text-align:left;font-size:0.65rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;font-weight:500;">Time {dayTz === 'utc' ? '(UTC)' : '(LKR)'}</th>
+                  <th style="padding:4px 8px;text-align:left;font-size:0.65rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;font-weight:500;">Coin</th>
+                  <th style="padding:4px 8px;text-align:left;font-size:0.65rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;font-weight:500;">Side</th>
+                  <th style="padding:4px 8px;text-align:right;font-size:0.65rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;font-weight:500;">Entry</th>
+                  <th style="padding:4px 8px;text-align:right;font-size:0.65rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;font-weight:500;">Exit</th>
+                  <th style="padding:4px 8px;text-align:right;font-size:0.65rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;font-weight:500;">PnL</th>
                 </tr>
               </thead>
               <tbody>
                 {#each dayStat.trades as trade}
                   <tr style="border-bottom:1px solid var(--border);">
-                    <td style="padding:5px 8px;font-family:'JetBrains Mono',monospace;color:var(--text-muted);font-size:0.7rem;">{trade.time ?? '—'}</td>
+                    <td style="padding:5px 8px;font-family:'JetBrains Mono',monospace;color:var(--text-muted);font-size:0.7rem;">{formatSessionTime(trade.time, dayTz)}</td>
                     <td style="padding:5px 8px;font-weight:600;color:var(--text-primary);">{trade.coin}</td>
                     <td style="padding:5px 8px;color:{trade.position === 'Long' ? 'var(--win)' : trade.position === 'Short' ? 'var(--loss)' : 'var(--text-muted)'};">{trade.position || '—'}</td>
                     <td style="padding:5px 8px;text-align:right;font-family:'JetBrains Mono',monospace;color:var(--text-muted);">{trade.entry_price != null ? trade.entry_price.toLocaleString() : '—'}</td>

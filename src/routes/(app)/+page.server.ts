@@ -152,5 +152,6 @@ export const load: PageServerLoad = async ({ locals: { convex }, cookies }) => {
     recentLedger,
     chartData: { monthlyPnl, coinPnl, winCount, lossCount, beCount, dailyStats },
     monthlyLedger,
+    calendarTz,
   };
 };
