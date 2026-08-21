@@ -141,7 +141,7 @@
             <table style="width:100%;border-collapse:collapse;font-size:0.8125rem;">
               <thead>
                 <tr style="background:var(--bg);border-bottom:1px solid var(--border);">
-                  {#each ['Date','My Bank','Recipient','LKR Sent','Bank Fee','Total LKR','USD Received','Rate','Eff. Rate','Source','Notes'] as col}
+                  {#each ['Date','My Bank','Recipient','LKR Sent','Bank Fee','Total LKR','USD Received','Rate','Eff. Rate','Source','Notes',''] as col}
                     <th style="padding:0.5rem 0.75rem;text-align:left;font-size:0.7rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;white-space:nowrap;">{col}</th>
                   {/each}
                 </tr>
@@ -160,6 +160,7 @@
                     <td style="padding:0.5rem 0.75rem;font-family:'JetBrains Mono',monospace;color:var(--accent);">{effectiveRate(e)?.toFixed(2) ?? '—'}</td>
                     <td style="padding:0.5rem 0.75rem;"><span style="font-size:0.7rem;padding:0.1rem 0.375rem;border-radius:0.25rem;background:color-mix(in srgb,var(--accent) 12%,transparent);color:var(--accent);">{e.source === 'c2c_import' ? 'Import' : 'Manual'}</span></td>
                     <td style="padding:0.5rem 0.75rem;color:var(--text-muted);max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{e.notes ?? '—'}</td>
+                    <td style="padding:0.5rem 0.75rem;"><a href="/ledger/{e._id}" style="color:var(--accent);text-decoration:none;font-size:0.8rem;">Edit</a></td>
                   </tr>
                 {/each}
               </tbody>
@@ -172,7 +173,7 @@
             <table style="width:100%;border-collapse:collapse;font-size:0.8125rem;">
               <thead>
                 <tr style="background:var(--bg);border-bottom:1px solid var(--border);">
-                  {#each ['Date','Sender','Receiver','USD Qty','Fee','Released USD','Rate','Expected LKR','Actual LKR','Source','Notes'] as col}
+                  {#each ['Date','Sender','Receiver','USD Qty','Fee','Released USD','Rate','Expected LKR','Actual LKR','Source','Notes',''] as col}
                     <th style="padding:0.5rem 0.75rem;text-align:left;font-size:0.7rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;white-space:nowrap;">{col}</th>
                   {/each}
                 </tr>
@@ -191,6 +192,7 @@
                     <td style="padding:0.5rem 0.75rem;font-family:'JetBrains Mono',monospace;font-weight:600;color:var(--text-primary);">{e.fiat_amount?.toLocaleString('en-US') ?? '—'}</td>
                     <td style="padding:0.5rem 0.75rem;"><span style="font-size:0.7rem;padding:0.1rem 0.375rem;border-radius:0.25rem;background:color-mix(in srgb,var(--accent) 12%,transparent);color:var(--accent);">{e.source === 'c2c_import' ? 'Import' : 'Manual'}</span></td>
                     <td style="padding:0.5rem 0.75rem;color:var(--text-muted);max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{e.notes ?? '—'}</td>
+                    <td style="padding:0.5rem 0.75rem;"><a href="/ledger/{e._id}" style="color:var(--accent);text-decoration:none;font-size:0.8rem;">Edit</a></td>
                   </tr>
                 {/each}
               </tbody>
