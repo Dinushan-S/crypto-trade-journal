@@ -1,9 +1,15 @@
 import { fail } from '@sveltejs/kit';
 import type { PageServerLoad, Actions } from './$types';
+import { api } from '../../../../convex/_generated/api';
 
 export const load: PageServerLoad = async ({ locals, cookies }) => {
   const calendarTz = (cookies.get('calendarTz') ?? 'local') as 'local' | 'utc';
-  return { user: locals.user, calendarTz };
+  let mySession: { start: string; end: string; tz: string } | null = null;
+  try {
+    const s: any = await locals.convex.query(api.userSettings.getUserSettings, {} as any).catch(() => null);
+    if (s) mySession = { start: s.my_session_start ?? '04:30', end: s.my_session_end ?? '12:30', tz: s.view_tz ?? 'utc' };
+  } catch {}
+  return { user: locals.user, calendarTz, mySession };
 };
 
 export const actions: Actions = {
@@ -34,5 +40,20 @@ export const actions: Actions = {
       cookies.set('calendarTz', tz, { path: '/', maxAge: 60 * 60 * 24 * 365 });
     }
     return { tzUpdated: true };
+  },
+
+  saveMySession: async ({ request, locals }) => {
+    const form = await request.formData();
+    const start = (form.get('my_start') as string)?.trim();
+    const end = (form.get('my_end') as string)?.trim();
+    const view_tz = (form.get('view_tz') as string)?.trim();
+    if (!/^\d{2}:\d{2}$/.test(start) || !/^\d{2}:\d{2}$/.test(end)) return fail(400, { error: 'Use HH:MM for My Session times.' });
+    if (view_tz !== 'utc' && view_tz !== 'colombo') return fail(400, { error: 'Invalid timezone.' });
+    try {
+      await locals.convex.mutation(api.userSettings.upsertUserSettings, { my_session_start: start, my_session_end: end, view_tz } as any);
+    } catch (e: any) {
+      return fail(400, { error: e?.message ?? 'Save failed.' });
+    }
+    return { mySessionSaved: true };
   },
 };

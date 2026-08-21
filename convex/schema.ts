@@ -145,4 +145,13 @@ export default defineSchema({
     .index("by_user", ["userId"])
     .index("by_userId_and_trade_date", ["userId", "trade_date"])
     .index("by_userId_and_category", ["userId", "category"]),
+
+  user_settings: defineTable({
+    userId: v.string(),
+    my_session_start: v.optional(v.string()),
+    my_session_end: v.optional(v.string()),
+    view_tz: v.optional(v.string()),
+    created_at: v.optional(v.string()),
+    updated_at: v.optional(v.string()),
+  }).index("by_user", ["userId"]),
 });

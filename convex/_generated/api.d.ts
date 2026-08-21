@@ -18,6 +18,7 @@ import type * as mistakes from "../mistakes.js";
 import type * as seed from "../seed.js";
 import type * as sessions from "../sessions.js";
 import type * as trades from "../trades.js";
+import type * as userSettings from "../userSettings.js";
 
 import type {
   ApiFromModules,
@@ -36,6 +37,7 @@ declare const fullApi: ApiFromModules<{
   seed: typeof seed;
   sessions: typeof sessions;
   trades: typeof trades;
+  userSettings: typeof userSettings;
 }>;
 
 /**

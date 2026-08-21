@@ -99,6 +99,33 @@
     </form>
   </div>
 
+  <!-- My Session -->
+  <div style="background:var(--surface);border:1px solid var(--border);border-radius:0.75rem;padding:1.25rem;margin-bottom:1rem;">
+    <h2 style="font-size:0.75rem;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:0.375rem;">My Session (Sri Lankan)</h2>
+    <p style="font-size:0.8rem;color:var(--text-muted);margin-bottom:1rem;">Derived only — never edits trade data. Times are UTC. Default 04:30–12:30 UTC = 10:00–18:00 Colombo.</p>
+    <form method="POST" action="?/saveMySession" use:enhance={() => { saving = true; return async ({ update }) => { await update(); saving = false; }; }}>
+      <div style="display:flex;gap:0.75rem;flex-wrap:wrap;align-items:flex-end;">
+        <div>
+          <label style="display:block;font-size:0.8rem;color:var(--text-muted);margin-bottom:0.375rem;">Start (UTC HH:MM)</label>
+          <input name="my_start" value={(data as any).mySession?.start ?? '04:30'} pattern="\d{2}:\d{2}" placeholder="04:30" style="width:110px;background:var(--bg);border:1px solid var(--border);border-radius:0.5rem;padding:0.5rem 0.75rem;color:var(--text-primary);font-size:0.875rem;" />
+        </div>
+        <div>
+          <label style="display:block;font-size:0.8rem;color:var(--text-muted);margin-bottom:0.375rem;">End (UTC HH:MM)</label>
+          <input name="my_end" value={(data as any).mySession?.end ?? '12:30'} pattern="\d{2}:\d{2}" placeholder="12:30" style="width:110px;background:var(--bg);border:1px solid var(--border);border-radius:0.5rem;padding:0.5rem 0.75rem;color:var(--text-primary);font-size:0.875rem;" />
+        </div>
+        <div>
+          <label style="display:block;font-size:0.8rem;color:var(--text-muted);margin-bottom:0.375rem;">Display TZ</label>
+          <select name="view_tz" style="padding:0.5rem 0.75rem;background:var(--bg);border:1px solid var(--border);border-radius:0.5rem;color:var(--text-primary);font-size:0.875rem;">
+            <option value="utc" selected={(data as any).mySession?.tz === 'utc'}>UTC (global-correct)</option>
+            <option value="colombo" selected={(data as any).mySession?.tz === 'colombo'}>Colombo (+05:30)</option>
+          </select>
+        </div>
+        <button type="submit" disabled={saving} style="padding:0.5rem 1rem;background:var(--accent);color:#fff;border:none;border-radius:0.5rem;font-size:0.875rem;font-weight:500;cursor:pointer;opacity:{saving?0.7:1};">{saving?'Saving…':'Save My Session'}</button>
+      </div>
+    </form>
+    {#if (form as any)?.mySessionSaved}<p style="font-size:0.775rem;color:var(--win);margin-top:0.625rem;">My Session saved.</p>{/if}
+  </div>
+
   <!-- Calendar Timezone -->
   <div style="background:var(--surface);border:1px solid var(--border);border-radius:0.75rem;padding:1.25rem;margin-bottom:1rem;">
     <h2 style="font-size:0.75rem;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:0.375rem;">Calendar Timezone</h2>
