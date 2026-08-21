@@ -1,5 +1,5 @@
 import type { PageServerLoad } from './$types';
-import { api } from '../../../../convex/_generated/api';
+import { api } from '../../../../../convex/_generated/api';
 
 export const load: PageServerLoad = async ({ locals: { convex }, url }) => {
   const tradeIdsStr = url.searchParams.get('tradeIds') ?? '';

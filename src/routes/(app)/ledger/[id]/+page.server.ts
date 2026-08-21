@@ -1,6 +1,6 @@
 import { error } from '@sveltejs/kit';
 import type { PageServerLoad, Actions } from './$types';
-import { api } from '../../../../convex/_generated/api';
+import { api } from '../../../../../convex/_generated/api';
 import type { Id } from '../../../../convex/_generated/dataModel';
 
 export const load: PageServerLoad = async ({ locals: { convex }, params }) => {
