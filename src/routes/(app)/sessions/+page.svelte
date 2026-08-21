@@ -66,7 +66,7 @@
 
 <svelte:head><title>Sessions — Qulem-Trade</title></svelte:head>
 
-<div style="padding:1.5rem;max-width:100%;">
+<div class="sessions-page" style="padding:1.5rem;max-width:100%;width:100%;box-sizing:border-box;">
   <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.5rem;flex-wrap:wrap;gap:0.75rem;">
     <div>
       <h1 style="font-family:'JetBrains Mono',monospace;font-size:1.25rem;font-weight:600;color:var(--text-primary);">Sessions</h1>
@@ -78,7 +78,7 @@
   </div>
 
   <!-- Market session analytics -->
-  <div style="background:var(--surface);border:1px solid var(--border);border-radius:0.75rem;padding:1rem;margin-bottom:1rem;">
+  <div style="background:var(--surface);border:1px solid var(--border);border-radius:0.75rem;padding:1rem;margin-bottom:1rem;width:100%;box-sizing:border-box;">
     <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:0.5rem;margin-bottom:0.75rem;">
       <h2 style="font-size:0.75rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;">Trades by Session</h2>
       <span style="font-size:0.75rem;color:var(--text-muted);">{(data as any).totalTrades ?? 0} filtered · {(data as any).allTradesCount ?? 0} total</span>
@@ -118,7 +118,7 @@
     </div>
 
     {#if (data as any).sessionStats}
-      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(145px,1fr));gap:0.5rem;margin-bottom:0.75rem;">
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:0.625rem;margin-bottom:0.875rem;">
         {#each (data as any).sessionStats as s}
           {@const isFiltered = selectedSessions.length===0 || selectedSessions.includes(s.session)}
           <div onclick={() => toggleSession(s.session)} role="button" tabindex="0" onkeydown={(e) => e.key === 'Enter' && toggleSession(s.session)} style="background:var(--bg);border:1px solid {isFiltered ? sessionBadgeColor(s.session as MarketSession) : 'var(--border)'};border-radius:0.6rem;padding:0.6rem 0.75rem;opacity:{isFiltered ? 1 : 0.55};cursor:pointer;">
@@ -146,7 +146,7 @@
   </div>
 
   <!-- Trades by session table -->
-  <div style="background:var(--surface);border:1px solid var(--border);border-radius:0.75rem;overflow:hidden;margin-bottom:1.25rem;">
+  <div style="background:var(--surface);border:1px solid var(--border);border-radius:0.75rem;overflow:hidden;margin-bottom:1.25rem;width:100%;box-sizing:border-box;">
     <div style="overflow-x:auto;">
       <table style="width:100%;border-collapse:collapse;font-size:0.8125rem;">
         <thead>

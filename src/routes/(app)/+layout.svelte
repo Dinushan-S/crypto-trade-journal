@@ -20,7 +20,7 @@
 
 <div style="display:flex;min-height:100vh;background:var(--bg);">
   <Sidebar />
-  <main style="flex:1;overflow-y:auto;min-width:0;">
+  <main style="flex:1;overflow-y:auto;min-width:0;width:100%;">
     {@render children()}
   </main>
 </div>
