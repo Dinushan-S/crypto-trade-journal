@@ -20,12 +20,20 @@
   let hbMax = $derived(Math.max(1, ...(((data as any).hourlyBuckets ?? []) as any[]).map((x: any) => x.count)));
 
   function toggleSession(s: string) {
-    if (s === 'all') selectedSessions = [];
+    let next: string[];
+    if (s === 'all') next = [];
     else {
       const set = new Set(selectedSessions);
       if (set.has(s)) set.delete(s); else set.add(s);
-      selectedSessions = Array.from(set);
+      next = Array.from(set);
     }
+    selectedSessions = next;
+    const params = new URLSearchParams();
+    if (next.length > 0) params.set('session', next.join(','));
+    if (result !== 'all') params.set('result', result);
+    if (viewTz !== 'utc') params.set('tz', viewTz);
+    const q = params.toString();
+    goto(q ? `/sessions?${q}` : '/sessions');
   }
   function applyFilters() {
     const params = new URLSearchParams();
@@ -35,6 +43,11 @@
     const q = params.toString();
     goto(q ? `/sessions?${q}` : '/sessions');
   }
+  $effect(() => {
+    const raw = (data as any).filters?.session ?? '';
+    const parsed = raw ? raw.split(',').filter(Boolean) : [];
+    if (parsed.join(',') !== selectedSessions.join(',')) selectedSessions = parsed;
+  });
   function resetFilters() {
     selectedSessions = [];
     result = 'all';
@@ -108,7 +121,7 @@
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(145px,1fr));gap:0.5rem;margin-bottom:0.75rem;">
         {#each (data as any).sessionStats as s}
           {@const isFiltered = selectedSessions.length===0 || selectedSessions.includes(s.session)}
-          <div style="background:var(--bg);border:1px solid {isFiltered ? sessionBadgeColor(s.session as MarketSession) : 'var(--border)'};border-radius:0.6rem;padding:0.6rem 0.75rem;opacity:{isFiltered ? 1 : 0.55};">
+          <div onclick={() => toggleSession(s.session)} role="button" tabindex="0" onkeydown={(e) => e.key === 'Enter' && toggleSession(s.session)} style="background:var(--bg);border:1px solid {isFiltered ? sessionBadgeColor(s.session as MarketSession) : 'var(--border)'};border-radius:0.6rem;padding:0.6rem 0.75rem;opacity:{isFiltered ? 1 : 0.55};cursor:pointer;">
             <div style="font-size:0.7rem;font-weight:700;color:{sessionBadgeColor(s.session as MarketSession)};text-transform:uppercase;letter-spacing:0.04em;">{(SESSION_LABELS as any)[s.session] ?? s.session}</div>
             <div style="font-size:0.75rem;color:var(--text-muted);margin-top:0.2rem;">{s.count} trades · {s.winRate.toFixed(1)}% WR</div>
             <div style="font-family:'JetBrains Mono',monospace;font-size:0.8rem;font-weight:700;color:{s.netPnl >=0 ? 'var(--win)' : 'var(--loss)'};margin-top:0.15rem;">{formatCurrency(s.netPnl)}</div>
