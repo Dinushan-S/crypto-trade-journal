@@ -222,7 +222,7 @@
             <table style="width:100%;border-collapse:collapse;font-size:0.8125rem;">
               <thead>
                 <tr style="background:var(--bg);border-bottom:1px solid var(--border);">
-                  {#each ['Date','Sender','Receiver','USD Qty','Fee','Released USD','Rate','Expected LKR','Actual LKR','Source','Balance','Notes',''] as col}
+                  {#each ['Date','USD Qty','Rate','LKR Received','Source','Balance',''] as col}
                     <th style="padding:0.5rem 0.75rem;text-align:left;font-size:0.7rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;white-space:nowrap;">{col}</th>
                   {/each}
                 </tr>
@@ -232,14 +232,9 @@
                   {@const tr = e.tracking}
                   <tr style="border-bottom:1px solid var(--border);">
                     <td style="padding:0.5rem 0.75rem;font-family:'JetBrains Mono',monospace;color:var(--text-muted);white-space:nowrap;">{formatDate(e.date)}</td>
-                    <td style="padding:0.5rem 0.75rem;color:var(--text-primary);">{e.sender_bank ?? e.counterparty ?? '—'}</td>
-                    <td style="padding:0.5rem 0.75rem;color:var(--text-muted);">{e.receiver_bank ?? '—'}</td>
                     <td style="padding:0.5rem 0.75rem;font-family:'JetBrains Mono',monospace;">${(e.usd_quantity ?? 0).toFixed(2)}</td>
-                    <td style="padding:0.5rem 0.75rem;font-family:'JetBrains Mono',monospace;color:var(--text-muted);">{e.fee ?? 0.07}</td>
-                    <td style="padding:0.5rem 0.75rem;font-family:'JetBrains Mono',monospace;font-weight:600;color:var(--accent);">${usdReleased(e).toFixed(2)}</td>
                     <td style="padding:0.5rem 0.75rem;font-family:'JetBrains Mono',monospace;">{e.usd_rate?.toFixed(2) ?? '—'}</td>
-                    <td style="padding:0.5rem 0.75rem;font-family:'JetBrains Mono',monospace;">{expectedFiat(e).toLocaleString('en-US', {maximumFractionDigits:0})}</td>
-                    <td style="padding:0.5rem 0.75rem;font-family:'JetBrains Mono',monospace;font-weight:600;color:var(--text-primary);">{e.fiat_amount?.toLocaleString('en-US') ?? '—'}</td>
+                    <td style="padding:0.5rem 0.75rem;font-family:'JetBrains Mono',monospace;font-weight:600;color:var(--text-primary);">{(e.fiat_amount ?? expectedFiat(e)).toLocaleString('en-US', {maximumFractionDigits:0})}</td>
                     <td style="padding:0.5rem 0.75rem;"><span style="font-size:0.7rem;padding:0.1rem 0.375rem;border-radius:0.25rem;background:color-mix(in srgb,var(--accent) 12%,transparent);color:var(--accent);">{e.source === 'c2c_import' ? 'Import' : 'Manual'}</span></td>
                     <td style="padding:0.5rem 0.75rem;font-family:'JetBrains Mono',monospace;font-weight:600;color:{tr?.balanceUsd > 0 ? 'var(--loss)' : 'var(--text-muted)'};white-space:nowrap;">
                       {#if tr?.balanceUsd > 0}
@@ -248,7 +243,6 @@
                         <span style="color:var(--text-muted);">—</span>
                       {/if}
                     </td>
-                    <td style="padding:0.5rem 0.75rem;color:var(--text-muted);max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{e.notes ?? '—'}</td>
                     <td style="padding:0.5rem 0.75rem;white-space:nowrap;">
                       <a href="/ledger/{e._id}" style="color:var(--accent);text-decoration:none;font-size:0.8rem;margin-right:0.5rem;">Edit</a>
                       <button onclick={() => releaseOpen = releaseOpen === e.id ? null : e.id}
@@ -259,7 +253,7 @@
                   </tr>
                   {#if releaseOpen === e.id}
                     <tr style="border-bottom:1px solid var(--border);background:color-mix(in srgb,var(--accent) 4%,transparent);">
-                      <td colspan="13" style="padding:0.75rem;">
+                      <td colspan="7" style="padding:0.75rem;">
                         <form method="POST" action="?/allocate" use:enhance={() => async ({ update }: any) => {
                           await update();
                           await invalidateAll();
