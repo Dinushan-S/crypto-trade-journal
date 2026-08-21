@@ -98,7 +98,7 @@
     <div style="display:flex;flex-wrap:wrap;gap:0.75rem;align-items:flex-end;margin-bottom:0.75rem;">
       <div>
         <label style="display:block;font-size:0.7rem;color:var(--text-muted);margin-bottom:0.25rem;text-transform:uppercase;letter-spacing:0.05em;">Result</label>
-        <select bind:value={result} style="padding:0.375rem 0.5rem;background:var(--bg);border:1px solid var(--border);border-radius:0.375rem;color:var(--text-primary);font-size:0.8rem;">
+        <select bind:value={result} onchange={applyFilters} style="padding:0.375rem 0.5rem;background:var(--bg);border:1px solid var(--border);border-radius:0.375rem;color:var(--text-primary);font-size:0.8rem;">
           <option value="all">All</option>
           <option value="win">Win</option>
           <option value="loss">Loss</option>
@@ -107,7 +107,7 @@
       </div>
       <div>
         <label style="display:block;font-size:0.7rem;color:var(--text-muted);margin-bottom:0.25rem;text-transform:uppercase;letter-spacing:0.05em;">View TZ</label>
-        <select bind:value={viewTz} style="padding:0.375rem 0.5rem;background:var(--bg);border:1px solid var(--border);border-radius:0.375rem;color:var(--text-primary);font-size:0.8rem;">
+        <select bind:value={viewTz} onchange={applyFilters} style="padding:0.375rem 0.5rem;background:var(--bg);border:1px solid var(--border);border-radius:0.375rem;color:var(--text-primary);font-size:0.8rem;">
           <option value="utc">UTC (global-correct)</option>
           <option value="colombo">Colombo (+05:30)</option>
         </select>

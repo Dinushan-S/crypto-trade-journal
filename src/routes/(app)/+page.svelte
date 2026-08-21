@@ -1,7 +1,7 @@
 <script lang="ts">
   import { formatCurrency, formatDate } from '$lib/utils';
-  import { formatSessionTime, type ViewTz } from '$lib/utils/sessions';
-  import { onMount, untrack } from 'svelte';
+  import { type ViewTz } from '$lib/utils/sessions';
+  import { onMount } from 'svelte';
 
   let { data } = $props();
   const stats = $derived(data.stats);
@@ -9,6 +9,38 @@
   const recentLedger = $derived(data.recentLedger);
   const chartData = $derived((data as any).chartData ?? { monthlyPnl: [], coinPnl: [], winCount: 0, lossCount: 0, beCount: 0, dailyStats: {} });
   const monthlyLedger = $derived((data as any).monthlyLedger ?? []);
+
+  // Stored trade date/time are Colombo (LKR, UTC+05:30). Re-bucket to UTC day and clock for the UTC view.
+  function utcDateFromColombo(dateStr: string, timeStr: string | null): string {
+    if (!timeStr) return dateStr;
+    const d = new Date(`${dateStr}T${timeStr}+05:00`);
+    return Number.isNaN(d.getTime()) ? dateStr : d.toISOString().slice(0, 10);
+  }
+  function utcClockFromColombo(timeStr: string | null): string | null {
+    if (!timeStr) return null;
+    const p = timeStr.split(':').map(Number);
+    if (p.length < 2 || Number.isNaN(p[0]) || Number.isNaN(p[1])) return timeStr;
+    const m = (p[0] * 60 + p[1] - 330 + 1440) % 1440;
+    const hh = String(Math.floor(m / 60)).padStart(2, '0');
+    const mm = String(m % 60).padStart(2, '0');
+    const ss = p[2] != null && !Number.isNaN(p[2]) ? `:${String(p[2]).padStart(2, '0')}` : '';
+    return `${hh}:${mm}${ss}`;
+  }
+  const dailyStats = $derived((data as any).chartData?.dailyStats ?? {});
+  const dailyStatsView = $derived.by(() => {
+    if (dayTz !== 'utc') return dailyStats;
+    const out: Record<string, any> = {};
+    for (const [day, stat] of Object.entries(dailyStats as Record<string, any>)) {
+      for (const tr of stat.trades ?? []) {
+        const uDay = utcDateFromColombo(tr.date_closed ?? tr.date_opened ?? day, tr.time);
+        if (!out[uDay]) out[uDay] = { netPnl: 0, tradeCount: 0, trades: [] };
+        out[uDay].netPnl += tr.pnl ?? 0;
+        out[uDay].tradeCount += 1;
+        out[uDay].trades.push({ ...tr, time: utcClockFromColombo(tr.time) });
+      }
+    }
+    return out;
+  });
 
   let ledgerPage = $state(0); // 0-based, 6 months per page
   const ledgerPageMonths = $derived(monthlyLedger.slice(ledgerPage * 6, ledgerPage * 6 + 6));
@@ -44,12 +76,7 @@
   const _now = new Date();
   let calendarMonth = $state(`${_now.getFullYear()}-${String(_now.getMonth() + 1).padStart(2, '0')}`); // YYYY-MM (local time)
   let expandedDay = $state<string | null>(null);
-  let dayTz = $state<ViewTz>(untrack(() => (data as any).calendarTz === 'utc' ? 'utc' : 'colombo'));
-  $effect(() => {
-    const tz = (data as any).calendarTz;
-    const mapped: ViewTz = tz === 'utc' ? 'utc' : 'colombo';
-    if (mapped !== dayTz) dayTz = mapped;
-  });
+  let dayTz = $state<ViewTz>(((data as any).calendarTz === 'utc' ? 'utc' : 'colombo') as ViewTz);
 
   onMount(() => {
     let destroyed = false;
@@ -226,7 +253,7 @@
     // Actual days
     for (let d = 1; d <= daysInMonth; d++) {
       const date = `${calendarMonth}-${String(d).padStart(2, '0')}`;
-      const stat = (chartData.dailyStats as Record<string, any>)[date] ?? null;
+      const stat = (dailyStatsView as Record<string, any>)[date] ?? null;
       days.push({ blank: false, date, dayNum: d, stat });
     }
     return days;
@@ -383,6 +410,16 @@
         </div>
       </div>
 
+      <!-- Day-card timezone toggle — always visible, directly above grid -->
+      <div style="display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap;margin-bottom:0.75rem;padding:0.5rem 0.625rem;background:var(--bg);border:1px solid var(--border);border-radius:0.5rem;">
+        <span style="font-size:0.7rem;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;">Day card times:</span>
+        <div style="display:flex;border:1px solid var(--border);border-radius:999px;overflow:hidden;">
+          <button type="button" onclick={() => { dayTz = 'utc'; }} aria-pressed={dayTz === 'utc'} style="padding:5px 14px;font-size:0.75rem;font-weight:700;cursor:pointer;border:none;background:{dayTz === 'utc' ? 'var(--accent)' : 'transparent'};color:{dayTz === 'utc' ? '#fff' : 'var(--text-muted)'};">UTC</button>
+          <button type="button" onclick={() => { dayTz = 'colombo'; }} aria-pressed={dayTz === 'colombo'} style="padding:5px 14px;font-size:0.75rem;font-weight:700;cursor:pointer;border:none;background:{dayTz === 'colombo' ? 'var(--accent)' : 'transparent'};color:{dayTz === 'colombo' ? '#fff' : 'var(--text-muted)'};">LKR (+05:30)</button>
+        </div>
+        <span style="font-size:0.7rem;color:var(--text-muted);font-family:'JetBrains Mono',monospace;">{dayTz === 'utc' ? '03:02 UTC' : '08:32 LKR'} ← live · {dayTz === 'utc' ? 'UTC' : 'LKR (+05:30)'} — open a day, Time column uses this</span>
+      </div>
+
       <!-- Day-of-week headers -->
       <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-bottom:4px;">
         {#each ['MON','TUE','WED','THU','FRI','SAT','SUN'] as dow}
@@ -426,8 +463,8 @@
       </div>
 
       <!-- Expanded day trade panel -->
-      {#if expandedDay && (chartData.dailyStats as Record<string, any>)[expandedDay]}
-        {@const dayStat = (chartData.dailyStats as Record<string, any>)[expandedDay]}
+      {#if expandedDay && (dailyStatsView as Record<string, any>)[expandedDay]}
+        {@const dayStat = (dailyStatsView as Record<string, any>)[expandedDay]}
         {@const [, , dd] = expandedDay.split('-')}
         {@const dayLabel = `${formatMonthLabel(calendarMonth).split(' ')[0]} ${parseInt(dd)}`}
         <div style="background:var(--bg);border:1px solid var(--border);border-radius:0.5rem;padding:0.875rem;">
@@ -438,20 +475,15 @@
                 {dayStat.netPnl >= 0 ? '+' : ''}{dayStat.netPnl.toFixed(2)}
               </span>
             </span>
-            <div style="display:flex;align-items:center;gap:0.5rem;">
-              <div style="display:flex;border:1px solid var(--border);border-radius:999px;overflow:hidden;">
-                <button type="button" onclick={() => dayTz = 'utc'} style="padding:3px 10px;font-size:0.68rem;font-weight:600;cursor:pointer;border:none;background:{dayTz === 'utc' ? 'var(--accent)' : 'transparent'};color:{dayTz === 'utc' ? '#fff' : 'var(--text-muted)'};">UTC</button>
-                <button type="button" onclick={() => dayTz = 'colombo'} style="padding:3px 10px;font-size:0.68rem;font-weight:600;cursor:pointer;border:none;background:{dayTz === 'colombo' ? 'var(--accent)' : 'transparent'};color:{dayTz === 'colombo' ? '#fff' : 'var(--text-muted)'};">LKR</button>
-              </div>
-              <button
-                type="button"
-                onclick={() => expandedDay = null}
-                style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:0.75rem;padding:0;">
-                ✕ Close
-              </button>
-            </div>
+            <button
+              type="button"
+              onclick={() => expandedDay = null}
+              style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:0.75rem;padding:0;">
+              ✕ Close
+            </button>
           </div>
           <div style="overflow-x:auto;">
+            {#key dayTz}
             <table style="width:100%;border-collapse:collapse;font-size:0.775rem;">
               <thead>
                 <tr style="border-bottom:1px solid var(--border);">
@@ -466,7 +498,7 @@
               <tbody>
                 {#each dayStat.trades as trade}
                   <tr style="border-bottom:1px solid var(--border);">
-                    <td style="padding:5px 8px;font-family:'JetBrains Mono',monospace;color:var(--text-muted);font-size:0.7rem;">{formatSessionTime(trade.time, dayTz)}</td>
+                    <td style="padding:5px 8px;font-family:'JetBrains Mono',monospace;color:var(--text-muted);font-size:0.7rem;">{trade.time?.slice(0, 5) ?? '—'}{dayTz === 'utc' ? ' UTC' : ' LKR'}</td>
                     <td style="padding:5px 8px;font-weight:600;color:var(--text-primary);">{trade.coin}</td>
                     <td style="padding:5px 8px;color:{trade.position === 'Long' ? 'var(--win)' : trade.position === 'Short' ? 'var(--loss)' : 'var(--text-muted)'};">{trade.position || '—'}</td>
                     <td style="padding:5px 8px;text-align:right;font-family:'JetBrains Mono',monospace;color:var(--text-muted);">{trade.entry_price != null ? trade.entry_price.toLocaleString() : '—'}</td>
@@ -478,6 +510,7 @@
                 {/each}
               </tbody>
             </table>
+            {/key}
           </div>
         </div>
       {/if}

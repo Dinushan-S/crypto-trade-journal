@@ -1,13 +1,6 @@
 import type { PageServerLoad } from './$types';
 import { api } from '../../../convex/_generated/api';
 
-function effectiveDate(dateStr: string, timeStr: string | null, tz: string): string {
-  if (tz === 'utc' && timeStr) {
-    return new Date(`${dateStr}T${timeStr}+05:00`).toISOString().slice(0, 10);
-  }
-  return dateStr;
-}
-
 export const load: PageServerLoad = async ({ locals: { convex }, cookies }) => {
   const calendarTz = cookies.get('calendarTz') ?? 'local';
 
@@ -99,8 +92,8 @@ export const load: PageServerLoad = async ({ locals: { convex }, cookies }) => {
   const dailyStats: Record<string, DayStat> = {};
 
   for (const t of trades) {
-    const rawDate = (t.date_closed ?? t.date)?.slice(0, 10);
-    const day = rawDate ? effectiveDate(rawDate, t.time ?? null, calendarTz) : null;
+    // Stored date/time are Colombo (LKR). Always serve raw values; the client converts for the UTC view.
+    const day = (t.date_closed ?? t.date)?.slice(0, 10);
     if (!day || t.pnl == null) continue;
     if (!dailyStats[day]) dailyStats[day] = { netPnl: 0, tradeCount: 0, trades: [] };
     dailyStats[day].netPnl += t.pnl;
