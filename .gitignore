@@ -30,3 +30,4 @@ csv/
 
 # Migration scratch
 .import/
+.commandcode/settings.json

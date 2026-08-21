@@ -80,10 +80,19 @@ export default defineSchema({
     strategy: v.optional(v.string()),
     reason: v.optional(v.string()),
     notes: v.optional(v.string()),
+    mistake: v.optional(v.string()),
     created_at: v.optional(v.string()),
   })
     .index("by_user", ["userId"])
     .index("by_userId_and_date", ["userId", "date"]),
+
+  liquidation_trades: defineTable({
+    userId: v.string(),
+    liquidation_id: v.id("liquidations"),
+    trade_id: v.id("trades"),
+  })
+    .index("by_user_liquidation", ["userId", "liquidation_id"])
+    .index("by_user_trade", ["userId", "trade_id"]),
 
   sessions: defineTable({
     userId: v.string(),

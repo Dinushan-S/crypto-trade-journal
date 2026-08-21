@@ -14,6 +14,7 @@
 		"format": "prettier --write ."
 	},
 	"devDependencies": {
+		"@edge-runtime/vm": "^5.0.0",
 		"@eslint/compat": "^2.0.4",
 		"@eslint/js": "^10.0.1",
 		"@sveltejs/adapter-vercel": "^6.3.3",
@@ -21,6 +22,7 @@
 		"@sveltejs/vite-plugin-svelte": "^7.0.0",
 		"@tailwindcss/vite": "^4.2.2",
 		"@types/node": "^20",
+		"convex-test": "^0.0.56",
 		"eslint": "^10.2.0",
 		"eslint-config-prettier": "^10.1.8",
 		"eslint-plugin-svelte": "^3.17.0",
@@ -33,7 +35,8 @@
 		"tailwindcss": "^4.2.2",
 		"typescript": "^6.0.2",
 		"typescript-eslint": "^8.58.1",
-		"vite": "^8.0.7"
+		"vite": "^8.0.7",
+		"vitest": "^4.1.11"
 	},
 	"dependencies": {
 		"@convex-dev/auth": "^0.0.94",
