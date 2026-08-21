@@ -1,1 +1,4 @@
-{}
+{
+  "buildCommand": "npx convex deploy --gen-js && npm run build",
+  "framework": "sveltekit"
+}

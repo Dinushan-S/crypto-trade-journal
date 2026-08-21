@@ -76,7 +76,7 @@
         </div>
         <div>
           <label style={labelStyle}>Amount Lost ($)</label>
-          <input type="number" name="amount_lost" bind:value={amount_lost} step="any" on:focus={markAmountManual} placeholder="500.00" style={inputStyle} />
+          <input type="number" name="amount_lost" bind:value={amount_lost} step="any" onfocus={markAmountManual} placeholder="500.00" style={inputStyle} />
         </div>
         <div>
           <label style={labelStyle}>Strategy</label>
