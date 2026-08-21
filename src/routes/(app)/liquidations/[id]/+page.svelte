@@ -156,10 +156,10 @@
 <div style="padding:1.5rem;max-width:900px;">
   <!-- Error banner -->
   {#if formError}
-    <div onclick={clearErrors} style="background:color-mix(in srgb,var(--loss) 10%,transparent);border:1px solid var(--loss);border-radius:0.75rem;padding:0.75rem 1rem;margin-bottom:1rem;color:var(--loss);font-size:0.875rem;cursor:pointer;display:flex;align-items:center;justify-content:space-between;">
+    <button type="button" onclick={clearErrors} style="background:color-mix(in srgb,var(--loss) 10%,transparent);border:1px solid var(--loss);border-radius:0.75rem;padding:0.75rem 1rem;margin-bottom:1rem;color:var(--loss);font-size:0.875rem;cursor:pointer;display:flex;align-items:center;justify-content:space-between;">
       <span>⚠ {formError}</span>
       <span style="font-weight:700;margin-left:1rem;opacity:0.7;">✕</span>
-    </div>
+    </button>
   {/if}
 
   <!-- Header -->

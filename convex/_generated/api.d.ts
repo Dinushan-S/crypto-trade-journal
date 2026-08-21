@@ -9,6 +9,7 @@
  */
 
 import type * as auth from "../auth.js";
+import type * as fixDates from "../fixDates.js";
 import type * as http from "../http.js";
 import type * as imports from "../imports.js";
 import type * as ledger from "../ledger.js";
@@ -26,6 +27,7 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   auth: typeof auth;
+  fixDates: typeof fixDates;
   http: typeof http;
   imports: typeof imports;
   ledger: typeof ledger;

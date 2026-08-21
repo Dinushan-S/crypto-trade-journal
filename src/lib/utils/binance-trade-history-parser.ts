@@ -1,16 +1,11 @@
 import Papa from 'papaparse';
-import type { FuturesTrade } from './binance-parser';
+import { parseBinanceDate as parseTHDate, type FuturesTrade } from './binance-parser';
 
 export interface TradeHistoryTrade extends FuturesTrade {
   fee: number;
 }
 
-function parseTHDate(raw: string): { date: string; time: string } {
-  // Input: "26-06-04 22:50:30" → { date: "2026-06-04", time: "22:50:30" }
-  const [datePart, timePart] = raw.trim().split(' ');
-  const [yy, mm, dd] = datePart.split('-');
-  return { date: `20${yy}-${mm}-${dd}`, time: timePart ?? '00:00:00' };
-}
+
 
 function parseFee(feeStr: string): number {
   // "0.08825600USDT" → 0.088256
