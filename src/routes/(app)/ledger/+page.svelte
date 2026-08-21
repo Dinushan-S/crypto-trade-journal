@@ -1,8 +1,8 @@
 <script lang="ts">
-  import { formatDate } from '$lib/utils';
+  import { formatDate, periodRange, type Period } from '$lib/utils';
 
   let { data } = $props();
-  let activeTab = $state<'all' | 'deposits' | 'withdrawals' | 'summary'>('all');
+  let activeTab = $state<'all' | 'deposits' | 'withdrawals'>('all');
 
   type LedgerEntry = typeof data.entries[0];
 
@@ -21,13 +21,30 @@
     return e.fiat_sent / e.usd_received;
   }
 
-  let deposits = $derived(data.entries.filter((e: LedgerEntry) => e.type === 'deposit'));
-  let withdrawals = $derived(data.entries.filter((e: LedgerEntry) => e.type === 'withdrawal'));
+  // Date filtering (client-side — the whole ledger is already loaded)
+  let period = $state<Period>('custom');
+  let dateFrom = $state('');
+  let dateTo = $state('');
+  function setPeriod(p: Period) {
+    period = p;
+    if (p === 'custom') return;
+    ({ from: dateFrom, to: dateTo } = periodRange(p));
+  }
+
+  let entries = $derived(
+    data.entries.filter(
+      (e: LedgerEntry) =>
+        (!dateFrom || e.date >= dateFrom) && (!dateTo || e.date <= dateTo)
+    )
+  );
+
+  let deposits = $derived(entries.filter((e: LedgerEntry) => e.type === 'deposit'));
+  let withdrawals = $derived(entries.filter((e: LedgerEntry) => e.type === 'withdrawal'));
 
   let visibleEntries = $derived(
     activeTab === 'deposits' ? deposits :
     activeTab === 'withdrawals' ? withdrawals :
-    activeTab === 'all' ? data.entries : []
+    entries
   );
 
   // P&L Summary stats
@@ -46,7 +63,7 @@
   <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.5rem;flex-wrap:wrap;gap:0.75rem;">
     <div>
       <h1 style="font-family:'JetBrains Mono',monospace;font-size:1.25rem;font-weight:600;color:var(--text-primary);">P2P Ledger</h1>
-      <p style="color:var(--text-muted);font-size:0.875rem;margin-top:0.125rem;">{data.entries.length} entries</p>
+      <p style="color:var(--text-muted);font-size:0.875rem;margin-top:0.125rem;">{entries.length} entries</p>
     </div>
     <div style="display:flex;gap:0.5rem;">
       <a href="/ledger/import" style="padding:0.5rem 0.875rem;border:1px solid var(--border);border-radius:0.5rem;color:var(--text-muted);text-decoration:none;font-size:0.875rem;display:inline-flex;align-items:center;gap:0.375rem;">
@@ -58,11 +75,47 @@
     </div>
   </div>
 
+  <!-- Date filter -->
+  <div style="display:flex;flex-wrap:wrap;gap:0.5rem;align-items:center;margin-bottom:1rem;">
+    {#each [['day','Today'],['week','This Week'],['month','This Month'],['custom','Custom']] as [p, label]}
+      <button
+        onclick={() => setPeriod(p as Period)}
+        style="padding:0.375rem 0.625rem;border:1px solid {period === p ? 'var(--accent)' : 'var(--border)'};border-radius:0.375rem;background:{period === p ? 'color-mix(in srgb,var(--accent) 12%,transparent)' : 'var(--bg)'};color:{period === p ? 'var(--accent)' : 'var(--text-muted)'};font-size:0.8rem;cursor:pointer;"
+      >{label}</button>
+    {/each}
+    <input type="date" bind:value={dateFrom} oninput={() => (period = 'custom')}
+      style="padding:0.375rem 0.5rem;background:var(--bg);border:1px solid var(--border);border-radius:0.375rem;color:var(--text-primary);font-size:0.8rem;" />
+    <span style="color:var(--text-muted);font-size:0.8rem;">→</span>
+    <input type="date" bind:value={dateTo} oninput={() => (period = 'custom')}
+      style="padding:0.375rem 0.5rem;background:var(--bg);border:1px solid var(--border);border-radius:0.375rem;color:var(--text-primary);font-size:0.8rem;" />
+    {#if dateFrom || dateTo}
+      <button onclick={() => { dateFrom = ''; dateTo = ''; period = 'custom'; }}
+        style="padding:0.375rem 0.625rem;border:none;background:transparent;color:var(--text-muted);font-size:0.8rem;cursor:pointer;text-decoration:underline;">Clear</button>
+    {/if}
+  </div>
+
+  <!-- P&L Summary -->
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:0.75rem;margin-bottom:1.5rem;">
+    {#each ([
+      ['Total LKR In', `LKR ${totalLkrIn.toLocaleString('en-US', {maximumFractionDigits:0})}`, 'var(--win)'],
+      ['Total LKR Out', `LKR ${totalLkrOut.toLocaleString('en-US', {maximumFractionDigits:0})}`, 'var(--loss)'],
+      ['Net LKR Contribution', `LKR ${netLkr.toLocaleString('en-US', {maximumFractionDigits:0})}`, netLkr >= 0 ? 'var(--win)' : 'var(--loss)'],
+      ['Total USD Deposited', `$${totalUsdDeposited.toFixed(2)}`, 'var(--win)'],
+      ['Total USD Withdrawn', `$${totalUsdWithdrawn.toFixed(2)}`, 'var(--loss)'],
+      ['Net USD Position', `$${netUsd.toFixed(2)}`, netUsd >= 0 ? 'var(--win)' : 'var(--loss)'],
+    ] satisfies [string, string, string][]) as item}
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:0.75rem;padding:1rem;">
+        <div style="font-size:0.7rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:0.5rem;">{item[0]}</div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:1.1rem;font-weight:700;color:{item[2]};">{item[1]}</div>
+      </div>
+    {/each}
+  </div>
+
   <!-- Tabs -->
   <div style="display:flex;gap:0;border-bottom:2px solid var(--border);margin-bottom:1rem;">
-    {#each [['all','All'], ['deposits','Deposits'], ['withdrawals','Withdrawals'], ['summary','P&L Summary']] as [tab, label]}
+    {#each [['all','All'], ['deposits','Deposits'], ['withdrawals','Withdrawals']] as [tab, label]}
       <button
-        onclick={() => activeTab = tab as 'all' | 'deposits' | 'withdrawals' | 'summary'}
+        onclick={() => activeTab = tab as 'all' | 'deposits' | 'withdrawals'}
         style="padding:0.625rem 1rem;border:none;background:transparent;font-size:0.875rem;font-weight:{activeTab === tab ? '600' : '400'};
           color:{activeTab === tab ? 'var(--accent)' : 'var(--text-muted)'};
           border-bottom:{activeTab === tab ? '2px solid var(--accent)' : '2px solid transparent'};
@@ -72,24 +125,6 @@
     {/each}
   </div>
 
-  {#if activeTab === 'summary'}
-    <!-- P&L Summary -->
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:0.75rem;margin-bottom:1.5rem;">
-      {#each ([
-        ['Total LKR In', `LKR ${totalLkrIn.toLocaleString('en-US', {maximumFractionDigits:0})}`, 'var(--win)'],
-        ['Total LKR Out', `LKR ${totalLkrOut.toLocaleString('en-US', {maximumFractionDigits:0})}`, 'var(--loss)'],
-        ['Net LKR Contribution', `LKR ${netLkr.toLocaleString('en-US', {maximumFractionDigits:0})}`, netLkr >= 0 ? 'var(--win)' : 'var(--loss)'],
-        ['Total USD Deposited', `$${totalUsdDeposited.toFixed(2)}`, 'var(--win)'],
-        ['Total USD Withdrawn', `$${totalUsdWithdrawn.toFixed(2)}`, 'var(--loss)'],
-        ['Net USD Position', `$${netUsd.toFixed(2)}`, netUsd >= 0 ? 'var(--win)' : 'var(--loss)'],
-      ] satisfies [string, string, string][]) as item}
-        <div style="background:var(--surface);border:1px solid var(--border);border-radius:0.75rem;padding:1rem;">
-          <div style="font-size:0.7rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:0.5rem;">{item[0]}</div>
-          <div style="font-family:'JetBrains Mono',monospace;font-size:1.1rem;font-weight:700;color:{item[2]};">{item[1]}</div>
-        </div>
-      {/each}
-    </div>
-  {:else}
     <!-- Table -->
     <div style="background:var(--surface);border:1px solid var(--border);border-radius:0.75rem;overflow:hidden;">
       {#if visibleEntries.length === 0}
@@ -164,5 +199,4 @@
         </div>
       {/if}
     </div>
-  {/if}
 </div>

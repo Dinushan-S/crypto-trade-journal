@@ -6,6 +6,20 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <script>
+      // Runs before first paint: system preference is the default, localStorage overrides it.
+      (() => {
+        const mq = matchMedia('(prefers-color-scheme: dark)');
+        const apply = () => {
+          const stored = localStorage.getItem('theme');
+          const dark = stored ? stored === 'dark' : mq.matches;
+          document.documentElement.classList.toggle('dark', dark);
+          document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
+        };
+        apply();
+        mq.addEventListener('change', apply);
+      })();
+    </script>
     %sveltekit.head%
   </head>
   <body data-sveltekit-preload-data="hover">

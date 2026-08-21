@@ -1,7 +1,7 @@
 <script lang="ts">
   import { goto } from '$app/navigation';
   import { untrack } from 'svelte';
-  import { formatCurrency, formatDate } from '$lib/utils';
+  import { formatCurrency, formatDate, periodRange, type Period } from '$lib/utils';
 
   let { data } = $props();
 
@@ -18,6 +18,10 @@
   let sortCol = $state('date');
   let sortAsc = $state(false);
 
+  // Selection mode state
+  let selectionMode = $state(false);
+  let selectedSet = $state(new Set<string>());
+
   let sortedTrades = $derived((() => {
     const t = [...data.trades];
     t.sort((a, b) => {
@@ -30,12 +34,68 @@
     return t;
   })());
 
+  function toggleSelectionMode() {
+    selectionMode = !selectionMode;
+    if (!selectionMode) selectedSet.clear();
+  }
+
+  function toggleSelectAll(checked: boolean) {
+    if (checked) {
+      sortedTrades.forEach((t: any) => selectedSet.add(t.id));
+    } else {
+      selectedSet.clear();
+    }
+  }
+
+  function toggleTradeSelect(tradeId: string, checked: boolean) {
+    if (checked) selectedSet.add(tradeId);
+    else selectedSet.delete(tradeId);
+  }
+
+  const selectedCount = $derived(selectedSet.size);
+
+  const selectedTrades = $derived(
+    data.trades.filter((t: any) => selectedSet.has(t.id))
+  );
+
+  const selectedNetPnl = $derived(
+    selectedTrades.reduce((s: number, t: any) => s + (t.pnl ?? 0), 0)
+  );
+
+  const selectedFees = $derived(
+    selectedTrades.reduce((s: number, t: any) => s + (t.fee ?? 0), 0)
+  );
+
+  const allSelected = $derived(
+    selectedTrades.length > 0 && selectedSet.size === sortedTrades.length
+  );
+
+  const selectedAmountLost = $derived(Math.max(0, -selectedNetPnl));
+
+  const mixedFields = $derived({
+    coins: new Set(selectedTrades.map((t: any) => t.coin)).size > 1 ? true : false,
+    positions: new Set(selectedTrades.map((t: any) => t.position)).size > 1 ? true : false,
+    strategies: selectedTrades.every((t: any) => t.strategy)
+      ? new Set(selectedTrades.map((t: any) => t.strategy)).size > 1 ? true : false
+      : false,
+  });
+
+  function createLiquidation() {
+    if (selectedSet.size === 0) return;
+    const tradeIds = Array.from(selectedSet).join(',');
+    goto(`/liquidations/new?tradeIds=${encodeURIComponent(tradeIds)}`);
+  }
+
+
+
+
   // Summary stats for visible trades
   let totalPnl = $derived(data.trades.reduce((s: number, t: any) => s + (t.pnl ?? 0), 0));
   let wins = $derived(data.trades.filter((t: any) => t.win).length);
   let winRate = $derived(data.trades.length > 0 ? ((wins / data.trades.length) * 100).toFixed(1) : '0.0');
 
   function applyFilters() {
+    selectedSet.clear();
     const params = new URLSearchParams();
     if (coin) params.set('coin', coin);
     if (position !== 'all') params.set('position', position);
@@ -47,7 +107,17 @@
     goto(`/trades?${params.toString()}`);
   }
 
+  // Quick date period presets — 'custom' just leaves the From/To inputs alone
+  let period = $state<Period>('custom');
+  function setPeriod(p: Period) {
+    period = p;
+    if (p === 'custom') return;
+    ({ from: dateFrom, to: dateTo } = periodRange(p));
+    applyFilters();
+  }
+
   function resetFilters() {
+    selectedSet.clear();
     coin = '';
     position = 'all';
     result = 'all';
@@ -55,6 +125,7 @@
     source = 'all';
     dateFrom = '';
     dateTo = '';
+    period = 'custom';
     goto('/trades');
   }
 
@@ -122,6 +193,12 @@
       </p>
     </div>
     <div style="display:flex;gap:0.5rem;">
+      <button
+        onclick={toggleSelectionMode}
+        style="padding:0.5rem 0.875rem;background:{selectionMode ? 'var(--accent)' : 'transparent'};border:{selectionMode ? 'none' : '1px solid var(--border)'};border-radius:0.5rem;color:{selectionMode ? '#fff' : 'var(--text-muted)'};text-decoration:none;font-size:0.875rem;display:inline-flex;align-items:center;gap:0.375rem;cursor:pointer;"
+      >
+        📋 Create Liquidation
+      </button>
       <a
         href="/trades/import"
         style="padding:0.5rem 0.875rem;border:1px solid var(--border);border-radius:0.5rem;color:var(--text-muted);text-decoration:none;font-size:0.875rem;background:transparent;display:inline-flex;align-items:center;gap:0.375rem;"
@@ -149,10 +226,51 @@
     </div>
   </div>
 
+  <!-- Sticky summary bar (visible in selection mode) -->
+  {#if selectionMode && selectedCount > 0}
+    <div style="position:sticky;top:0;z-index:10;background:var(--surface);border:1px solid var(--border);border-radius:0.75rem;padding:0.875rem 1rem;margin-bottom:1rem;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:0.75rem;box-shadow:0 2px 8px rgba(0,0,0,0.05);">
+      <div style="display:flex;align-items:center;gap:1rem;flex-wrap:wrap;">
+        <span style="font-size:0.85rem;font-weight:700;color:var(--accent);">
+          {selectedCount} selected
+        </span>
+        {#if mixedFields.coins}
+          <span style="font-size:0.75rem;color:var(--loss);border:1px solid var(--loss);padding:0.15rem 0.5rem;border-radius:0.25rem;">Mixed coins</span>
+        {:else if selectedTrades[0]}
+          <span style="font-size:0.75rem;color:var(--text-muted);">Coin: {selectedTrades[0].coin}</span>
+        {/if}
+        {#if mixedFields.positions}
+          <span style="font-size:0.75rem;color:var(--loss);border:1px solid var(--loss);padding:0.15rem 0.5rem;border-radius:0.25rem;">Mixed position</span>
+        {:else if selectedTrades[0] && selectedTrades[0].position}
+          <span style="font-size:0.75rem;color:var(--text-muted);">Pos: {selectedTrades[0].position}</span>
+        {/if}
+        <span style="font-size:0.8rem;font-weight:600;color:{selectedAmountLost > 0 ? 'var(--loss)' : 'var(--text-muted)'};">
+          Net PnL: {formatCurrency(selectedNetPnl)}
+        </span>
+      </div>
+      <div style="display:flex;gap:0.5rem;align-items:center;">
+        <a href="/liquidations/new" style="font-size:0.8rem;color:var(--text-muted);text-decoration:underline;cursor:pointer;">Cancel</a>
+        <a
+          href="/liquidations/new?tradeIds={encodeURIComponent(Array.from(selectedSet).join(','))}"
+          style="padding:0.5rem 1rem;background:var(--loss);color:#fff;border:none;border-radius:0.5rem;font-size:0.85rem;font-weight:600;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;gap:0.375rem;"
+        >
+          Create Liquidation →
+        </a>
+      </div>
+    </div>
+  {/if}
+
   <!-- Filters -->
   <div
     style="background:var(--surface);border:1px solid var(--border);border-radius:0.75rem;padding:1rem;margin-bottom:1rem;display:flex;flex-wrap:wrap;gap:0.75rem;align-items:flex-end;"
   >
+    <div style="display:flex;gap:0.25rem;align-self:flex-end;">
+      {#each [['day','Today'],['week','This Week'],['month','This Month'],['custom','Custom']] as [p, label]}
+        <button
+          onclick={() => setPeriod(p as Period)}
+          style="padding:0.375rem 0.625rem;border:1px solid {period === p ? 'var(--accent)' : 'var(--border)'};border-radius:0.375rem;background:{period === p ? 'color-mix(in srgb,var(--accent) 12%,transparent)' : 'var(--bg)'};color:{period === p ? 'var(--accent)' : 'var(--text-muted)'};font-size:0.8rem;cursor:pointer;"
+        >{label}</button>
+      {/each}
+    </div>
     <div>
       <label
         style="display:block;font-size:0.7rem;color:var(--text-muted);margin-bottom:0.25rem;text-transform:uppercase;letter-spacing:0.05em;"
@@ -161,6 +279,7 @@
       <input
         type="date"
         bind:value={dateFrom}
+        oninput={() => (period = 'custom')}
         style="padding:0.375rem 0.5rem;background:var(--bg);border:1px solid var(--border);border-radius:0.375rem;color:var(--text-primary);font-size:0.8rem;width:130px;"
       />
     </div>
@@ -172,6 +291,7 @@
       <input
         type="date"
         bind:value={dateTo}
+        oninput={() => (period = 'custom')}
         style="padding:0.375rem 0.5rem;background:var(--bg);border:1px solid var(--border);border-radius:0.375rem;color:var(--text-primary);font-size:0.8rem;width:130px;"
       />
     </div>
@@ -264,6 +384,16 @@
       <table style="width:100%;border-collapse:collapse;font-size:0.8125rem;">
         <thead>
           <tr style="background:var(--bg);border-bottom:1px solid var(--border);">
+            {#if selectionMode}
+              <th style="padding:0.625rem 0.75rem;text-align:center;font-size:0.7rem;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;white-space:nowrap;min-width:40px;">
+                <input
+                  type="checkbox"
+                  checked={allSelected}
+                  onchange={(e) => toggleSelectAll((e.target as HTMLInputElement).checked)}
+                  style="cursor:pointer;accent-color:var(--accent);"
+                />
+              </th>
+            {/if}
             {#each columns as [label, col]}
               <th
                 onclick={() => col && toggleSort(col)}
@@ -279,7 +409,7 @@
         <tbody>
           {#if data.trades.length === 0}
             <tr>
-              <td colspan="16" style="padding:3rem;text-align:center;color:var(--text-muted);">
+              <td colspan="{selectionMode ? 17 : 16}" style="padding:3rem;text-align:center;color:var(--text-muted);">
                 No trades found.
                 <a href="/trades/new" style="color:var(--accent);text-decoration:none;"
                   >Add your first trade</a
@@ -293,14 +423,42 @@
           {:else}
             {#each sortedTrades as trade, i}
               <tr
-                onclick={() => goto(`/trades/${trade.id}`)}
-                style="border-bottom:1px solid var(--border);cursor:pointer;transition:background 0.1s;"
-                onmouseenter={(e) =>
-                  ((e.currentTarget as HTMLElement).style.background =
-                    'color-mix(in srgb, var(--accent) 4%, transparent)')}
-                onmouseleave={(e) =>
-                  ((e.currentTarget as HTMLElement).style.background = 'transparent')}
+                class:selection-mode-row={selectionMode}
+                onclick={() => !selectionMode && goto(`/trades/${trade.id}`)}
+                style="border-bottom:1px solid var(--border);transition:background 0.1s;{selectionMode ? 'cursor:default' : 'cursor:pointer'}"
+                onmouseenter={(e) => {
+                  const el = e.currentTarget as HTMLElement;
+                  if (selectionMode) {
+                    el.style.background = selectedSet.has(trade.id)
+                      ? 'color-mix(in srgb, var(--accent) 15%, transparent)'
+                      : 'color-mix(in srgb, var(--accent) 4%, transparent)';
+                  } else {
+                    el.style.background = 'color-mix(in srgb, var(--accent) 4%, transparent)';
+                  }
+                }}
+                onmouseleave={(e) => {
+                  const el = e.currentTarget as HTMLElement;
+                  if (selectionMode) {
+                    el.style.background = selectedSet.has(trade.id)
+                      ? 'color-mix(in srgb, var(--accent) 10%, transparent)'
+                      : 'transparent';
+                  } else {
+                    el.style.background = 'transparent';
+                  }
+                }}
               >
+                {#if selectionMode}
+                  <td
+                    style="padding:0.625rem 0.75rem;text-align:center;pointer-events:none;"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={selectedSet.has(trade.id)}
+                      onchange={(e) => toggleTradeSelect(trade.id, (e.target as HTMLInputElement).checked)}
+                      style="cursor:pointer;accent-color:var(--accent);"
+                    />
+                  </td>
+                {/if}
                 <td
                   style="padding:0.625rem 0.75rem;color:var(--text-muted);font-family:'JetBrains Mono',monospace;"
                   >{i + 1}</td
@@ -387,7 +545,7 @@
           <tfoot>
             <tr style="background:var(--bg);border-top:2px solid var(--border);">
               <td
-                colspan="2"
+                colspan="{selectionMode ? 2 : 2}"
                 style="padding:0.625rem 0.75rem;font-size:0.75rem;color:var(--text-muted);font-weight:600;"
                 >{data.total} trades</td
               >
@@ -439,3 +597,9 @@
     {/if}
   </div>
 </div>
+
+<style>
+  .selection-mode-row:hover td {
+    background: transparent;
+  }
+</style>

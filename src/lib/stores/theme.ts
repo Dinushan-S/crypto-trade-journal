@@ -2,30 +2,25 @@ import { writable } from 'svelte/store';
 import { browser } from '$app/environment';
 
 function createThemeStore() {
-  const stored = browser ? localStorage.getItem('theme') : null;
-  const systemDark = browser ? window.matchMedia('(prefers-color-scheme: dark)').matches : false;
-  const initial = (stored ?? (systemDark ? 'dark' : 'light')) as 'dark' | 'light';
+  // The theme is already applied by the pre-paint script in app.html — just read it back.
+  const initial: 'dark' | 'light' =
+    browser && document.documentElement.classList.contains('dark') ? 'dark' : 'light';
 
   const { subscribe, set } = writable<'dark' | 'light'>(initial);
 
-  if (browser) {
-    document.documentElement.classList.toggle('dark', initial === 'dark');
+  function apply(value: 'dark' | 'light') {
+    document.documentElement.classList.toggle('dark', value === 'dark');
+    document.documentElement.setAttribute('data-theme', value);
+    localStorage.setItem('theme', value);
+    set(value);
   }
 
   return {
     subscribe,
     toggle() {
-      const current = document.documentElement.classList.contains('dark') ? 'dark' : 'light';
-      const next = current === 'dark' ? 'light' : 'dark';
-      document.documentElement.classList.toggle('dark', next === 'dark');
-      localStorage.setItem('theme', next);
-      set(next);
+      apply(document.documentElement.classList.contains('dark') ? 'light' : 'dark');
     },
-    set(value: 'dark' | 'light') {
-      document.documentElement.classList.toggle('dark', value === 'dark');
-      localStorage.setItem('theme', value);
-      set(value);
-    }
+    set: apply
   };
 }
 
