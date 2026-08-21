@@ -66,7 +66,7 @@
 
 <svelte:head><title>Sessions — Qulem-Trade</title></svelte:head>
 
-<div style="padding:1.5rem;max-width:1100px;">
+<div style="padding:1.5rem;max-width:100%;">
   <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.5rem;flex-wrap:wrap;gap:0.75rem;">
     <div>
       <h1 style="font-family:'JetBrains Mono',monospace;font-size:1.25rem;font-weight:600;color:var(--text-primary);">Sessions</h1>
