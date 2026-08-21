@@ -52,8 +52,8 @@ async function addWithdrawal(t: any, over: Partial<Entry> = {}) {
   return id;
 }
 
-async function lock(t: any, depositId: string, lockedUsd: number) {
-  await t.mutation(api.ledger.createLedgerLock, { depositId, lockedUsd });
+async function lock(t: any, depositId: string) {
+  await t.mutation(api.ledger.createLedgerLock, { depositId });
 }
 
 async function allocate(t: any, withdrawalId: string, allocations: { depositId: string; releasedUsd: number }[]) {
@@ -86,48 +86,50 @@ test("tracking query with no locks: deposit remaining null, withdrawal balance f
 
 // --- T2: lock a deposit ---
 
-test("lock a deposit: locked/remaining appear, LKR derived from rate", async () => {
+test("lock a deposit: locks FULL usd_received, LKR derived from rate", async () => {
   const t = makeT();
   const d = await addDeposit(t, { usd_received: 5000, usd_rate: 320 });
-  await lock(t, d, 3000);
+  await lock(t, d);
   const entries = await t.query(api.ledger.getLedgerWithTracking);
   const dep = entries.find((e: any) => e._id === d)!;
   expect(dep.tracking).toMatchObject({
-    lockedUsd: 3000,
-    lockedLkr: 960000,
+    lockedUsd: 5000,
+    lockedLkr: 1600000,
     releasedUsd: 0,
-    remainingUsd: 3000,
-    remainingLkr: 960000,
+    remainingUsd: 5000,
+    remainingLkr: 1600000,
     fullyWithdrawn: false,
   });
 });
 
-test("lock clamps to deposit usd_received", async () => {
+test("lock always uses full usd_received (no partial lock amount)", async () => {
   const t = makeT();
   const d = await addDeposit(t, { usd_received: 5000 });
-  await lock(t, d, 9999);
+  await lock(t, d);
   const entries = await t.query(api.ledger.getLedgerWithTracking);
   const dep = entries.find((e: any) => e._id === d)!;
   expect(dep.tracking.lockedUsd).toBe(5000);
 });
 
-test("lock cannot go below already-released (clamp to released)", async () => {
+test("re-locking an existing lock keeps full amount, not reduced by released", async () => {
   const t = makeT();
   const d = await addDeposit(t, { usd_received: 5000 });
   const w = await addWithdrawal(t, { usd_quantity: 2000 });
-  await lock(t, d, 5000);
+  await lock(t, d);
   await allocate(t, w, [{ depositId: d, releasedUsd: 2000 }]);
-  // try to reduce lock below released 2000 → should clamp to 2000
-  await lock(t, d, 1000);
+  // re-lock → stays at full 5000 (release is partial, not lock)
+  await lock(t, d);
   const entries = await t.query(api.ledger.getLedgerWithTracking);
   const dep = entries.find((e: any) => e._id === d)!;
-  expect(dep.tracking.lockedUsd).toBe(2000);
+  expect(dep.tracking.lockedUsd).toBe(5000);
+  expect(dep.tracking.releasedUsd).toBe(2000);
+  expect(dep.tracking.remainingUsd).toBe(3000);
 });
 
-test("shrinking a deposit clamps its lock", async () => {
+test("shrinking a deposit clamps its lock (full new amount)", async () => {
   const t = makeT();
   const d = await addDeposit(t, { usd_received: 5000 });
-  await lock(t, d, 4000);
+  await lock(t, d);
   await t.mutation(api.ledger.updateLedgerEntry, { id: d, usd_received: 3000 });
   const entries = await t.query(api.ledger.getLedgerWithTracking);
   const dep = entries.find((e: any) => e._id === d)!;
@@ -140,7 +142,7 @@ test("partial release: lock 5000, release 2000 → remaining 3000", async () => 
   const t = makeT();
   const d = await addDeposit(t, { usd_received: 5000 });
   const w = await addWithdrawal(t, { usd_quantity: 2000 });
-  await lock(t, d, 5000);
+  await lock(t, d);
   await allocate(t, w, [{ depositId: d, releasedUsd: 2000 }]);
   const entries = await t.query(api.ledger.getLedgerWithTracking);
   const dep = entries.find((e: any) => e._id === d)!;
@@ -155,8 +157,8 @@ test("many-to-many: one withdrawal releases two deposits, many withdrawals relea
   const d2 = await addDeposit(t, { usd_received: 3000 });
   const w1 = await addWithdrawal(t, { usd_quantity: 2500 });
   const w2 = await addWithdrawal(t, { usd_quantity: 1500 });
-  await lock(t, d1, 5000);
-  await lock(t, d2, 3000);
+  await lock(t, d1);
+  await lock(t, d2);
   // w1 releases d1 (2000) + d2 (500)
   await allocate(t, w1, [
     { depositId: d1, releasedUsd: 2000 },
@@ -181,23 +183,25 @@ test("many-to-many: one withdrawal releases two deposits, many withdrawals relea
 test("allocation capped at deposit remaining; excess stays on withdrawal balance", async () => {
   const t = makeT();
   const d = await addDeposit(t, { usd_received: 5000 });
-  const w = await addWithdrawal(t, { usd_quantity: 4000 });
-  await lock(t, d, 2000);
-  // try to release 3000 > remaining 2000 → capped to 2000, 1000 stays on withdrawal balance
-  await allocate(t, w, [{ depositId: d, releasedUsd: 3000 }]);
+  const w1 = await addWithdrawal(t, { usd_quantity: 3000 });
+  const w2 = await addWithdrawal(t, { usd_quantity: 3000 });
+  await lock(t, d);
+  await allocate(t, w1, [{ depositId: d, releasedUsd: 3000 }]);
+  // second withdrawal tries 3000 but only 2000 remaining → capped to 2000, 1000 stays on balance
+  await allocate(t, w2, [{ depositId: d, releasedUsd: 3000 }]);
   const entries = await t.query(api.ledger.getLedgerWithTracking);
   const dep = entries.find((e: any) => e._id === d)!;
-  const wd = entries.find((e: any) => e._id === w)!;
-  expect(dep.tracking.releasedUsd).toBe(2000);
+  const wd2 = entries.find((e: any) => e._id === w2)!;
+  expect(dep.tracking.releasedUsd).toBe(5000);
   expect(dep.tracking.remainingUsd).toBe(0);
-  expect(wd.tracking.balanceUsd).toBeCloseTo(2000, 2); // 4000 released - 2000 allocated
+  expect(wd2.tracking.balanceUsd).toBeCloseTo(1000, 2); // 3000 released - 2000 allocated (capped)
 });
 
 test("fully-withdrawn deposit flagged, excluded from picker (no remaining)", async () => {
   const t = makeT();
   const d = await addDeposit(t, { usd_received: 5000 });
   const w = await addWithdrawal(t, { usd_quantity: 5000 });
-  await lock(t, d, 5000);
+  await lock(t, d);
   await allocate(t, w, [{ depositId: d, releasedUsd: 5000 }]);
   const entries = await t.query(api.ledger.getLedgerWithTracking);
   const dep = entries.find((e: any) => e._id === d)!;
@@ -210,8 +214,8 @@ test("LKR released splits proportionally; last allocation absorbs remainder", as
   const d1 = await addDeposit(t, { usd_received: 5000 });
   const d2 = await addDeposit(t, { usd_received: 3000 });
   const w = await addWithdrawal(t, { usd_quantity: 2500, fiat_amount: 800000, usd_rate: 320 });
-  await lock(t, d1, 5000);
-  await lock(t, d2, 3000);
+  await lock(t, d1);
+  await lock(t, d2);
   await allocate(t, w, [
     { depositId: d1, releasedUsd: 2000 },
     { depositId: d2, releasedUsd: 500 },
@@ -231,8 +235,8 @@ test("rebalance allocations: shift amount between deposits", async () => {
   const d1 = await addDeposit(t, { usd_received: 5000 });
   const d2 = await addDeposit(t, { usd_received: 3000 });
   const w = await addWithdrawal(t, { usd_quantity: 2500 });
-  await lock(t, d1, 5000);
-  await lock(t, d2, 3000);
+  await lock(t, d1);
+  await lock(t, d2);
   await allocate(t, w, [{ depositId: d1, releasedUsd: 2500 }]);
   // rebalance: move 1000 from d1 to d2
   await t.mutation(api.ledger.rebalanceAllocations, {
@@ -254,8 +258,8 @@ test("editing withdrawal usd_quantity scales allocations proportionally", async 
   const d1 = await addDeposit(t, { usd_received: 5000 });
   const d2 = await addDeposit(t, { usd_received: 3000 });
   const w = await addWithdrawal(t, { usd_quantity: 2500, fiat_amount: 800000 });
-  await lock(t, d1, 5000);
-  await lock(t, d2, 3000);
+  await lock(t, d1);
+  await lock(t, d2);
   await allocate(t, w, [
     { depositId: d1, releasedUsd: 2000 },
     { depositId: d2, releasedUsd: 500 },
@@ -274,8 +278,8 @@ test("editing withdrawal quantity keeps LKR split proportional to fiat_amount", 
   const d1 = await addDeposit(t, { usd_received: 5000 });
   const d2 = await addDeposit(t, { usd_received: 3000 });
   const w = await addWithdrawal(t, { usd_quantity: 2500, fiat_amount: 800000 });
-  await lock(t, d1, 5000);
-  await lock(t, d2, 3000);
+  await lock(t, d1);
+  await lock(t, d2);
   await allocate(t, w, [
     { depositId: d1, releasedUsd: 2000 },
     { depositId: d2, releasedUsd: 500 },
@@ -294,7 +298,7 @@ test("shrinking a deposit below its released amount clamps lock to released, not
   const t = makeT();
   const d = await addDeposit(t, { usd_received: 5000 });
   const w = await addWithdrawal(t, { usd_quantity: 3000 });
-  await lock(t, d, 5000);
+  await lock(t, d);
   await allocate(t, w, [{ depositId: d, releasedUsd: 3000 }]);
   // shrink deposit to 1000 (< released 3000) → lock must clamp to released 3000, remaining 0
   await t.mutation(api.ledger.updateLedgerEntry, { id: d, usd_received: 1000 });
@@ -309,7 +313,7 @@ test("deleting a withdrawal frees its allocations back into remaining", async ()
   const t = makeT();
   const d = await addDeposit(t, { usd_received: 5000 });
   const w = await addWithdrawal(t, { usd_quantity: 2000 });
-  await lock(t, d, 5000);
+  await lock(t, d);
   await allocate(t, w, [{ depositId: d, releasedUsd: 2000 }]);
   await t.mutation(api.ledger.deleteLedgerEntry, { id: w });
   const entries = await t.query(api.ledger.getLedgerWithTracking);
@@ -324,7 +328,7 @@ test("deleting a deposit with release history is blocked", async () => {
   const t = makeT();
   const d = await addDeposit(t, { usd_received: 5000 });
   const w = await addWithdrawal(t, { usd_quantity: 2000 });
-  await lock(t, d, 5000);
+  await lock(t, d);
   await allocate(t, w, [{ depositId: d, releasedUsd: 2000 }]);
   await expect(t.mutation(api.ledger.deleteLedgerEntry, { id: d })).rejects.toThrow();
 });
@@ -332,8 +336,25 @@ test("deleting a deposit with release history is blocked", async () => {
 test("deleting a deposit with a lock but no releases still works (lock removed)", async () => {
   const t = makeT();
   const d = await addDeposit(t, { usd_received: 5000 });
-  await lock(t, d, 3000);
+  await lock(t, d);
   await t.mutation(api.ledger.deleteLedgerEntry, { id: d });
   const entries = await t.query(api.ledger.getLedgerWithTracking);
-  expect(entries.find((e: any) => e._id === d)!).toBeUndefined();
+  expect(entries.find((e: any) => e._id === d)).toBeUndefined();
+});
+
+test("reset lock removes tracking; blocked once release history exists", async () => {
+  const t = makeT();
+  const d = await addDeposit(t, { usd_received: 5000 });
+  await lock(t, d);
+  await t.mutation(api.ledger.removeLedgerLock, { depositId: d });
+  let entries = await t.query(api.ledger.getLedgerWithTracking);
+  expect(entries.find((e: any) => e._id === d)!.tracking.lockedUsd).toBeNull();
+
+  // re-lock + release → reset is blocked
+  const w = await addWithdrawal(t, { usd_quantity: 2000 });
+  await lock(t, d);
+  await allocate(t, w, [{ depositId: d, releasedUsd: 2000 }]);
+  await expect(t.mutation(api.ledger.removeLedgerLock, { depositId: d })).rejects.toThrow();
+  entries = await t.query(api.ledger.getLedgerWithTracking);
+  expect(entries.find((e: any) => e._id === d)!.tracking.lockedUsd).toBe(5000);
 });

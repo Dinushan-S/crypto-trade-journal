@@ -159,7 +159,7 @@
             <table style="width:100%;border-collapse:collapse;font-size:0.8125rem;">
               <thead>
                 <tr style="background:var(--bg);border-bottom:1px solid var(--border);">
-                  {#each ['Date','My Bank','Recipient','LKR Sent','Bank Fee','Total LKR','USD Received','Rate','Eff. Rate','Source','Lock','Released','Remaining','Status','Notes',''] as col}
+                  {#each ['Date','LKR Sent','Total LKR','USD Received','Rate','Lock','Released','Remaining','Status',''] as col}
                     <th style="padding:0.5rem 0.75rem;text-align:left;font-size:0.7rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;white-space:nowrap;">{col}</th>
                   {/each}
                 </tr>
@@ -169,15 +169,10 @@
                   {@const tr = e.tracking}
                   <tr style="border-bottom:1px solid var(--border);">
                     <td style="padding:0.5rem 0.75rem;font-family:'JetBrains Mono',monospace;color:var(--text-muted);white-space:nowrap;">{formatDate(e.date)}</td>
-                    <td style="padding:0.5rem 0.75rem;color:var(--text-primary);">{e.my_bank ?? '—'}</td>
-                    <td style="padding:0.5rem 0.75rem;color:var(--text-muted);">{e.recipient_bank ?? e.counterparty ?? '—'}</td>
                     <td style="padding:0.5rem 0.75rem;font-family:'JetBrains Mono',monospace;color:var(--text-primary);">{e.fiat_sent?.toLocaleString('en-US') ?? '—'}</td>
-                    <td style="padding:0.5rem 0.75rem;font-family:'JetBrains Mono',monospace;color:var(--text-muted);">{e.usd_fee ? `$${e.usd_fee}` : '—'}</td>
                     <td style="padding:0.5rem 0.75rem;font-family:'JetBrains Mono',monospace;font-weight:600;color:var(--text-primary);">{lkrTotalSent(e).toLocaleString('en-US', {maximumFractionDigits:2})}</td>
                     <td style="padding:0.5rem 0.75rem;font-family:'JetBrains Mono',monospace;font-weight:600;color:var(--win);">${(e.usd_received ?? 0).toFixed(2)}</td>
                     <td style="padding:0.5rem 0.75rem;font-family:'JetBrains Mono',monospace;">{e.usd_rate?.toFixed(2) ?? '—'}</td>
-                    <td style="padding:0.5rem 0.75rem;font-family:'JetBrains Mono',monospace;color:var(--accent);">{effectiveRate(e)?.toFixed(2) ?? '—'}</td>
-                    <td style="padding:0.5rem 0.75rem;"><span style="font-size:0.7rem;padding:0.1rem 0.375rem;border-radius:0.25rem;background:color-mix(in srgb,var(--accent) 12%,transparent);color:var(--accent);">{e.source === 'c2c_import' ? 'Import' : 'Manual'}</span></td>
                     <td style="padding:0.5rem 0.75rem;font-family:'JetBrains Mono',monospace;font-weight:600;color:var(--text-primary);white-space:nowrap;">
                       {#if tr?.lockedUsd != null}
                         ${tr.lockedUsd.toFixed(2)}
@@ -185,9 +180,7 @@
                       {:else}
                         <form method="POST" action="?/lock" use:enhance={inlineForm}>
                           <input type="hidden" name="depositId" value={e.id} />
-                          <input type="number" name="lockedUsd" min="0" step="any" placeholder="Lock $" required
-                            style="width:80px;padding:0.2rem 0.375rem;background:var(--bg);border:1px solid var(--border);border-radius:0.25rem;color:var(--text-primary);font-size:0.75rem;" />
-                          <button type="submit" style="display:none;"></button>
+                          <button type="submit" style="padding:0.25rem 0.625rem;border:1px solid var(--accent);border-radius:0.25rem;background:transparent;color:var(--accent);font-size:0.75rem;font-weight:600;cursor:pointer;">Lock</button>
                         </form>
                       {/if}
                     </td>
@@ -216,7 +209,6 @@
                         <span style="color:var(--text-muted);">—</span>
                       {/if}
                     </td>
-                    <td style="padding:0.5rem 0.75rem;color:var(--text-muted);max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{e.notes ?? '—'}</td>
                     <td style="padding:0.5rem 0.75rem;"><a href="/ledger/{e._id}" style="color:var(--accent);text-decoration:none;font-size:0.8rem;">Edit</a></td>
                   </tr>
                 {/each}

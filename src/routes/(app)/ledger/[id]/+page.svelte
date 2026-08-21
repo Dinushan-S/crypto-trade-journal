@@ -315,18 +315,28 @@
               {#if tracking?.remainingLkr != null}<div style="font-size:0.7rem;color:var(--text-muted);">LKR {tracking.remainingLkr.toLocaleString('en-US', {maximumFractionDigits:0})}</div>{/if}
             </div>
           </div>
-          <form method="POST" action="?/lock" use:enhance={() => async ({ update }: any) => {
-            await update();
-            await invalidateAll();
-          }}>
-            <div style="display:flex;gap:0.5rem;align-items:center;">
-              <input type="number" name="lockedUsd" min="0" step="any" placeholder={tracking?.lockedUsd != null ? `Locked: $${tracking.lockedUsd}` : 'Set lock amount ($)'}
-                style="width:180px;padding:0.4rem 0.625rem;background:var(--bg);border:1px solid var(--accent);border-radius:0.375rem;color:var(--text-primary);font-size:0.875rem;" />
-              <button type="submit" style="padding:0.4rem 1rem;background:var(--accent);color:#fff;border:none;border-radius:0.375rem;font-size:0.85rem;font-weight:600;cursor:pointer;">
-                {tracking?.lockedUsd != null ? 'Update Lock' : 'Set Lock'}
-              </button>
-            </div>
-          </form>
+          <div style="display:flex;gap:0.5rem;align-items:center;flex-wrap:wrap;">
+            <form method="POST" action="?/lock" use:enhance={() => async ({ update }: any) => {
+              await update();
+              await invalidateAll();
+            }}>
+              {#if tracking?.lockedUsd == null}
+                <button type="submit" style="padding:0.4rem 1rem;background:var(--accent);color:#fff;border:none;border-radius:0.375rem;font-size:0.85rem;font-weight:600;cursor:pointer;">
+                  Lock Full Deposit
+                </button>
+              {/if}
+            </form>
+            {#if tracking?.lockedUsd != null}
+              <form method="POST" action="?/reset" use:enhance={() => async ({ update }: any) => {
+                await update();
+                await invalidateAll();
+              }}>
+                <button type="submit" style="padding:0.4rem 1rem;border:1px solid var(--loss);border-radius:0.375rem;background:transparent;color:var(--loss);font-size:0.85rem;font-weight:600;cursor:pointer;">
+                  Reset Lock
+                </button>
+              </form>
+            {/if}
+          </div>
         </div>
       {/if}
     </div>

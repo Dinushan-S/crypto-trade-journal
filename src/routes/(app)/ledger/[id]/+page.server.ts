@@ -57,13 +57,21 @@ export const actions: Actions = {
     }
   },
 
-  lock: async ({ locals: { convex }, params, request }) => {
-    const form = await request.formData();
-    const lockedUsd = Number(form.get('lockedUsd'));
+  lock: async ({ locals: { convex }, params }) => {
     try {
       await convex.mutation(api.ledger.createLedgerLock, {
         depositId: params.id as Id<'ledger'>,
-        lockedUsd,
+      });
+      return { success: true };
+    } catch (err: any) {
+      return { success: false, error: err.message };
+    }
+  },
+
+  reset: async ({ locals: { convex }, params }) => {
+    try {
+      await convex.mutation(api.ledger.removeLedgerLock, {
+        depositId: params.id as Id<'ledger'>,
       });
       return { success: true };
     } catch (err: any) {

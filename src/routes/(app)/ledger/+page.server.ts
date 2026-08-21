@@ -11,11 +11,9 @@ export const actions: Actions = {
   lock: async ({ locals: { convex }, request }) => {
     const form = await request.formData();
     const depositId = form.get('depositId') as string;
-    const lockedUsd = Number(form.get('lockedUsd'));
     try {
       await convex.mutation(api.ledger.createLedgerLock, {
         depositId: depositId as Id<'ledger'>,
-        lockedUsd,
       });
       return { success: true };
     } catch (err: any) {

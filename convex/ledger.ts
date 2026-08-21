@@ -83,15 +83,14 @@ export const getLedgerWithTracking = query({
 export const createLedgerLock = mutation({
   args: {
     depositId: v.id("ledger"),
-    lockedUsd: v.number(),
   },
   handler: async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
     if (!userId) throw new Error("Unauthenticated");
     const deposit = await ctx.db.get(args.depositId);
     if (!deposit || deposit.userId !== userId || deposit.type !== 'deposit') throw new Error("Not found");
-    const maxLock = deposit.usd_received ?? 0;
-    const lockedUsd = round2(Math.min(Math.max(0, args.lockedUsd), maxLock));
+    // Lock is always the FULL deposit; only release is partial.
+    const lockedUsd = round2(deposit.usd_received ?? 0);
     const lockedLkr = round2(lockedUsd * (deposit.usd_rate ?? 0));
 
     const existing = await ctx.db
@@ -102,8 +101,7 @@ export const createLedgerLock = mutation({
       const releasedUsd = (await ctx.db.query("ledger_allocations").withIndex("by_user_deposit", (q) => q.eq("userId", userId).eq("depositId", args.depositId)).collect())
         .reduce((s, a) => s + a.releasedUsd, 0);
       const finalUsd = round2(Math.max(lockedUsd, releasedUsd));
-      const finalLkr = round2(finalUsd * (deposit.usd_rate ?? 0));
-      await ctx.db.patch(existing._id, { lockedUsd: finalUsd, lockedLkr: finalLkr });
+      await ctx.db.patch(existing._id, { lockedUsd: finalUsd, lockedLkr: round2(finalUsd * (deposit.usd_rate ?? 0)) });
       return existing._id;
     }
     return await ctx.db.insert("ledger_locks", { userId, depositId: args.depositId, lockedUsd, lockedLkr });
@@ -121,6 +119,20 @@ export const allocateRelease = mutation({
     const userId = await getAuthUserId(ctx);
     if (!userId) throw new Error("Unauthenticated");
     await applyAllocations(ctx, userId, args.withdrawalId, args.allocations);
+  },
+});
+
+export const removeLedgerLock = mutation({
+  args: { depositId: v.id("ledger") },
+  handler: async (ctx, args) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) throw new Error("Unauthenticated");
+    const deposit = await ctx.db.get(args.depositId);
+    if (!deposit || deposit.userId !== userId || deposit.type !== 'deposit') throw new Error("Not found");
+    const allocs = await ctx.db.query("ledger_allocations").withIndex("by_user_deposit", (q) => q.eq("userId", userId).eq("depositId", args.depositId)).collect();
+    if (allocs.length > 0) throw new Error("Cannot reset a deposit with release history");
+    const lock = await ctx.db.query("ledger_locks").withIndex("by_user_deposit", (q) => q.eq("userId", userId).eq("depositId", args.depositId)).first();
+    if (lock) await ctx.db.delete(lock._id);
   },
 });
 
