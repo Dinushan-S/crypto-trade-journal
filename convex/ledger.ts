@@ -136,6 +136,19 @@ export const removeLedgerLock = mutation({
   },
 });
 
+export const removeWithdrawalAllocations = mutation({
+  args: { withdrawalId: v.id("ledger") },
+  handler: async (ctx, args) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) throw new Error("Unauthenticated");
+    const withdrawal = await ctx.db.get(args.withdrawalId);
+    if (!withdrawal || withdrawal.userId !== userId || withdrawal.type !== 'withdrawal') throw new Error("Not found");
+    // Unlink all releases from this withdrawal → frees the deposits' remaining back up.
+    const allocs = await ctx.db.query("ledger_allocations").withIndex("by_user_withdrawal", (q) => q.eq("userId", userId).eq("withdrawalId", args.withdrawalId)).collect();
+    for (const a of allocs) await ctx.db.delete(a._id);
+  },
+});
+
 async function applyAllocations(
   ctx: MutationCtx,
   userId: string,

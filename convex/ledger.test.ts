@@ -350,11 +350,28 @@ test("reset lock removes tracking; blocked once release history exists", async (
   let entries = await t.query(api.ledger.getLedgerWithTracking);
   expect(entries.find((e: any) => e._id === d)!.tracking.lockedUsd).toBeNull();
 
-  // re-lock + release → reset is blocked
+  // re-lock + release → deposit reset is blocked
   const w = await addWithdrawal(t, { usd_quantity: 2000 });
   await lock(t, d);
   await allocate(t, w, [{ depositId: d, releasedUsd: 2000 }]);
   await expect(t.mutation(api.ledger.removeLedgerLock, { depositId: d })).rejects.toThrow();
   entries = await t.query(api.ledger.getLedgerWithTracking);
   expect(entries.find((e: any) => e._id === d)!.tracking.lockedUsd).toBe(5000);
+});
+
+test("reset withdrawal releases frees the deposit remaining back up", async () => {
+  const t = makeT();
+  const d = await addDeposit(t, { usd_received: 5000 });
+  const w = await addWithdrawal(t, { usd_quantity: 2000 });
+  await lock(t, d);
+  await allocate(t, w, [{ depositId: d, releasedUsd: 2000 }]);
+  // reset the withdrawal → allocations removed, deposit back to full remaining
+  await t.mutation(api.ledger.removeWithdrawalAllocations, { withdrawalId: w });
+  const entries = await t.query(api.ledger.getLedgerWithTracking);
+  const dep = entries.find((e: any) => e._id === d)!;
+  const wd = entries.find((e: any) => e._id === w)!;
+  expect(dep.tracking.releasedUsd).toBe(0);
+  expect(dep.tracking.remainingUsd).toBe(5000);
+  expect(dep.tracking.fullyWithdrawn).toBe(false);
+  expect(wd.tracking.balanceUsd).toBeCloseTo(2000, 2); // full released USD back on balance
 });

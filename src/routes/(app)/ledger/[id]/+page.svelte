@@ -231,7 +231,20 @@
 
       {#if !isDeposit}
         <div style="margin-top:1.5rem;padding-top:1.5rem;border-top:1px solid var(--border);">
-          <div style="font-size:0.7rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;font-weight:600;margin-bottom:0.75rem;">Release Allocations</div>
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.75rem;flex-wrap:wrap;gap:0.5rem;">
+            <div style="font-size:0.7rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;font-weight:600;">Release Allocations</div>
+            {#if allocations.length > 0}
+              <form method="POST" action="?/reset" use:enhance={() => async ({ update }: any) => {
+                await update();
+                await invalidateAll();
+              }}>
+                <input type="hidden" name="type" value="withdrawal" />
+                <button type="submit" style="padding:0.35rem 0.75rem;border:1px solid var(--loss);border-radius:0.375rem;background:transparent;color:var(--loss);font-size:0.8rem;font-weight:600;cursor:pointer;">
+                  Reset Releases
+                </button>
+              </form>
+            {/if}
+          </div>
           {#if allocations.length > 0}
             <form method="POST" action="?/rebalance" use:enhance={() => async ({ update }: any) => {
               await update();

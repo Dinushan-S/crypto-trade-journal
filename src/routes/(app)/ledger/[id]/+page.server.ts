@@ -68,11 +68,19 @@ export const actions: Actions = {
     }
   },
 
-  reset: async ({ locals: { convex }, params }) => {
+  reset: async ({ locals: { convex }, params, request }) => {
+    const form = await request.formData();
+    const type = (form.get('type') as string) || 'deposit';
     try {
-      await convex.mutation(api.ledger.removeLedgerLock, {
-        depositId: params.id as Id<'ledger'>,
-      });
+      if (type === 'withdrawal') {
+        await convex.mutation(api.ledger.removeWithdrawalAllocations, {
+          withdrawalId: params.id as Id<'ledger'>,
+        });
+      } else {
+        await convex.mutation(api.ledger.removeLedgerLock, {
+          depositId: params.id as Id<'ledger'>,
+        });
+      }
       return { success: true };
     } catch (err: any) {
       return { success: false, error: err.message };
