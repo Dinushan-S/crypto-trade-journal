@@ -9,7 +9,27 @@
   let showDeleteConfirm = $state(false);
 
   const entry = $derived(data.entry as any);
-  const isDeposit = entry?.type === 'deposit';
+  const tracking = $derived((data as any).tracking as any);
+  const allocations = $derived(((data as any).allocations ?? []) as any[]);
+  const isDeposit = $derived(entry?.type === 'deposit');
+
+  // Rebalance state: map depositId → USD amount
+  let rebalanceInputs = $state<Record<string, string>>({});
+  let newDepositId = $state('');
+  let newDepositUsd = $state('');
+  const availableDeposits = $derived(((data as any).availableDeposits ?? []) as any[]);
+  $effect(() => {
+    const map: Record<string, string> = {};
+    for (const a of allocations) map[a.depositId] = String(a.releasedUsd);
+    rebalanceInputs = map;
+  });
+
+  const rebalanceAllocationsJson = $derived(
+    JSON.stringify([
+      ...allocations.map((a) => ({ depositId: a.depositId, releasedUsd: Number(rebalanceInputs[a.depositId] ?? a.releasedUsd) })),
+      ...(newDepositId && Number(newDepositUsd) > 0 ? [{ depositId: newDepositId, releasedUsd: Number(newDepositUsd) }] : []),
+    ])
+  );
 
   $effect(() => {
     if (form?.deleted) goto('/ledger');
@@ -59,7 +79,7 @@
     ['Actual LKR Received', 'fiat_amount', 'number'],
   ];
 
-  const detailRows = $derived<[string, string | null | undefined][]>([
+  const detailRows = $derived<any[]>([
     ['Type', entry.type ? (isDeposit ? '↓ Deposit' : '↑ Withdrawal') : null],
     ['Date', formatDate(entry.date)],
     ['Time', entry.time ?? null],
@@ -206,6 +226,107 @@
         <div style="margin-top:1.5rem;padding-top:1.5rem;border-top:1px solid var(--border);">
           <div style="font-size:0.7rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:0.5rem;">Notes</div>
           <p style="font-size:0.875rem;color:var(--text-primary);line-height:1.6;white-space:pre-wrap;">{entry.notes}</p>
+        </div>
+      {/if}
+
+      {#if !isDeposit}
+        <div style="margin-top:1.5rem;padding-top:1.5rem;border-top:1px solid var(--border);">
+          <div style="font-size:0.7rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;font-weight:600;margin-bottom:0.75rem;">Release Allocations</div>
+          {#if allocations.length > 0}
+            <form method="POST" action="?/rebalance" use:enhance={() => async ({ update }: any) => {
+              await update();
+              await invalidateAll();
+            }}>
+              <div style="display:flex;flex-direction:column;gap:0.5rem;margin-bottom:0.75rem;">
+                {#each allocations as a}
+                  <div style="display:flex;align-items:center;gap:0.5rem;">
+                    <span style="font-size:0.85rem;color:var(--text-primary);flex:1;">Deposit <span style="font-family:'JetBrains Mono',monospace;color:var(--accent);">{a.depositId.slice(-6)}</span></span>
+                    <input type="number" min="0" step="any" value={rebalanceInputs[a.depositId] ?? ''}
+                      oninput={(ev) => {
+                        rebalanceInputs = { ...rebalanceInputs, [a.depositId]: (ev.currentTarget as HTMLInputElement).value };
+                      }}
+                      style="width:120px;padding:0.4rem 0.625rem;background:var(--bg);border:1px solid var(--border);border-radius:0.375rem;color:var(--text-primary);font-size:0.875rem;" />
+                  </div>
+                {/each}
+                {#if availableDeposits.length > 0}
+                  <div style="display:flex;align-items:center;gap:0.5rem;padding-top:0.5rem;border-top:1px dashed var(--border);">
+                    <span style="font-size:0.85rem;color:var(--text-muted);flex:1;">Add another deposit</span>
+                    <select bind:value={newDepositId} style="padding:0.4rem 0.625rem;background:var(--bg);border:1px solid var(--border);border-radius:0.375rem;color:var(--text-primary);font-size:0.8rem;">
+                      <option value="">—</option>
+                      {#each availableDeposits as d}
+                        <option value={d.id}>{formatDate(d.date)} (${(d.remainingUsd ?? 0).toFixed(0)} left)</option>
+                      {/each}
+                    </select>
+                    <input type="number" min="0" step="any" placeholder="USD" bind:value={newDepositUsd}
+                      style="width:120px;padding:0.4rem 0.625rem;background:var(--bg);border:1px solid var(--border);border-radius:0.375rem;color:var(--text-primary);font-size:0.875rem;" />
+                  </div>
+                {/if}
+              </div>
+              <input type="hidden" name="allocations" value={rebalanceAllocationsJson} />
+              <button type="submit" style="padding:0.5rem 1rem;background:var(--accent);color:#fff;border:none;border-radius:0.375rem;font-size:0.85rem;font-weight:600;cursor:pointer;">Save Allocations</button>
+            </form>
+          {:else if availableDeposits.length > 0}
+            <form method="POST" action="?/rebalance" use:enhance={() => async ({ update }: any) => {
+              await update();
+              await invalidateAll();
+            }}>
+              <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.75rem;">
+                <span style="font-size:0.85rem;color:var(--text-muted);flex:1;">Link a deposit</span>
+                <select bind:value={newDepositId} style="padding:0.4rem 0.625rem;background:var(--bg);border:1px solid var(--border);border-radius:0.375rem;color:var(--text-primary);font-size:0.8rem;">
+                  <option value="">—</option>
+                  {#each availableDeposits as d}
+                    <option value={d.id}>{formatDate(d.date)} (${(d.remainingUsd ?? 0).toFixed(0)} left)</option>
+                  {/each}
+                </select>
+                <input type="number" min="0" step="any" placeholder="USD" bind:value={newDepositUsd}
+                  style="width:120px;padding:0.4rem 0.625rem;background:var(--bg);border:1px solid var(--border);border-radius:0.375rem;color:var(--text-primary);font-size:0.875rem;" />
+              </div>
+              <input type="hidden" name="allocations" value={rebalanceAllocationsJson} />
+              <button type="submit" style="padding:0.5rem 1rem;background:var(--accent);color:#fff;border:none;border-radius:0.375rem;font-size:0.85rem;font-weight:600;cursor:pointer;">Link Deposit</button>
+            </form>
+          {:else}
+            <p style="font-size:0.85rem;color:var(--text-muted);">No deposits linked yet. Use the Release action on the ledger page to allocate this withdrawal.</p>
+          {/if}
+        </div>
+      {/if}
+
+      {#if isDeposit}
+        <div style="margin-top:1.5rem;padding-top:1.5rem;border-top:1px solid var(--border);">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.75rem;flex-wrap:wrap;gap:0.5rem;">
+            <div style="font-size:0.7rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;font-weight:600;">Lock Tracking</div>
+            {#if tracking?.fullyWithdrawn}
+              <span style="font-size:0.75rem;padding:0.2rem 0.5rem;border-radius:0.25rem;background:color-mix(in srgb,var(--win) 15%,transparent);color:var(--win);font-weight:700;">Fully Withdrawn ✓</span>
+            {/if}
+          </div>
+          <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:0.75rem;margin-bottom:0.75rem;">
+            <div style="background:var(--bg);border:1px solid var(--border);border-radius:0.5rem;padding:0.625rem;">
+              <div style="font-size:0.65rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;">Locked USD</div>
+              <div style="font-family:'JetBrains Mono',monospace;font-size:0.95rem;font-weight:700;color:var(--text-primary);">{tracking?.lockedUsd != null ? `$${tracking.lockedUsd.toFixed(2)}` : '—'}</div>
+              {#if tracking?.lockedLkr != null}<div style="font-size:0.7rem;color:var(--text-muted);">LKR {tracking.lockedLkr.toLocaleString('en-US', {maximumFractionDigits:0})}</div>{/if}
+            </div>
+            <div style="background:var(--bg);border:1px solid var(--border);border-radius:0.5rem;padding:0.625rem;">
+              <div style="font-size:0.65rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;">Released USD</div>
+              <div style="font-family:'JetBrains Mono',monospace;font-size:0.95rem;font-weight:700;color:var(--text-primary);">{tracking?.releasedUsd > 0 ? `$${tracking.releasedUsd.toFixed(2)}` : '—'}</div>
+              {#if tracking?.releasedLkr > 0}<div style="font-size:0.7rem;color:var(--text-muted);">LKR {tracking.releasedLkr.toLocaleString('en-US', {maximumFractionDigits:0})}</div>{/if}
+            </div>
+            <div style="background:var(--bg);border:1px solid var(--border);border-radius:0.5rem;padding:0.625rem;">
+              <div style="font-size:0.65rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;">Remaining USD</div>
+              <div style="font-family:'JetBrains Mono',monospace;font-size:0.95rem;font-weight:700;color:{tracking?.remainingUsd === 0 ? 'var(--win)' : 'var(--text-primary)'};">{tracking?.remainingUsd != null ? `$${tracking.remainingUsd.toFixed(2)}` : '—'}</div>
+              {#if tracking?.remainingLkr != null}<div style="font-size:0.7rem;color:var(--text-muted);">LKR {tracking.remainingLkr.toLocaleString('en-US', {maximumFractionDigits:0})}</div>{/if}
+            </div>
+          </div>
+          <form method="POST" action="?/lock" use:enhance={() => async ({ update }: any) => {
+            await update();
+            await invalidateAll();
+          }}>
+            <div style="display:flex;gap:0.5rem;align-items:center;">
+              <input type="number" name="lockedUsd" min="0" step="any" placeholder={tracking?.lockedUsd != null ? `Locked: $${tracking.lockedUsd}` : 'Set lock amount ($)'}
+                style="width:180px;padding:0.4rem 0.625rem;background:var(--bg);border:1px solid var(--accent);border-radius:0.375rem;color:var(--text-primary);font-size:0.875rem;" />
+              <button type="submit" style="padding:0.4rem 1rem;background:var(--accent);color:#fff;border:none;border-radius:0.375rem;font-size:0.85rem;font-weight:600;cursor:pointer;">
+                {tracking?.lockedUsd != null ? 'Update Lock' : 'Set Lock'}
+              </button>
+            </div>
+          </form>
         </div>
       {/if}
     </div>

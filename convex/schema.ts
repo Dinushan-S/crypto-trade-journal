@@ -154,4 +154,24 @@ export default defineSchema({
     created_at: v.optional(v.string()),
     updated_at: v.optional(v.string()),
   }).index("by_user", ["userId"]),
+
+  ledger_locks: defineTable({
+    userId: v.string(),
+    depositId: v.id("ledger"),
+    lockedUsd: v.number(),
+    lockedLkr: v.number(),
+  })
+    .index("by_user", ["userId"])
+    .index("by_user_deposit", ["userId", "depositId"]),
+
+  ledger_allocations: defineTable({
+    userId: v.string(),
+    withdrawalId: v.id("ledger"),
+    depositId: v.id("ledger"),
+    releasedUsd: v.number(),
+    releasedLkr: v.number(),
+  })
+    .index("by_user", ["userId"])
+    .index("by_user_withdrawal", ["userId", "withdrawalId"])
+    .index("by_user_deposit", ["userId", "depositId"]),
 });
