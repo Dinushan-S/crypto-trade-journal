@@ -1,6 +1,7 @@
 <script lang="ts">
   import { goto, invalidateAll } from '$app/navigation';
   import { enhance } from '$app/forms';
+  import { page } from '$app/state';
   import { untrack } from 'svelte';
   import { formatCurrency, formatDate, periodRange, type Period } from '$lib/utils';
 
@@ -92,11 +93,7 @@
   let editTrade = $state<any | null>(null);
   let modalMode = $state<'quick' | 'full'>('quick');
 
-  const tfOptions = ['1m', '5m', '15m', '30m', '1h', '4h', '1D', '1W'];
-
-  const inputStyle = `padding:0.5rem 0.75rem;background:var(--bg);border:1px solid var(--border);border-radius:0.5rem;color:var(--text-primary);font-size:0.875rem;width:100%;box-sizing:border-box;outline:none;`;
-  const labelStyle = `display:block;font-size:0.7rem;font-weight:600;color:var(--text-muted);margin-bottom:0.25rem;text-transform:uppercase;letter-spacing:0.05em;`;
-
+  const tfOptions = ['1m', '5m', '15m', '30m', '1h', '4h', '1D', '1W'];
   const closeModal = () => {
     addOpen = false;
     editTrade = null;
@@ -128,8 +125,16 @@
     addOpen = true;
     editTrade = null;
     tfSel = [];
-    modalMode = 'quick';
+    modalMode = 'full';
   }
+
+  // /trades?add opens the add modal (replaces the old /trades/new page)
+  $effect(() => {
+    if (page.url.searchParams.has('add')) {
+      openAdd();
+      goto('/trades', { replaceState: true, noScroll: true, keepFocus: true });
+    }
+  });
   function openEdit(t: any) {
     editTrade = t;
     tfSel = t.timeframes ?? [];
@@ -237,7 +242,7 @@
   <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.5rem;">
     <div>
       <h1
-        style="font-family:'JetBrains Mono',monospace;font-size:1.25rem;font-weight:600;color:var(--text-primary);"
+        class="stat-value"
       >
         Trade Log
       </h1>
@@ -289,12 +294,12 @@
         {#if mixedFields.coins}
           <span style="font-size:0.75rem;color:var(--loss);border:1px solid var(--loss);padding:0.15rem 0.5rem;border-radius:0.25rem;">Mixed coins</span>
         {:else if selectedTrades[0]}
-          <span style="font-size:0.75rem;color:var(--text-muted);">Coin: {selectedTrades[0].coin}</span>
+          <span class="muted-xs">Coin: {selectedTrades[0].coin}</span>
         {/if}
         {#if mixedFields.positions}
           <span style="font-size:0.75rem;color:var(--loss);border:1px solid var(--loss);padding:0.15rem 0.5rem;border-radius:0.25rem;">Mixed position</span>
         {:else if selectedTrades[0] && selectedTrades[0].position}
-          <span style="font-size:0.75rem;color:var(--text-muted);">Pos: {selectedTrades[0].position}</span>
+          <span class="muted-xs">Pos: {selectedTrades[0].position}</span>
         {/if}
         <span style="font-size:0.8rem;font-weight:600;color:{selectedAmountLost > 0 ? 'var(--loss)' : 'var(--text-muted)'};">
           Net PnL: {formatCurrency(selectedNetPnl)}
@@ -326,7 +331,7 @@
     </div>
     <div>
       <label
-        style="display:block;font-size:0.7rem;color:var(--text-muted);margin-bottom:0.25rem;text-transform:uppercase;letter-spacing:0.05em;"
+        class="field-label"
         >From</label
       >
       <input
@@ -338,7 +343,7 @@
     </div>
     <div>
       <label
-        style="display:block;font-size:0.7rem;color:var(--text-muted);margin-bottom:0.25rem;text-transform:uppercase;letter-spacing:0.05em;"
+        class="field-label"
         >To</label
       >
       <input
@@ -350,7 +355,7 @@
     </div>
     <div>
       <label
-        style="display:block;font-size:0.7rem;color:var(--text-muted);margin-bottom:0.25rem;text-transform:uppercase;letter-spacing:0.05em;"
+        class="field-label"
         >Coin</label
       >
       <input
@@ -362,12 +367,12 @@
     </div>
     <div>
       <label
-        style="display:block;font-size:0.7rem;color:var(--text-muted);margin-bottom:0.25rem;text-transform:uppercase;letter-spacing:0.05em;"
+        class="field-label"
         >Position</label
       >
       <select
         bind:value={position}
-        style="padding:0.375rem 0.5rem;background:var(--bg);border:1px solid var(--border);border-radius:0.375rem;color:var(--text-primary);font-size:0.8rem;"
+        class="input-sm"
       >
         <option value="all">All</option>
         <option value="Long">Long</option>
@@ -376,12 +381,12 @@
     </div>
     <div>
       <label
-        style="display:block;font-size:0.7rem;color:var(--text-muted);margin-bottom:0.25rem;text-transform:uppercase;letter-spacing:0.05em;"
+        class="field-label"
         >Result</label
       >
       <select
         bind:value={result}
-        style="padding:0.375rem 0.5rem;background:var(--bg);border:1px solid var(--border);border-radius:0.375rem;color:var(--text-primary);font-size:0.8rem;"
+        class="input-sm"
       >
         <option value="all">All</option>
         <option value="win">Win</option>
@@ -391,7 +396,7 @@
     </div>
     <div>
       <label
-        style="display:block;font-size:0.7rem;color:var(--text-muted);margin-bottom:0.25rem;text-transform:uppercase;letter-spacing:0.05em;"
+        class="field-label"
         >Strategy</label
       >
       <input
@@ -403,12 +408,12 @@
     </div>
     <div>
       <label
-        style="display:block;font-size:0.7rem;color:var(--text-muted);margin-bottom:0.25rem;text-transform:uppercase;letter-spacing:0.05em;"
+        class="field-label"
         >Source</label
       >
       <select
         bind:value={source}
-        style="padding:0.375rem 0.5rem;background:var(--bg);border:1px solid var(--border);border-radius:0.375rem;color:var(--text-primary);font-size:0.8rem;"
+        class="input-sm"
       >
         <option value="all">All</option>
         <option value="manual">Manual</option>
@@ -431,12 +436,12 @@
 
   <!-- Table -->
   <div
-    style="background:var(--surface);border:1px solid var(--border);border-radius:0.75rem;overflow:hidden;"
+    class="card-flush"
   >
-    <div style="overflow-x:auto;">
-      <table style="width:100%;border-collapse:collapse;font-size:0.8125rem;">
+    <div class="scroll-x">
+      <table class="table">
         <thead>
-          <tr style="background:var(--bg);border-bottom:1px solid var(--border);">
+          <tr class="thead-row">
             {#if selectionMode}
               <th style="padding:0.625rem 0.75rem;text-align:center;font-size:0.7rem;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;white-space:nowrap;min-width:40px;">
                 <input
@@ -644,7 +649,7 @@
       <div
         style="padding:0.75rem 1rem;border-top:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;"
       >
-        <span style="font-size:0.8rem;color:var(--text-muted);"
+        <span class="muted-sm"
           >Page {data.page} of {Math.ceil(data.total / 50)}</span
         >
         <div style="display:flex;gap:0.5rem;">
@@ -709,128 +714,128 @@
           {#if modalMode === 'quick'}
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.875rem;">
               <div>
-                <label style={labelStyle}>Coin</label>
-                <input name="coin" required value={editTrade?.coin ?? ''} placeholder="BTC" style={inputStyle} />
+                <label class="form-label">Coin</label>
+                <input name="coin" required value={editTrade?.coin ?? ''} placeholder="BTC" class="input" />
               </div>
               <div>
-                <label style={labelStyle}>Position</label>
-                <select name="position" style={inputStyle}>
+                <label class="form-label">Position</label>
+                <select name="position" class="input">
                   {#each (['Long', 'Short'] as const) as p}
                     <option value={p} selected={editTrade?.position === p}>{p}</option>
                   {/each}
                 </select>
               </div>
               <div>
-                <label style={labelStyle}>Date</label>
-                <input type="date" name="date" value={editTrade?.date ?? new Date().toISOString().split('T')[0]} style={inputStyle} required />
+                <label class="form-label">Date</label>
+                <input type="date" name="date" value={editTrade?.date ?? new Date().toISOString().split('T')[0]} class="input" required />
               </div>
               <div>
-                <label style={labelStyle}>Time</label>
-                <input type="time" name="time" value={editTrade?.time ?? ''} style={inputStyle} />
+                <label class="form-label">Time</label>
+                <input type="time" name="time" value={editTrade?.time ?? ''} class="input" />
               </div>
               <div>
-                <label style={labelStyle}>Entry Price</label>
-                <input type="number" name="entry_price" value={editTrade?.entry_price ?? ''} step="any" placeholder="0.00" style={inputStyle} />
+                <label class="form-label">Entry Price</label>
+                <input type="number" name="entry_price" value={editTrade?.entry_price ?? ''} step="any" placeholder="0.00" class="input" />
               </div>
               <div>
-                <label style={labelStyle}>PnL ($)</label>
-                <input type="number" name="pnl" value={editTrade?.pnl ?? ''} step="any" placeholder="+0.00" style={inputStyle} />
+                <label class="form-label">PnL ($)</label>
+                <input type="number" name="pnl" value={editTrade?.pnl ?? ''} step="any" placeholder="+0.00" class="input" />
               </div>
               <div>
-                <label style={labelStyle}>Strategy</label>
-                <input name="strategy" value={editTrade?.strategy ?? ''} placeholder="Breakout, Retest…" style={inputStyle} />
+                <label class="form-label">Strategy</label>
+                <input name="strategy" value={editTrade?.strategy ?? ''} placeholder="Breakout, Retest…" class="input" />
               </div>
               <div>
-                <label style={labelStyle}>Reason</label>
-                <input name="reason" value={editTrade?.reason ?? ''} placeholder="Setup notes…" style={inputStyle} />
+                <label class="form-label">Reason</label>
+                <input name="reason" value={editTrade?.reason ?? ''} placeholder="Setup notes…" class="input" />
               </div>
             </div>
           {:else}
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.875rem;">
               <div>
-                <label style={labelStyle}>Coin</label>
-                <input name="coin" required value={editTrade?.coin ?? ''} placeholder="BTC" style={inputStyle} />
+                <label class="form-label">Coin</label>
+                <input name="coin" required value={editTrade?.coin ?? ''} placeholder="BTC" class="input" />
               </div>
               <div>
-                <label style={labelStyle}>Position</label>
-                <select name="position" style={inputStyle}>
+                <label class="form-label">Position</label>
+                <select name="position" class="input">
                   {#each (['Long', 'Short'] as const) as p}
                     <option value={p} selected={editTrade?.position === p}>{p}</option>
                   {/each}
                 </select>
               </div>
               <div>
-                <label style={labelStyle}>Date</label>
-                <input type="date" name="date" value={editTrade?.date ?? new Date().toISOString().split('T')[0]} style={inputStyle} required />
+                <label class="form-label">Date</label>
+                <input type="date" name="date" value={editTrade?.date ?? new Date().toISOString().split('T')[0]} class="input" required />
               </div>
               <div>
-                <label style={labelStyle}>Time</label>
-                <input type="time" name="time" value={editTrade?.time ?? ''} style={inputStyle} />
+                <label class="form-label">Time</label>
+                <input type="time" name="time" value={editTrade?.time ?? ''} class="input" />
               </div>
               <div>
-                <label style={labelStyle}>Entry Price</label>
-                <input type="number" name="entry_price" value={editTrade?.entry_price ?? ''} step="any" placeholder="0.00" style={inputStyle} />
+                <label class="form-label">Entry Price</label>
+                <input type="number" name="entry_price" value={editTrade?.entry_price ?? ''} step="any" placeholder="0.00" class="input" />
               </div>
               <div>
-                <label style={labelStyle}>Exit Price</label>
-                <input type="number" name="exit_price" value={editTrade?.exit_price ?? ''} step="any" placeholder="0.00" style={inputStyle} />
+                <label class="form-label">Exit Price</label>
+                <input type="number" name="exit_price" value={editTrade?.exit_price ?? ''} step="any" placeholder="0.00" class="input" />
               </div>
               <div>
-                <label style={labelStyle}>Stop Loss</label>
-                <input type="number" name="stop_loss" value={editTrade?.stop_loss ?? ''} step="any" placeholder="0.00" style={inputStyle} />
+                <label class="form-label">Stop Loss</label>
+                <input type="number" name="stop_loss" value={editTrade?.stop_loss ?? ''} step="any" placeholder="0.00" class="input" />
               </div>
               <div>
-                <label style={labelStyle}>Quantity</label>
-                <input type="number" name="quantity" value={editTrade?.quantity ?? ''} step="any" placeholder="0" style={inputStyle} />
+                <label class="form-label">Quantity</label>
+                <input type="number" name="quantity" value={editTrade?.quantity ?? ''} step="any" placeholder="0" class="input" />
               </div>
               <div>
-                <label style={labelStyle}>PnL ($)</label>
-                <input type="number" name="pnl" value={editTrade?.pnl ?? ''} step="any" placeholder="+0.00" style={inputStyle} />
+                <label class="form-label">PnL ($)</label>
+                <input type="number" name="pnl" value={editTrade?.pnl ?? ''} step="any" placeholder="+0.00" class="input" />
               </div>
               <div>
-                <label style={labelStyle}>Fee ($)</label>
-                <input type="number" name="fee" value={editTrade?.fee ?? ''} step="any" placeholder="0.00" style={inputStyle} />
+                <label class="form-label">Fee ($)</label>
+                <input type="number" name="fee" value={editTrade?.fee ?? ''} step="any" placeholder="0.00" class="input" />
               </div>
               <div>
-                <label style={labelStyle}>Strategy</label>
-                <input name="strategy" value={editTrade?.strategy ?? ''} placeholder="e.g. Breakout, Retest" style={inputStyle} />
+                <label class="form-label">Strategy</label>
+                <input name="strategy" value={editTrade?.strategy ?? ''} placeholder="e.g. Breakout, Retest" class="input" />
               </div>
               <div>
-                <label style={labelStyle}>Leverage</label>
-                <input name="leverage" value={editTrade?.leverage ?? ''} placeholder="e.g. 10x" style={inputStyle} />
+                <label class="form-label">Leverage</label>
+                <input name="leverage" value={editTrade?.leverage ?? ''} placeholder="e.g. 10x" class="input" />
               </div>
               <div>
-                <label style={labelStyle}>Confidence (1-5)</label>
-                <input type="number" name="confidence" min="1" max="5" value={editTrade?.confidence ?? ''} placeholder="3" style={inputStyle} />
+                <label class="form-label">Confidence (1-5)</label>
+                <input type="number" name="confidence" min="1" max="5" value={editTrade?.confidence ?? ''} placeholder="3" class="input" />
               </div>
               <div>
-                <label style={labelStyle}>Risk %</label>
-                <input type="number" name="risk_pct" value={editTrade?.risk_pct ?? ''} step="any" placeholder="1.0" style={inputStyle} />
+                <label class="form-label">Risk %</label>
+                <input type="number" name="risk_pct" value={editTrade?.risk_pct ?? ''} step="any" placeholder="1.0" class="input" />
               </div>
               <div>
-                <label style={labelStyle}>Range %</label>
-                <input type="number" name="range_pct" value={editTrade?.range_pct ?? ''} step="any" placeholder="2.5" style={inputStyle} />
+                <label class="form-label">Range %</label>
+                <input type="number" name="range_pct" value={editTrade?.range_pct ?? ''} step="any" placeholder="2.5" class="input" />
               </div>
               <div>
-                <label style={labelStyle}>Limit Type</label>
-                <input name="limit_type" value={editTrade?.limit_type ?? ''} placeholder="Limit / Market / Stop" style={inputStyle} />
+                <label class="form-label">Limit Type</label>
+                <input name="limit_type" value={editTrade?.limit_type ?? ''} placeholder="Limit / Market / Stop" class="input" />
               </div>
               <div>
-                <label style={labelStyle}>Duration</label>
-                <input name="duration" value={editTrade?.duration ?? ''} placeholder="e.g. 2h 30m" style={inputStyle} />
+                <label class="form-label">Duration</label>
+                <input name="duration" value={editTrade?.duration ?? ''} placeholder="e.g. 2h 30m" class="input" />
               </div>
               <div>
-                <label style={labelStyle}>Date Closed</label>
-                <input type="date" name="date_closed" value={editTrade?.date_closed ?? ''} style={inputStyle} />
+                <label class="form-label">Date Closed</label>
+                <input type="date" name="date_closed" value={editTrade?.date_closed ?? ''} class="input" />
               </div>
               <div>
-                <label style={labelStyle}>Closed Reason</label>
-                <input name="closed_reason" value={editTrade?.closed_reason ?? ''} placeholder="Why closed…" style={inputStyle} />
+                <label class="form-label">Closed Reason</label>
+                <input name="closed_reason" value={editTrade?.closed_reason ?? ''} placeholder="Why closed…" class="input" />
               </div>
 
               <!-- Timeframes -->
-              <div style="grid-column:1/-1;">
-                <label style={labelStyle}>Timeframes</label>
+              <div class="span-full">
+                <label class="form-label">Timeframes</label>
                 <div style="display:flex;flex-wrap:wrap;gap:0.375rem;margin-top:0.25rem;">
                   {#each tfOptions as tf}
                     {@const active = tfSel.includes(tf)}
@@ -842,17 +847,17 @@
                 </div>
               </div>
 
-              <div style="grid-column:1/-1;">
-                <label style={labelStyle}>Reason / Setup</label>
-                <textarea name="reason" rows="3" placeholder="Why did you take this trade?" style="{inputStyle}resize:vertical;font-family:inherit;">{editTrade?.reason ?? ''}</textarea>
+              <div class="span-full">
+                <label class="form-label">Reason / Setup</label>
+                <textarea name="reason" rows="3" placeholder="Why did you take this trade?" class="input" style="resize:vertical;font-family:inherit;">{editTrade?.reason ?? ''}</textarea>
               </div>
-              <div style="grid-column:1/-1;">
-                <label style={labelStyle}>Pre Notes</label>
-                <textarea name="pre_notes" rows="3" placeholder="Before entry thoughts…" style="{inputStyle}resize:vertical;font-family:inherit;">{editTrade?.pre_notes ?? ''}</textarea>
+              <div class="span-full">
+                <label class="form-label">Pre Notes</label>
+                <textarea name="pre_notes" rows="3" placeholder="Before entry thoughts…" class="input" style="resize:vertical;font-family:inherit;">{editTrade?.pre_notes ?? ''}</textarea>
               </div>
-              <div style="grid-column:1/-1;">
-                <label style={labelStyle}>Post Notes</label>
-                <textarea name="post_notes" rows="3" placeholder="After exit thoughts…" style="{inputStyle}resize:vertical;font-family:inherit;">{editTrade?.post_notes ?? ''}</textarea>
+              <div class="span-full">
+                <label class="form-label">Post Notes</label>
+                <textarea name="post_notes" rows="3" placeholder="After exit thoughts…" class="input" style="resize:vertical;font-family:inherit;">{editTrade?.post_notes ?? ''}</textarea>
               </div>
             </div>
           {/if}

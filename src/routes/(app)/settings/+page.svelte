@@ -24,7 +24,7 @@
 
 <div style="padding:1.5rem;max-width:600px;">
   <div style="margin-bottom:1.5rem;">
-    <h1 style="font-family:'JetBrains Mono',monospace;font-size:1.25rem;font-weight:600;color:var(--text-primary);">Settings</h1>
+    <h1 class="stat-value">Settings</h1>
     <p style="color:var(--text-muted);font-size:0.875rem;margin-top:0.125rem;">Account and application preferences</p>
   </div>
 

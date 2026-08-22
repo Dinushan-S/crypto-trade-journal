@@ -286,7 +286,7 @@
 <div style="padding:1.5rem;">
   <!-- Header -->
   <div style="margin-bottom:1.5rem;">
-    <h1 style="font-family:'JetBrains Mono',monospace;font-size:1.25rem;font-weight:600;color:var(--text-primary);">Dashboard</h1>
+    <h1 class="stat-value">Dashboard</h1>
     <p style="color:var(--text-muted);font-size:0.875rem;margin-top:0.125rem;">Overview of your trading performance</p>
   </div>
 
@@ -299,7 +299,7 @@
       <p style="color:var(--text-muted);font-size:0.875rem;margin-bottom:1.5rem;">Start by importing your Binance history or adding a trade manually.</p>
       <div style="display:flex;gap:0.75rem;justify-content:center;flex-wrap:wrap;">
         <a href="/trades/import" style="padding:0.625rem 1.25rem;background:var(--accent);color:#fff;border-radius:0.5rem;text-decoration:none;font-size:0.875rem;font-weight:500;">Import CSV</a>
-        <a href="/trades/new" style="padding:0.625rem 1.25rem;border:1px solid var(--border);color:var(--text-muted);border-radius:0.5rem;text-decoration:none;font-size:0.875rem;">Add Trade</a>
+        <a href="/trades?add" style="padding:0.625rem 1.25rem;border:1px solid var(--border);color:var(--text-muted);border-radius:0.5rem;text-decoration:none;font-size:0.875rem;">Add Trade</a>
       </div>
     </div>
   {:else}
@@ -482,11 +482,11 @@
               ✕ Close
             </button>
           </div>
-          <div style="overflow-x:auto;">
+          <div class="scroll-x">
             {#key dayTz}
             <table style="width:100%;border-collapse:collapse;font-size:0.775rem;">
               <thead>
-                <tr style="border-bottom:1px solid var(--border);">
+                <tr class="row-divider">
                   <th style="padding:4px 8px;text-align:left;font-size:0.65rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;font-weight:500;">Time {dayTz === 'utc' ? '(UTC)' : '(LKR)'}</th>
                   <th style="padding:4px 8px;text-align:left;font-size:0.65rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;font-weight:500;">Coin</th>
                   <th style="padding:4px 8px;text-align:left;font-size:0.65rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;font-weight:500;">Side</th>
@@ -497,7 +497,7 @@
               </thead>
               <tbody>
                 {#each dayStat.trades as trade}
-                  <tr style="border-bottom:1px solid var(--border);">
+                  <tr class="row-divider">
                     <td style="padding:5px 8px;font-family:'JetBrains Mono',monospace;color:var(--text-muted);font-size:0.7rem;">{trade.time?.slice(0, 5) ?? '—'}{dayTz === 'utc' ? ' UTC' : ' LKR'}</td>
                     <td style="padding:5px 8px;font-weight:600;color:var(--text-primary);">{trade.coin}</td>
                     <td style="padding:5px 8px;color:{trade.position === 'Long' ? 'var(--win)' : trade.position === 'Short' ? 'var(--loss)' : 'var(--text-muted)'};">{trade.position || '—'}</td>
@@ -538,7 +538,7 @@
       </div>
 
       {#if monthlyLedger.length === 0}
-        <div style="text-align:center;padding:2rem;color:var(--text-muted);font-size:0.8rem;">No ledger entries yet. <a href="/ledger/new" style="color:var(--accent);text-decoration:none;">Add a deposit →</a></div>
+        <div style="text-align:center;padding:2rem;color:var(--text-muted);font-size:0.8rem;">No ledger entries yet. <a href="/ledger?add" style="color:var(--accent);text-decoration:none;">Add a deposit →</a></div>
       {:else}
         <!-- All-time summary strip -->
         <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:0.5rem;margin-bottom:1rem;">
@@ -612,7 +612,7 @@
     <!-- Recent activity -->
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.75rem;">
       <!-- Recent trades -->
-      <div style="background:var(--surface);border:1px solid var(--border);border-radius:0.75rem;overflow:hidden;">
+      <div class="card-flush">
         <div style="padding:0.875rem 1rem;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;">
           <span style="font-size:0.8rem;font-weight:600;color:var(--text-primary);">Recent Trades</span>
           <a href="/trades" style="font-size:0.75rem;color:var(--accent);text-decoration:none;">View all →</a>
@@ -636,7 +636,7 @@
                 <span style="font-family:'JetBrains Mono',monospace;font-size:0.875rem;font-weight:600;color:{pnlColor(trade.pnl)};">
                   {formatCurrency(trade.pnl)}
                 </span>
-                <span style="font-size:0.75rem;color:var(--text-muted);">{formatDate(trade.date)}</span>
+                <span class="muted-xs">{formatDate(trade.date)}</span>
               </div>
             </a>
           {/each}
@@ -644,7 +644,7 @@
       </div>
 
       <!-- Recent ledger -->
-      <div style="background:var(--surface);border:1px solid var(--border);border-radius:0.75rem;overflow:hidden;">
+      <div class="card-flush">
         <div style="padding:0.875rem 1rem;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;">
           <span style="font-size:0.8rem;font-weight:600;color:var(--text-primary);">Recent Ledger</span>
           <a href="/ledger" style="font-size:0.75rem;color:var(--accent);text-decoration:none;">View all →</a>
@@ -663,7 +663,7 @@
                 <span style="font-family:'JetBrains Mono',monospace;font-size:0.875rem;color:var(--text-primary);">
                   {entry.type === 'deposit' ? `$${(entry.usd_received ?? 0).toFixed(2)}` : `$${(entry.usd_quantity ?? 0).toFixed(2)}`}
                 </span>
-                <span style="font-size:0.75rem;color:var(--text-muted);">{formatDate(entry.date)}</span>
+                <span class="muted-xs">{formatDate(entry.date)}</span>
               </div>
             </div>
           {/each}

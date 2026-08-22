@@ -43,7 +43,6 @@ export const createTrade = mutation({
     confidence: v.optional(v.number()),
     risk_pct: v.optional(v.number()),
     range_pct: v.optional(v.number()),
-    fib_match_macro: v.optional(v.string()),
     limit_type: v.optional(v.string()),
     pnl: v.optional(v.number()),
     fee: v.optional(v.number()),
@@ -59,7 +58,6 @@ export const createTrade = mutation({
     order_id: v.optional(v.string()),
     fills: v.optional(v.number()),
     source: v.optional(v.string()),
-    annotated: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
@@ -90,7 +88,6 @@ export const updateTrade = mutation({
     confidence: v.optional(v.number()),
     risk_pct: v.optional(v.number()),
     range_pct: v.optional(v.number()),
-    fib_match_macro: v.optional(v.string()),
     limit_type: v.optional(v.string()),
     pnl: v.optional(v.number()),
     fee: v.optional(v.number()),
@@ -103,7 +100,6 @@ export const updateTrade = mutation({
     reason: v.optional(v.string()),
     pre_notes: v.optional(v.string()),
     post_notes: v.optional(v.string()),
-    annotated: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
@@ -145,7 +141,6 @@ export const batchCreateTrades = mutation({
         confidence: v.optional(v.number()),
         risk_pct: v.optional(v.number()),
         range_pct: v.optional(v.number()),
-        fib_match_macro: v.optional(v.string()),
         limit_type: v.optional(v.string()),
         pnl: v.optional(v.number()),
         fee: v.optional(v.number()),
@@ -161,7 +156,6 @@ export const batchCreateTrades = mutation({
         order_id: v.optional(v.string()),
         fills: v.optional(v.number()),
         source: v.optional(v.string()),
-        annotated: v.optional(v.boolean()),
       })
     ),
   },

@@ -59,7 +59,7 @@
   <!-- Header -->
   <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.5rem;">
     <div>
-      <h1 style="font-family:'JetBrains Mono',monospace;font-size:1.5rem;font-weight:700;color:var(--text-primary);">
+      <h1 class="stat-value-lg">
         Edit Trading Mistake
       </h1>
       <p style="color:var(--text-muted);font-size:0.875rem;margin-top:0.25rem;">
@@ -83,7 +83,7 @@
   <form method="POST" use:enhance style="background:var(--surface);border:1px solid var(--border);border-radius:0.75rem;padding:1.5rem;display:flex;flex-direction:column;gap:1.25rem;">
     <!-- Optional Linked Trade -->
     <div>
-      <label style="display:block;font-size:0.8125rem;font-weight:600;color:var(--text-muted);margin-bottom:0.375rem;" for="trade_id">
+      <label class="form-label-lg" for="trade_id">
         Link to Existing Trade (Optional)
       </label>
       <select
@@ -91,7 +91,7 @@
         id="trade_id"
         value={selectedTradeId}
         onchange={handleTradeChange}
-        style="width:100%;padding:0.625rem 0.875rem;background:var(--bg);border:1px solid var(--border);border-radius:0.5rem;color:var(--text-primary);font-size:0.875rem;"
+        class="input-wide"
       >
         <option value="">-- Standalone Mistake (No Trade Linked) --</option>
         {#each data.trades as t}
@@ -105,7 +105,7 @@
     <!-- Date, Time, Coin row -->
     <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:1rem;">
       <div>
-        <label style="display:block;font-size:0.8125rem;font-weight:600;color:var(--text-muted);margin-bottom:0.375rem;" for="trade_date">
+        <label class="form-label-lg" for="trade_date">
           Trade Date *
         </label>
         <input
@@ -114,12 +114,12 @@
           id="trade_date"
           bind:value={tradeDate}
           required
-          style="width:100%;padding:0.625rem 0.875rem;background:var(--bg);border:1px solid var(--border);border-radius:0.5rem;color:var(--text-primary);font-size:0.875rem;"
+          class="input-wide"
         />
       </div>
 
       <div>
-        <label style="display:block;font-size:0.8125rem;font-weight:600;color:var(--text-muted);margin-bottom:0.375rem;" for="trade_time">
+        <label class="form-label-lg" for="trade_time">
           Trade Time
         </label>
         <input
@@ -127,12 +127,12 @@
           name="trade_time"
           id="trade_time"
           bind:value={tradeTime}
-          style="width:100%;padding:0.625rem 0.875rem;background:var(--bg);border:1px solid var(--border);border-radius:0.5rem;color:var(--text-primary);font-size:0.875rem;"
+          class="input-wide"
         />
       </div>
 
       <div>
-        <label style="display:block;font-size:0.8125rem;font-weight:600;color:var(--text-muted);margin-bottom:0.375rem;" for="coin">
+        <label class="form-label-lg" for="coin">
           Coin / Asset
         </label>
         <input
@@ -196,7 +196,7 @@
         required
         bind:value={whyTookTrade}
         placeholder="Describe the initial trade setup, thesis, entry signals, or emotions when entering..."
-        style="width:100%;padding:0.75rem;background:var(--bg);border:1px solid var(--border);border-radius:0.5rem;color:var(--text-primary);font-size:0.875rem;line-height:1.5;"
+        class="textarea-lg"
       ></textarea>
     </div>
 
@@ -212,7 +212,7 @@
         required
         bind:value={mistakeDetails}
         placeholder="Provide full details of the mistake (e.g., entered early without confirmation, moved stop loss mid-trade, risked 5% instead of 1%...)"
-        style="width:100%;padding:0.75rem;background:var(--bg);border:1px solid var(--border);border-radius:0.5rem;color:var(--text-primary);font-size:0.875rem;line-height:1.5;"
+        class="textarea-lg"
       ></textarea>
     </div>
 
@@ -228,7 +228,7 @@
         required
         bind:value={lessonLearned}
         placeholder="Formulate a specific, actionable rule to prevent repeating this mistake..."
-        style="width:100%;padding:0.75rem;background:var(--bg);border:1px solid var(--border);border-radius:0.5rem;color:var(--text-primary);font-size:0.875rem;line-height:1.5;"
+        class="textarea-lg"
       ></textarea>
     </div>
 
@@ -236,7 +236,7 @@
     <div style="display:flex;align-items:center;justify-content:flex-end;gap:1rem;margin-top:0.5rem;">
       <a
         href="/mistakes"
-        style="color:var(--text-muted);text-decoration:none;font-size:0.875rem;"
+        class="link-muted"
       >
         Cancel
       </a>

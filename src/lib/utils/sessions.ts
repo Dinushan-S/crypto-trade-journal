@@ -17,8 +17,6 @@ export const SESSION_LABELS: Record<MarketSession, string> = {
   unscheduled: 'Unscheduled'
 };
 
-export const SESSION_ORDER: MarketSession[] = ['asian', 'london', 'ny', 'overnight', 'my', 'unscheduled'];
-
 function toMinutes(hhmm: string): number {
   const [h, m] = hhmm.split(':').map(Number);
   return h * 60 + (m ?? 0);
@@ -57,17 +55,7 @@ export function deriveMarketSessions(
   return out;
 }
 
-export function derivePrimarySession(time: string | null | undefined): Exclude<MarketSession, 'my' | 'unscheduled'> | 'unscheduled' {
-  const utcMin = parseTimeToMinutes(time);
-  if (utcMin == null) return 'unscheduled';
-  if (utcMin >= 0 && utcMin < 360) return 'asian';
-  if (utcMin >= 360 && utcMin < 480) return 'overnight';
-  if (utcMin >= 480 && utcMin < 780) return 'london';
-  if (utcMin >= 780 && utcMin < 1320) return 'ny';
-  return 'overnight';
-}
-
-export function utcMinutesToColomboLabel(utcMin: number): string {
+function utcMinutesToColomboLabel(utcMin: number): string {
   const m = (utcMin + 330) % 1440;
   const h = Math.floor(m / 60);
   const mm = m % 60;
@@ -91,51 +79,6 @@ export function sessionBadgeColor(s: MarketSession): string {
   return 'var(--text-muted)';
 }
 
-export interface SessionStats {
-  session: MarketSession;
-  count: number;
-  wins: number;
-  losses: number;
-  bes: number;
-  winRate: number;
-  netPnl: number;
-  avgPnl: number;
-  grossWin: number;
-  grossLoss: number;
-  profitFactor: number | null;
-}
-
-export function computeSessionStats(trades: any[], myCfg: MySessionConfig = DEFAULT_MY_SESSION): SessionStats[] {
-  const by: Record<string, any[]> = {};
-  for (const t of trades) {
-    for (const s of deriveMarketSessions(t.time, myCfg)) {
-      (by[s] ??= []).push(t);
-    }
-  }
-  return SESSION_ORDER.map((session) => {
-    const list = by[session] ?? [];
-    const wins = list.filter((t) => t.win).length;
-    const losses = list.filter((t) => t.loss).length;
-    const bes = list.filter((t) => t.be).length;
-    const netPnl = list.reduce((s, t) => s + (t.pnl ?? 0), 0);
-    const grossWin = list.filter((t) => (t.pnl ?? 0) > 0).reduce((s, t) => s + t.pnl, 0);
-    const grossLoss = Math.abs(list.filter((t) => (t.pnl ?? 0) < 0).reduce((s, t) => s + t.pnl, 0));
-    return {
-      session,
-      count: list.length,
-      wins,
-      losses,
-      bes,
-      winRate: list.length ? (wins / list.length) * 100 : 0,
-      netPnl,
-      avgPnl: list.length ? netPnl / list.length : 0,
-      grossWin,
-      grossLoss,
-      profitFactor: grossLoss > 0 ? grossWin / grossLoss : grossWin > 0 ? Infinity : null
-    };
-  });
-}
-
 export function hourlyBuckets(trades: any[]) {
   const buckets: Array<{ hour: number; count: number; wins: number; netPnl: number }> = Array.from({ length: 24 }, (_, hour) => ({ hour, count: 0, wins: 0, netPnl: 0 }));
   for (const t of trades) {
@@ -149,9 +92,3 @@ export function hourlyBuckets(trades: any[]) {
   return buckets;
 }
 
-export function parseMySessionWindow(v: string): MySessionConfig | null {
-  const parts = v.split(',').map((s) => s.trim());
-  if (parts.length !== 2) return null;
-  if (!/^\d{1,2}:\d{2}$/.test(parts[0]) || !/^\d{1,2}:\d{2}$/.test(parts[1])) return null;
-  return { start: parts[0].padStart(5, '0'), end: parts[1].padStart(5, '0') };
-}

@@ -67,9 +67,9 @@
 <svelte:head><title>Sessions — Qulem-Trade</title></svelte:head>
 
 <div class="sessions-page" style="padding:1.5rem;max-width:100%;width:100%;box-sizing:border-box;">
-  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.5rem;flex-wrap:wrap;gap:0.75rem;">
+  <div class="page-header">
     <div>
-      <h1 style="font-family:'JetBrains Mono',monospace;font-size:1.25rem;font-weight:600;color:var(--text-primary);">Sessions</h1>
+      <h1 class="stat-value">Sessions</h1>
       <p style="color:var(--text-muted);font-size:0.875rem;margin-top:0.125rem;">Market sessions · trades by session · daily journal</p>
     </div>
     <a href="/sessions/{today}" style="padding:0.5rem 0.875rem;background:var(--accent);border-radius:0.5rem;color:#fff;text-decoration:none;font-size:0.875rem;font-weight:500;">
@@ -81,7 +81,7 @@
   <div style="background:var(--surface);border:1px solid var(--border);border-radius:0.75rem;padding:1rem;margin-bottom:1rem;width:100%;box-sizing:border-box;">
     <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:0.5rem;margin-bottom:0.75rem;">
       <h2 style="font-size:0.75rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;">Trades by Session</h2>
-      <span style="font-size:0.75rem;color:var(--text-muted);">{(data as any).totalTrades ?? 0} filtered · {(data as any).allTradesCount ?? 0} total</span>
+      <span class="muted-xs">{(data as any).totalTrades ?? 0} filtered · {(data as any).allTradesCount ?? 0} total</span>
     </div>
 
     <div style="display:flex;flex-wrap:wrap;gap:0.375rem;align-items:center;margin-bottom:0.75rem;">
@@ -97,8 +97,8 @@
 
     <div style="display:flex;flex-wrap:wrap;gap:0.75rem;align-items:flex-end;margin-bottom:0.75rem;">
       <div>
-        <label style="display:block;font-size:0.7rem;color:var(--text-muted);margin-bottom:0.25rem;text-transform:uppercase;letter-spacing:0.05em;">Result</label>
-        <select bind:value={result} onchange={applyFilters} style="padding:0.375rem 0.5rem;background:var(--bg);border:1px solid var(--border);border-radius:0.375rem;color:var(--text-primary);font-size:0.8rem;">
+        <label class="field-label">Result</label>
+        <select bind:value={result} onchange={applyFilters} class="input-sm">
           <option value="all">All</option>
           <option value="win">Win</option>
           <option value="loss">Loss</option>
@@ -106,8 +106,8 @@
         </select>
       </div>
       <div>
-        <label style="display:block;font-size:0.7rem;color:var(--text-muted);margin-bottom:0.25rem;text-transform:uppercase;letter-spacing:0.05em;">View TZ</label>
-        <select bind:value={viewTz} onchange={applyFilters} style="padding:0.375rem 0.5rem;background:var(--bg);border:1px solid var(--border);border-radius:0.375rem;color:var(--text-primary);font-size:0.8rem;">
+        <label class="field-label">View TZ</label>
+        <select bind:value={viewTz} onchange={applyFilters} class="input-sm">
           <option value="utc">UTC (global-correct)</option>
           <option value="colombo">Colombo (+05:30)</option>
         </select>
@@ -147,17 +147,17 @@
 
   <!-- Trades by session table -->
   <div style="background:var(--surface);border:1px solid var(--border);border-radius:0.75rem;overflow:hidden;margin-bottom:1.25rem;width:100%;box-sizing:border-box;">
-    <div style="overflow-x:auto;">
-      <table style="width:100%;border-collapse:collapse;font-size:0.8125rem;">
+    <div class="scroll-x">
+      <table class="table">
         <thead>
-          <tr style="background:var(--bg);border-bottom:1px solid var(--border);">
-            <th style="padding:0.625rem 0.75rem;text-align:left;font-size:0.7rem;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;">Date</th>
-            <th style="padding:0.625rem 0.75rem;text-align:left;font-size:0.7rem;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;">Time</th>
-            <th style="padding:0.625rem 0.75rem;text-align:left;font-size:0.7rem;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;">Session</th>
-            <th style="padding:0.625rem 0.75rem;text-align:left;font-size:0.7rem;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;">Coin</th>
-            <th style="padding:0.625rem 0.75rem;text-align:left;font-size:0.7rem;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;">Pos</th>
-            <th style="padding:0.625rem 0.75rem;text-align:left;font-size:0.7rem;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;">PnL</th>
-            <th style="padding:0.625rem 0.75rem;text-align:left;font-size:0.7rem;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;">Result</th>
+          <tr class="thead-row">
+            <th class="th">Date</th>
+            <th class="th">Time</th>
+            <th class="th">Session</th>
+            <th class="th">Coin</th>
+            <th class="th">Pos</th>
+            <th class="th">PnL</th>
+            <th class="th">Result</th>
           </tr>
         </thead>
         <tbody>

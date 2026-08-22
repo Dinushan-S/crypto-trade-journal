@@ -5,11 +5,11 @@
 
 <svelte:head><title>Liquidations — Qulem-Trade</title></svelte:head>
 
-<div style="padding:1.5rem;max-width:900px;">
+<div class="page">
   <!-- Header -->
-  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.5rem;flex-wrap:wrap;gap:0.75rem;">
+  <div class="page-header">
     <div>
-      <h1 style="font-family:'JetBrains Mono',monospace;font-size:1.25rem;font-weight:600;color:var(--text-primary);">Liquidations</h1>
+      <h1 class="stat-value">Liquidations</h1>
       <p style="color:var(--text-muted);font-size:0.875rem;margin-top:0.125rem;">{data.total} total</p>
     </div>
     <a href="/liquidations/new" style="padding:0.5rem 0.875rem;background:var(--loss);border:none;border-radius:0.5rem;color:#fff;text-decoration:none;font-size:0.875rem;font-weight:500;">
@@ -26,16 +26,16 @@
   {/if}
 
   <!-- Table -->
-  <div style="background:var(--surface);border:1px solid var(--border);border-radius:0.75rem;overflow:hidden;">
+  <div class="card-flush">
     {#if data.liquidations.length === 0}
       <div style="padding:3rem;text-align:center;color:var(--text-muted);">
         No liquidations recorded. <a href="/liquidations/new" style="color:var(--accent);text-decoration:none;">Add one</a>.
       </div>
     {:else}
-      <div style="overflow-x:auto;">
-        <table style="width:100%;border-collapse:collapse;font-size:0.8125rem;">
+      <div class="scroll-x">
+        <table class="table">
           <thead>
-            <tr style="background:var(--bg);border-bottom:1px solid var(--border);">
+            <tr class="thead-row">
               {#each ['Date','Coin','Position','Strategy','Amount Lost','Reason','Notes'] as col}
                 <th style="padding:0.625rem 0.75rem;text-align:left;font-size:0.7rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;">{col}</th>
               {/each}
@@ -43,7 +43,7 @@
           </thead>
           <tbody>
             {#each data.liquidations as liq}
-              <tr style="border-bottom:1px solid var(--border);">
+              <tr class="row-divider">
                 <td style="padding:0.625rem 0.75rem;font-family:'JetBrains Mono',monospace;color:var(--text-muted);white-space:nowrap;">{formatDate(liq.date)}</td>
                 <td style="padding:0.625rem 0.75rem;font-weight:600;color:var(--text-primary);">{liq.coin ?? '—'}</td>
                 <td style="padding:0.625rem 0.75rem;">

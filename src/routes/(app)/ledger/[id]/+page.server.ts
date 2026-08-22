@@ -91,7 +91,7 @@ export const actions: Actions = {
     const form = await request.formData();
     const allocations = JSON.parse((form.get('allocations') as string) ?? '[]') as { depositId: string; releasedUsd: number }[];
     try {
-      await convex.mutation(api.ledger.rebalanceAllocations, {
+      await convex.mutation(api.ledger.allocateRelease, {
         withdrawalId: params.id as Id<'ledger'>,
         allocations: allocations.map((a) => ({ depositId: a.depositId as Id<'ledger'>, releasedUsd: a.releasedUsd })),
       });

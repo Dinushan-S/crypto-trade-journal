@@ -15,10 +15,7 @@
     if (form?.success) {
       editing = false;
     }
-  });
-
-  const inputStyle = 'padding:0.4rem 0.625rem;background:var(--bg);border:1px solid var(--accent);border-radius:0.375rem;color:var(--text-primary);font-size:0.875rem;width:100%;box-sizing:border-box;outline:none;font-family:inherit;';
-
+  });
   const editFields: [string, string, string][] = [
     ['Coin', 'coin', 'text'],
     ['Position', 'position', 'text'],
@@ -67,14 +64,14 @@
 
 <svelte:head><title>{trade.coin} Trade — Qulem-Trade</title></svelte:head>
 
-<div style="padding:1.5rem;max-width:900px;">
+<div class="page">
   <!-- Header -->
-  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.5rem;flex-wrap:wrap;gap:0.75rem;">
+  <div class="page-header">
     <div style="display:flex;align-items:center;gap:1rem;">
-      <a href="/trades" style="color:var(--text-muted);text-decoration:none;font-size:0.875rem;">← Trades</a>
+      <a href="/trades" class="link-muted">← Trades</a>
       <div>
         <div style="display:flex;align-items:center;gap:0.75rem;">
-          <h1 style="font-family:'JetBrains Mono',monospace;font-size:1.5rem;font-weight:700;color:var(--text-primary);">{trade.coin}</h1>
+          <h1 class="stat-value-lg">{trade.coin}</h1>
           <span style="padding:0.25rem 0.625rem;border-radius:0.375rem;font-size:0.8rem;font-weight:700;
             background:{trade.position === 'Long' ? 'color-mix(in srgb,var(--win) 15%,transparent)' : 'color-mix(in srgb,var(--loss) 15%,transparent)'};
             color:{trade.position === 'Long' ? 'var(--win)' : 'var(--loss)'};">
@@ -124,32 +121,32 @@
   <!-- PnL hero -->
   <div style="background:var(--surface);border:1px solid var(--border);border-radius:0.75rem;padding:1.25rem;margin-bottom:1rem;display:flex;gap:2rem;flex-wrap:wrap;">
     <div>
-      <div style="font-size:0.7rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:0.25rem;">PnL</div>
+      <div class="field-label-tight">PnL</div>
       <div style="font-family:'JetBrains Mono',monospace;font-size:1.75rem;font-weight:700;color:{trade.pnl == null ? 'var(--text-muted)' : trade.pnl > 0 ? 'var(--win)' : trade.pnl < 0 ? 'var(--loss)' : 'var(--text-muted)'};">
         {formatCurrency(trade.pnl)}
       </div>
     </div>
     {#if trade.entry_price}
       <div>
-        <div style="font-size:0.7rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:0.25rem;">Entry</div>
+        <div class="field-label-tight">Entry</div>
         <div style="font-family:'JetBrains Mono',monospace;font-size:1.5rem;font-weight:600;color:var(--text-primary);">{trade.entry_price}</div>
       </div>
     {/if}
     {#if trade.stop_loss}
       <div>
-        <div style="font-size:0.7rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:0.25rem;">Stop Loss</div>
+        <div class="field-label-tight">Stop Loss</div>
         <div style="font-family:'JetBrains Mono',monospace;font-size:1.5rem;font-weight:600;color:var(--loss);">{trade.stop_loss}</div>
       </div>
     {/if}
     {#if trade.exit_price}
       <div>
-        <div style="font-size:0.7rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:0.25rem;">Exit Price</div>
+        <div class="field-label-tight">Exit Price</div>
         <div style="font-family:'JetBrains Mono',monospace;font-size:1.5rem;font-weight:600;color:var(--text-primary);">{trade.exit_price}</div>
       </div>
     {/if}
     {#if trade.confidence}
       <div>
-        <div style="font-size:0.7rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:0.25rem;">Confidence</div>
+        <div class="field-label-tight">Confidence</div>
         <div style="font-size:1.25rem;">{'★'.repeat(trade.confidence)}{'☆'.repeat(5 - trade.confidence)}</div>
       </div>
     {/if}
@@ -170,7 +167,7 @@
           {#each editFields as [label, name, type]}
             <div>
               <label style="display:block;font-size:0.7rem;font-weight:600;color:var(--text-muted);margin-bottom:0.25rem;text-transform:uppercase;letter-spacing:0.05em;">{label}</label>
-              <input {type} {name} value={trade[name] ?? ''} style={inputStyle} />
+              <input {type} {name} value={trade[name] ?? ''} class="input-inline" />
             </div>
           {/each}
         </div>
@@ -193,7 +190,7 @@
         {#each textareaFields as [label, name]}
           <div style="margin-bottom:1rem;">
             <label style="display:block;font-size:0.7rem;font-weight:600;color:var(--text-muted);margin-bottom:0.25rem;text-transform:uppercase;letter-spacing:0.05em;">{label}</label>
-            <textarea {name} rows="3" style="{inputStyle}resize:vertical;">{trade[name] ?? ''}</textarea>
+            <textarea {name} rows="3" class="input-inline" style="resize:vertical;">{trade[name] ?? ''}</textarea>
           </div>
         {/each}
 
@@ -201,7 +198,7 @@
           <button type="submit" disabled={saving} style="padding:0.625rem 1.25rem;background:var(--accent);color:#fff;border:none;border-radius:0.5rem;font-weight:600;font-size:0.875rem;cursor:pointer;opacity:{saving ? 0.5 : 1};">
             {saving ? 'Saving…' : 'Save Changes'}
           </button>
-          <button type="button" onclick={() => editing = false} style="padding:0.625rem 1rem;border:1px solid var(--border);border-radius:0.5rem;background:transparent;color:var(--text-muted);font-size:0.875rem;cursor:pointer;">Cancel</button>
+          <button type="button" onclick={() => editing = false} class="btn-ghost">Cancel</button>
         </div>
       </div>
     </form>
@@ -211,7 +208,7 @@
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:1.5rem;">
         {#each detailRows as [label, val]}
           <div>
-            <div style="font-size:0.7rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:0.25rem;">{label}</div>
+            <div class="field-label-tight">{label}</div>
             <div style="font-size:0.875rem;color:{val ? 'var(--text-primary)' : 'var(--text-muted)'};">{val ?? '—'}</div>
           </div>
         {/each}

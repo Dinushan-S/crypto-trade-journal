@@ -53,10 +53,6 @@
     return e.fiat_sent / e.usd_received;
   }
 
-  const inputStyle = 'padding:0.4rem 0.625rem;background:var(--bg);border:1px solid var(--accent);border-radius:0.375rem;color:var(--text-primary);font-size:0.875rem;width:100%;box-sizing:border-box;outline:none;font-family:inherit;';
-  const labelStyle = 'display:block;font-size:0.7rem;font-weight:600;color:var(--text-muted);margin-bottom:0.25rem;text-transform:uppercase;letter-spacing:0.05em;';
-  const computedStyle = 'padding:0.5rem 0.75rem;background:color-mix(in srgb,var(--accent) 8%,transparent);border:1px solid color-mix(in srgb,var(--accent) 30%,transparent);border-radius:0.5rem;color:var(--accent);font-size:0.875rem;width:100%;box-sizing:border-box;font-family:"JetBrains Mono",monospace;';
-
   const depositFields: [string, string, string][] = [
     ['Date', 'date', 'date'],
     ['Time', 'time', 'time'],
@@ -109,14 +105,14 @@
 
 <svelte:head><title>{isDeposit ? 'Deposit' : 'Withdrawal'} — Qulem-Trade</title></svelte:head>
 
-<div style="padding:1.5rem;max-width:900px;">
+<div class="page">
   <!-- Header -->
-  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.5rem;flex-wrap:wrap;gap:0.75rem;">
+  <div class="page-header">
     <div style="display:flex;align-items:center;gap:1rem;">
-      <a href="/ledger" style="color:var(--text-muted);text-decoration:none;font-size:0.875rem;">← Ledger</a>
+      <a href="/ledger" class="link-muted">← Ledger</a>
       <div>
         <div style="display:flex;align-items:center;gap:0.75rem;">
-          <h1 style="font-family:'JetBrains Mono',monospace;font-size:1.5rem;font-weight:700;color:var(--text-primary);">
+          <h1 class="stat-value-lg">
             {isDeposit ? '↓ Deposit' : '↑ Withdrawal'}
           </h1>
           <span style="padding:0.25rem 0.625rem;border-radius:0.375rem;font-size:0.8rem;font-weight:700;
@@ -153,8 +149,8 @@
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1rem;">
           {#each (isDeposit ? depositFields : withdrawalFields) as [label, name, type]}
             <div>
-              <label style={labelStyle}>{label}</label>
-              <input {type} {name} value={entry[name] ?? ''} style={inputStyle} />
+              <label class="form-label">{label}</label>
+              <input {type} {name} value={entry[name] ?? ''} class="input-inline" />
             </div>
           {/each}
         </div>
@@ -163,42 +159,42 @@
         {#if isDeposit}
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1rem;">
             <div>
-              <label style={labelStyle}>Total LKR Sent (computed)</label>
-              <div style={computedStyle}>{lkrTotalSent(entry).toLocaleString('en-US', {maximumFractionDigits:2})}</div>
+              <label class="form-label">Total LKR Sent (computed)</label>
+              <div class="computed-field">{lkrTotalSent(entry).toLocaleString('en-US', {maximumFractionDigits:2})}</div>
             </div>
             <div>
-              <label style={labelStyle}>Effective Rate (computed)</label>
-              <div style={computedStyle}>{effectiveRate(entry)?.toFixed(2) ?? '—'}</div>
+              <label class="form-label">Effective Rate (computed)</label>
+              <div class="computed-field">{effectiveRate(entry)?.toFixed(2) ?? '—'}</div>
             </div>
           </div>
         {:else}
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1rem;">
             <div>
-              <label style={labelStyle}>USD Released (computed)</label>
-              <div style={computedStyle}>${usdReleased(entry).toFixed(2)}</div>
+              <label class="form-label">USD Released (computed)</label>
+              <div class="computed-field">${usdReleased(entry).toFixed(2)}</div>
             </div>
             <div>
-              <label style={labelStyle}>Expected LKR (computed)</label>
-              <div style={computedStyle}>{expectedFiat(entry).toLocaleString('en-US', {maximumFractionDigits:0})}</div>
+              <label class="form-label">Expected LKR (computed)</label>
+              <div class="computed-field">{expectedFiat(entry).toLocaleString('en-US', {maximumFractionDigits:0})}</div>
             </div>
           </div>
         {/if}
 
         <!-- Notes -->
         <div style="margin-bottom:1rem;">
-          <label style={labelStyle}>Notes</label>
-          <textarea name="notes" rows="3" style="{inputStyle}resize:vertical;">{entry.notes ?? ''}</textarea>
+          <label class="form-label">Notes</label>
+          <textarea name="notes" rows="3" class="input-inline" style="resize:vertical;">{entry.notes ?? ''}</textarea>
         </div>
 
         <!-- Optional fields -->
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1rem;">
           <div>
-            <label style={labelStyle}>Order Number</label>
-            <input type="text" name="order_number" value={entry.order_number ?? ''} style={inputStyle} placeholder="Optional" />
+            <label class="form-label">Order Number</label>
+            <input type="text" name="order_number" value={entry.order_number ?? ''} class="input-inline" placeholder="Optional" />
           </div>
           <div>
-            <label style={labelStyle}>Counterparty</label>
-            <input type="text" name="counterparty" value={entry.counterparty ?? ''} style={inputStyle} placeholder="Optional" />
+            <label class="form-label">Counterparty</label>
+            <input type="text" name="counterparty" value={entry.counterparty ?? ''} class="input-inline" placeholder="Optional" />
           </div>
         </div>
 
@@ -206,7 +202,7 @@
           <button type="submit" disabled={saving} style="padding:0.625rem 1.25rem;background:var(--accent);color:#fff;border:none;border-radius:0.5rem;font-weight:600;font-size:0.875rem;cursor:pointer;opacity:{saving ? 0.5 : 1};">
             {saving ? 'Saving…' : 'Save Changes'}
           </button>
-          <button type="button" onclick={() => editing = false} style="padding:0.625rem 1rem;border:1px solid var(--border);border-radius:0.5rem;background:transparent;color:var(--text-muted);font-size:0.875rem;cursor:pointer;">Cancel</button>
+          <button type="button" onclick={() => editing = false} class="btn-ghost">Cancel</button>
         </div>
       </div>
     </form>
@@ -216,7 +212,7 @@
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:1.5rem;">
         {#each detailRows as [label, val]}
           <div>
-            <div style="font-size:0.7rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:0.25rem;">{label}</div>
+            <div class="field-label-tight">{label}</div>
             <div style="font-size:0.875rem;color:{val ? 'var(--text-primary)' : 'var(--text-muted)'};">{val ?? '—'}</div>
           </div>
         {/each}

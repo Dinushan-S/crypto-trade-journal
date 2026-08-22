@@ -78,10 +78,10 @@
 
 <svelte:head><title>Import Trades — Qulem-Trade</title></svelte:head>
 
-<div style="padding:1.5rem;max-width:900px;">
+<div class="page">
   <div style="display:flex;align-items:center;gap:1rem;margin-bottom:1.5rem;">
-    <a href="/trades" style="color:var(--text-muted);text-decoration:none;font-size:0.875rem;">← Trades</a>
-    <h1 style="font-family:'JetBrains Mono',monospace;font-size:1.25rem;font-weight:600;color:var(--text-primary);">Import Trade History CSV</h1>
+    <a href="/trades" class="link-muted">← Trades</a>
+    <h1 class="stat-value">Import Trade History CSV</h1>
   </div>
 
   <div style="display:flex;gap:0;margin-bottom:1.5rem;background:var(--surface);border:1px solid var(--border);border-radius:0.5rem;overflow:hidden;">
@@ -120,7 +120,7 @@
         <label for="csv-input" style="padding:0.625rem 1.5rem;background:var(--accent);color:#fff;border-radius:0.5rem;font-size:0.875rem;font-weight:500;cursor:pointer;">Browse Files</label>
       </div>
       <div style="margin-top:1rem;padding:0.75rem 1rem;background:var(--surface);border:1px solid var(--border);border-radius:0.5rem;">
-        <p style="font-size:0.8rem;color:var(--text-muted);">Expected format: <span style="font-family:'JetBrains Mono',monospace;color:var(--text-primary);">Binance → Orders → Futures → Trade History → Export</span></p>
+        <p class="muted-sm">Expected format: <span style="font-family:'JetBrains Mono',monospace;color:var(--text-primary);">Binance → Orders → Futures → Trade History → Export</span></p>
       </div>
     {/if}
 
@@ -136,7 +136,7 @@
       <div style="overflow-x:auto;max-height:400px;overflow-y:auto;">
         <table style="width:100%;border-collapse:collapse;font-size:0.8rem;">
           <thead style="position:sticky;top:0;background:var(--bg);">
-            <tr style="border-bottom:1px solid var(--border);">
+            <tr class="row-divider">
               <th style="padding:0.5rem 0.75rem;text-align:left;font-size:0.7rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;width:40px;">
                 <input type="checkbox"
                   checked={selected.size === parsedTrades.length}
@@ -156,8 +156,8 @@
           </thead>
           <tbody>
             {#each parsedTrades as trade, i}
-              <tr style="border-bottom:1px solid var(--border);">
-                <td style="padding:0.5rem 0.75rem;">
+              <tr class="row-divider">
+                <td class="td">
                   <input type="checkbox"
                     checked={selected.has(i)}
                     onchange={() => toggleSelect(i)}
@@ -165,12 +165,12 @@
                 </td>
                 <td style="padding:0.5rem 0.75rem;font-family:'JetBrains Mono',monospace;color:var(--text-muted);">{trade.date}</td>
                 <td style="padding:0.5rem 0.75rem;font-weight:600;color:var(--text-primary);">{trade.coin}</td>
-                <td style="padding:0.5rem 0.75rem;">
+                <td class="td">
                   <span style="color:{trade.position === 'Long' ? 'var(--win)' : 'var(--loss)'};font-weight:600;">{trade.position}</span>
                 </td>
-                <td style="padding:0.5rem 0.75rem;font-family:'JetBrains Mono',monospace;">{trade.entry_price ?? '—'}</td>
-                <td style="padding:0.5rem 0.75rem;font-family:'JetBrains Mono',monospace;">{trade.exit_price ?? '—'}</td>
-                <td style="padding:0.5rem 0.75rem;font-family:'JetBrains Mono',monospace;">{trade.quantity ?? '—'}</td>
+                <td class="td-mono">{trade.entry_price ?? '—'}</td>
+                <td class="td-mono">{trade.exit_price ?? '—'}</td>
+                <td class="td-mono">{trade.quantity ?? '—'}</td>
                 <td style="padding:0.5rem 0.75rem;font-family:'JetBrains Mono',monospace;font-weight:600;color:{trade.pnl > 0 ? 'var(--win)' : trade.pnl < 0 ? 'var(--loss)' : 'var(--text-muted)'};">
                   {trade.pnl > 0 ? '+' : ''}{trade.pnl.toFixed(4)}
                 </td>
@@ -193,7 +193,7 @@
           Import {selectedTrades.length} Trades
         {/if}
       </button>
-      <button onclick={() => { step = 1; parsedTrades = []; fileName = ''; }} style="padding:0.625rem 1rem;border:1px solid var(--border);border-radius:0.5rem;background:transparent;color:var(--text-muted);font-size:0.875rem;cursor:pointer;">
+      <button onclick={() => { step = 1; parsedTrades = []; fileName = ''; }} class="btn-ghost">
         ← Back
       </button>
     </div>
@@ -205,7 +205,7 @@
       <p style="color:var(--text-muted);font-size:0.875rem;margin-bottom:0.5rem;">{importResult?.imported} trades imported · {importResult?.skipped} duplicates skipped</p>
       <div style="display:flex;gap:0.75rem;justify-content:center;margin-top:1.5rem;">
         <a href="/trades" style="padding:0.625rem 1.5rem;background:var(--accent);color:#fff;border-radius:0.5rem;text-decoration:none;font-size:0.875rem;font-weight:500;">View Trades</a>
-        <button onclick={() => { step = 1; parsedTrades = []; importResult = null; fileName = ''; }} style="padding:0.625rem 1rem;border:1px solid var(--border);border-radius:0.5rem;background:transparent;color:var(--text-muted);font-size:0.875rem;cursor:pointer;">Import Another</button>
+        <button onclick={() => { step = 1; parsedTrades = []; importResult = null; fileName = ''; }} class="btn-ghost">Import Another</button>
       </div>
     </div>
   {/if}
