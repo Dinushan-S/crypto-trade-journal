@@ -93,7 +93,8 @@
   let editTrade = $state<any | null>(null);
   let modalMode = $state<'quick' | 'full'>('quick');
 
-  const tfOptions = ['1m', '5m', '15m', '30m', '1h', '4h', '1D', '1W'];
+  const tfOptions = ['1m', '5m', '15m', '30m', '1h', '4h', '1D', '1W'];
+
   const closeModal = () => {
     addOpen = false;
     editTrade = null;
@@ -462,7 +463,7 @@
                 {label}{col ? ` ${sortIcon(col)}` : ''}
               </th>
             {/each}
-            <th style="padding:0.625rem 0.75rem;text-align:left;font-size:0.7rem;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;white-space:nowrap;">Edit</th>
+            <th style="padding:0.625rem 0.75rem;text-align:left;font-size:0.7rem;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;white-space:nowrap;">Actions</th>
           </tr>
         </thead>
         <tbody>
@@ -611,6 +612,17 @@
                     style="padding:0.2rem 0.5rem;border:1px solid var(--border);border-radius:0.25rem;background:transparent;color:var(--text-muted);font-size:0.7rem;cursor:pointer;"
                     >✏️</button
                   >
+                  <form method="POST" action="?/delete" use:enhance style="display:inline;">
+                    <input type="hidden" name="id" value={trade.id} />
+                    <button
+                      type="submit"
+                      onclick={(e) => {
+                        if (!confirm(`Delete ${trade.coin} trade on ${trade.date}?`)) e.preventDefault();
+                      }}
+                      style="padding:0.2rem 0.5rem;border:1px solid var(--border);border-radius:0.25rem;background:transparent;color:var(--loss);font-size:0.7rem;cursor:pointer;"
+                      >🗑️</button
+                    >
+                  </form>
                 </td>
               </tr>
             {/each}

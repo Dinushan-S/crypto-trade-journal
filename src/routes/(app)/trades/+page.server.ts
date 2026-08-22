@@ -137,4 +137,17 @@ export const actions: Actions = {
       return fail(500, { error: err.message || 'Failed to update trade.' });
     }
   },
+
+  delete: async ({ locals: { convex }, request }) => {
+    const form = await request.formData();
+    const id = form.get('id') as string;
+    if (!id) return fail(400, { error: 'Missing trade id.' });
+
+    try {
+      await convex.mutation(api.trades.deleteTrade, { id: id as any });
+      return { success: true };
+    } catch (err: any) {
+      return fail(500, { error: err.message || 'Failed to delete trade.' });
+    }
+  },
 };
