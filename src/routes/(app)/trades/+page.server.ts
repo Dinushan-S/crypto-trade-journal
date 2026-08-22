@@ -66,9 +66,9 @@ export const actions: Actions = {
     const post_notes = (form.get('post_notes') as string) || undefined;
     const timeframes = form.getAll('timeframes') as string[];
 
-    const win = pnl !== undefined ? pnl > 0 : false;
-    const loss = pnl !== undefined ? pnl < 0 : false;
-    const be = pnl !== undefined ? pnl === 0 : false;
+    const win = pnl !== undefined ? pnl > 0 : undefined;
+    const loss = pnl !== undefined ? pnl < 0 : undefined;
+    const be = pnl !== undefined ? pnl === 0 : undefined;
 
     try {
       await convex.mutation(api.trades.createTrade, {

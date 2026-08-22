@@ -127,21 +127,19 @@
   function openAdd() {
     addOpen = true;
     editTrade = null;
+    tfSel = [];
     modalMode = 'quick';
   }
   function openEdit(t: any) {
     editTrade = t;
+    tfSel = t.timeframes ?? [];
     addOpen = true;
     modalMode = 'quick';
   }
 
+  let tfSel = $state<string[]>([]);
   function toggleTf(tf: string) {
-    if (!editTrade) return;
-    const cur: string[] = editTrade.timeframes ?? [];
-    editTrade = {
-      ...editTrade,
-      timeframes: cur.includes(tf) ? cur.filter((x) => x !== tf) : [...cur, tf],
-    };
+    tfSel = tfSel.includes(tf) ? tfSel.filter((x) => x !== tf) : [...tfSel, tf];
   }
 
   // Summary stats for visible trades
@@ -835,7 +833,7 @@
                 <label style={labelStyle}>Timeframes</label>
                 <div style="display:flex;flex-wrap:wrap;gap:0.375rem;margin-top:0.25rem;">
                   {#each tfOptions as tf}
-                    {@const active = editTrade ? (editTrade.timeframes ?? []).includes(tf) : false}
+                    {@const active = tfSel.includes(tf)}
                     <label style="padding:0.25rem 0.625rem;border-radius:0.375rem;border:1px solid {active ? 'var(--accent)' : 'var(--border)'};background:{active ? 'color-mix(in srgb,var(--accent) 15%,transparent)' : 'transparent'};color:{active ? 'var(--accent)' : 'var(--text-muted)'};font-size:0.75rem;font-family:'JetBrains Mono',monospace;cursor:pointer;">
                       <input type="checkbox" name="timeframes" value={tf} checked={active} onchange={() => toggleTf(tf)} style="display:none;" />
                       {tf}

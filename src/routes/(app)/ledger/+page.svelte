@@ -131,6 +131,7 @@
   }
   function openEdit(e: any) {
     editEntry = e;
+    syncModalType();
     addOpen = true;
   }
 
@@ -294,7 +295,7 @@
                         <span style="color:var(--text-muted);">—</span>
                       {/if}
                     </td>
-                    <td style="padding:0.5rem 0.75rem;"><button onclick={() => { syncModalType(); openEdit(e); }} style="background:none;border:none;color:var(--accent);font-size:0.8rem;text-decoration:underline;cursor:pointer;">Edit</button></td>
+                    <td style="padding:0.5rem 0.75rem;"><button onclick={() => openEdit(e)} style="background:none;border:none;color:var(--accent);font-size:0.8rem;text-decoration:underline;cursor:pointer;">Edit</button></td>
                   </tr>
                 {/each}
               </tbody>
@@ -341,7 +342,7 @@
                       {/if}
                     </td>
                     <td style="padding:0.5rem 0.75rem;white-space:nowrap;">
-                      <button onclick={() => { syncModalType(); openEdit(e); }} style="background:none;border:none;color:var(--accent);font-size:0.8rem;text-decoration:underline;cursor:pointer;margin-right:0.5rem;">Edit</button>
+                      <button onclick={() => openEdit(e)} style="background:none;border:none;color:var(--accent);font-size:0.8rem;text-decoration:underline;cursor:pointer;margin-right:0.5rem;">Edit</button>
                       <button onclick={() => releaseOpen = releaseOpen === e.id ? null : e.id}
                         style="padding:0.25rem 0.5rem;border:1px solid var(--border);border-radius:0.25rem;background:transparent;color:var(--text-muted);font-size:0.75rem;cursor:pointer;">
                         {releaseOpen === e.id ? '✕' : 'Release'}
