@@ -3,7 +3,7 @@
   import { goto } from '$app/navigation';
   import { formatCurrency, formatDate } from '$lib/utils';
 
-  let { data }: { data: { detail: any; error?: string } } = $props();
+  let { data }: { data: { detail: any; availableTrades?: any[]; error?: string } } = $props();
   let { detail } = data;
 
   const liquidation = detail.liquidation;
@@ -30,6 +30,7 @@
     deleting = true;
     formError = '';
     const form = new FormData();
+    form.set('_action', 'delete');
     form.set('id', liquidation._id);
     const res = await fetch(`/liquidations/${liquidation._id}`, {
       method: 'POST',
@@ -45,8 +46,7 @@
 
   // Trade picker modal state
   let showModal = $state(false);
-  let loadingTrades = $state(false);
-  let allUserTrades: any[] = [];
+  let allUserTrades: any[] = data.availableTrades ?? [];
   let modalCoinFilter = $state('');
   let modalResultFilter = $state('all');
   let modalSearchPage = $state(1);
@@ -82,17 +82,9 @@
     return allUserTrades.filter((t: any) => !alreadyLinkedIds.has(t._id));
   }
 
-  async function openModal() {
+  function openModal() {
     showModal = true;
     formError = '';
-    loadingTrades = true;
-    try {
-      allUserTrades = await window.__convex__.query(api.trades.getTrades, {}).catch(() => []);
-    } catch {
-      allUserTrades = [];
-    } finally {
-      loadingTrades = false;
-    }
     // Pre-select already-linked trades (shown as disabled)
     selectedModalIds.clear();
     for (const trade of linkedTrades) {
@@ -131,6 +123,7 @@
     }
     const idsArray = Array.from(selectedModalIds);
     const form = new FormData();
+    form.set('_action', 'addTrades');
     form.set('liquidationId', liquidation._id);
     form.set('tradeIds', idsArray.join(','));
     const res = await fetch(`/liquidations/${liquidation._id}`, {
@@ -358,11 +351,9 @@
           </div>
         </div>
 
-        <!-- Loading / trade list -->
+        <!-- Trade list -->
         <div style="flex:1;overflow-y:auto;">
-          {#if loadingTrades}
-            <div style="padding:3rem;text-align:center;color:var(--text-muted);">Loading trades…</div>
-          {:else if allUserTrades.length === 0}
+          {#if allUserTrades.length === 0}
             <div style="padding:3rem;text-align:center;color:var(--text-muted);">No trades found.</div>
           {:else}
             <table style="width:100%;border-collapse:collapse;font-size:0.8125rem;">
@@ -413,7 +404,7 @@
         </div>
 
         <!-- Pagination -->
-        {#if !loadingTrades && allUserTrades.length > 0 && totalFilteredPages > 1}
+        {#if allUserTrades.length > 0 && totalFilteredPages > 1}
           <div style="padding:0.625rem 1.25rem;border-top:1px solid var(--border);display:flex;align-items:center;justify-content:center;gap:0.5rem;">
             <button onclick={() => modalSearchPage = Math.max(1, modalSearchPage - 1)} disabled={modalSearchPage <= 1} style="padding:0.25rem 0.625rem;border:1px solid var(--border);border-radius:0.25rem;background:transparent;color:var(--text-muted);font-size:0.8rem;cursor:pointer;opacity:{modalSearchPage <= 1 ? 0.4 : 1};" >← Prev</button>
             <span style="font-size:0.8rem;color:var(--text-muted);min-width:80px;text-align:center;">Page {modalSearchPage} of {totalFilteredPages}</span>

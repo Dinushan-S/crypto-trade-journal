@@ -4,7 +4,7 @@
   import { formatDate, periodRange, type Period } from '$lib/utils';
 
   let { data, form } = $props();
-  let activeTab = $state<'all' | 'deposits' | 'withdrawals'>('all');
+  let activeTab = $state<'all' | 'deposits' | 'withdrawals'>('deposits');
 
   type LedgerEntry = typeof data.entries[0];
 
@@ -61,6 +61,24 @@
   let lockInputs = $state<Record<string, string>>({});
   let releaseOpen = $state<string | null>(null);
   let releaseInputs = $state<Record<string, Record<string, string>>>({});
+
+  // Pagination
+  const pageSize = 25;
+  let depPage = $state(1);
+  let wdPage = $state(1);
+  $effect(() => { if (depPage > Math.max(1, Math.ceil(deposits.length / pageSize))) depPage = 1; });
+  $effect(() => { if (wdPage > Math.max(1, Math.ceil(withdrawals.length / pageSize))) wdPage = 1; });
+
+  let pagedDeposits = $derived(deposits.slice((depPage - 1) * pageSize, depPage * pageSize));
+  let pagedWithdrawals = $derived(withdrawals.slice((wdPage - 1) * pageSize, wdPage * pageSize));
+
+  function pageButtons(total: number, page: number) {
+    const count = Math.max(1, Math.ceil(total / pageSize));
+    if (count <= 1) return [];
+    return Array.from({ length: count }, (_, i) => i + 1);
+  }
+  function jumpDep(p: number) { depPage = Math.min(Math.max(1, p), Math.max(1, Math.ceil(deposits.length / pageSize))); }
+  function jumpWd(p: number) { wdPage = Math.min(Math.max(1, p), Math.max(1, Math.ceil(withdrawals.length / pageSize))); }
 
   $effect(() => {
     if (form?.error) {
@@ -131,7 +149,8 @@
 
   <!-- Tabs -->
   <div style="display:flex;gap:0;border-bottom:2px solid var(--border);margin-bottom:1rem;">
-    {#each [['all','All'], ['deposits','Deposits'], ['withdrawals','Withdrawals']] as [tab, label]}
+    <!-- {#each [['all','All'], ['deposits','Deposits'], ['withdrawals','Withdrawals']] as [tab, label]} -->
+    {#each [['deposits','Deposits'], ['withdrawals','Withdrawals']] as [tab, label]}
       <button
         onclick={() => activeTab = tab as 'all' | 'deposits' | 'withdrawals'}
         style="padding:0.625rem 1rem;border:none;background:transparent;font-size:0.875rem;font-weight:{activeTab === tab ? '600' : '400'};
@@ -165,7 +184,7 @@
                 </tr>
               </thead>
               <tbody>
-                {#each (activeTab === 'all' ? deposits : visibleEntries) as e}
+                {#each (activeTab === 'all' ? pagedDeposits : visibleEntries.slice((depPage - 1) * pageSize, depPage * pageSize)) as e}
                   {@const tr = e.tracking}
                   <tr style="border-bottom:1px solid var(--border);">
                     <td style="padding:0.5rem 0.75rem;font-family:'JetBrains Mono',monospace;color:var(--text-muted);white-space:nowrap;">{formatDate(e.date)}</td>
@@ -214,6 +233,18 @@
                 {/each}
               </tbody>
             </table>
+            {#if pageButtons(deposits.length, depPage).length > 0}
+              <div style="display:flex;align-items:center;gap:0.375rem;justify-content:space-between;padding:0.625rem 0.75rem;border-top:1px solid var(--border);flex-wrap:wrap;">
+                <span style="font-size:0.8rem;color:var(--text-muted);">{deposits.length} deposits</span>
+                <div style="display:flex;align-items:center;gap:0.375rem;">
+                  <button onclick={() => jumpDep(depPage - 1)} disabled={depPage <= 1} style="padding:0.25rem 0.625rem;border:1px solid var(--border);border-radius:0.25rem;background:transparent;color:var(--text-muted);font-size:0.8rem;cursor:pointer;opacity:{depPage <= 1 ? 0.4 : 1};">←</button>
+                  {#each pageButtons(deposits.length, depPage) as p}
+                    <button onclick={() => jumpDep(p)} style="padding:0.25rem 0.625rem;border:1px solid {p === depPage ? 'var(--accent)' : 'var(--border)'};border-radius:0.25rem;background:{p === depPage ? 'color-mix(in srgb,var(--accent) 12%,transparent)' : 'transparent'};color:{p === depPage ? 'var(--accent)' : 'var(--text-muted)'};font-size:0.8rem;cursor:pointer;">{p}</button>
+                  {/each}
+                  <button onclick={() => jumpDep(depPage + 1)} disabled={depPage >= Math.ceil(deposits.length / pageSize)} style="padding:0.25rem 0.625rem;border:1px solid var(--border);border-radius:0.25rem;background:transparent;color:var(--text-muted);font-size:0.8rem;cursor:pointer;opacity:{depPage >= Math.ceil(deposits.length / pageSize) ? 0.4 : 1};">→</button>
+                </div>
+              </div>
+            {/if}
           {/if}
           {#if activeTab === 'all' || activeTab === 'withdrawals'}
             {#if activeTab === 'all' && withdrawals.length > 0}
@@ -228,7 +259,7 @@
                 </tr>
               </thead>
               <tbody>
-                {#each (activeTab === 'all' ? withdrawals : visibleEntries) as e}
+                {#each (activeTab === 'all' ? pagedWithdrawals : visibleEntries.slice((wdPage - 1) * pageSize, wdPage * pageSize)) as e}
                   {@const tr = e.tracking}
                   <tr style="border-bottom:1px solid var(--border);">
                     <td style="padding:0.5rem 0.75rem;font-family:'JetBrains Mono',monospace;color:var(--text-muted);white-space:nowrap;">{formatDate(e.date)}</td>
@@ -289,6 +320,18 @@
                 {/each}
               </tbody>
             </table>
+            {#if pageButtons(withdrawals.length, wdPage).length > 0}
+              <div style="display:flex;align-items:center;gap:0.375rem;justify-content:space-between;padding:0.625rem 0.75rem;border-top:1px solid var(--border);flex-wrap:wrap;">
+                <span style="font-size:0.8rem;color:var(--text-muted);">{withdrawals.length} withdrawals</span>
+                <div style="display:flex;align-items:center;gap:0.375rem;">
+                  <button onclick={() => jumpWd(wdPage - 1)} disabled={wdPage <= 1} style="padding:0.25rem 0.625rem;border:1px solid var(--border);border-radius:0.25rem;background:transparent;color:var(--text-muted);font-size:0.8rem;cursor:pointer;opacity:{wdPage <= 1 ? 0.4 : 1};">←</button>
+                  {#each pageButtons(withdrawals.length, wdPage) as p}
+                    <button onclick={() => jumpWd(p)} style="padding:0.25rem 0.625rem;border:1px solid {p === wdPage ? 'var(--accent)' : 'var(--border)'};border-radius:0.25rem;background:{p === wdPage ? 'color-mix(in srgb,var(--accent) 12%,transparent)' : 'transparent'};color:{p === wdPage ? 'var(--accent)' : 'var(--text-muted)'};font-size:0.8rem;cursor:pointer;">{p}</button>
+                  {/each}
+                  <button onclick={() => jumpWd(wdPage + 1)} disabled={wdPage >= Math.ceil(withdrawals.length / pageSize)} style="padding:0.25rem 0.625rem;border:1px solid var(--border);border-radius:0.25rem;background:transparent;color:var(--text-muted);font-size:0.8rem;cursor:pointer;opacity:{wdPage >= Math.ceil(withdrawals.length / pageSize) ? 0.4 : 1};">→</button>
+                </div>
+              </div>
+            {/if}
           {/if}
         </div>
       {/if}

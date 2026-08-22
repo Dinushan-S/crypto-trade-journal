@@ -277,3 +277,25 @@ export const deleteLiquidation = mutation({
     await ctx.db.delete(args.id);
   },
 });
+
+export const getAvailableTrades = query({
+  args: {},
+  handler: async (ctx) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) return [];
+
+    const userTrades = await ctx.db
+      .query("trades")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .order("desc")
+      .take(1000);
+
+    const linkedRecords = await ctx.db
+      .query("liquidation_trades")
+      .withIndex("by_user_trade", (q) => q.eq("userId", userId))
+      .collect();
+
+    const linkedTradeIds = new Set(linkedRecords.map((l) => l.trade_id));
+    return userTrades.filter((t) => !linkedTradeIds.has(t._id));
+  },
+});

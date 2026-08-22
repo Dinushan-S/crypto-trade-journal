@@ -9,7 +9,11 @@ export const load: PageServerLoad = async ({ params, locals: { convex } }) => {
   const detail = await convex.query(api.liquidations.getLiquidationDetail, { id: id as any }).catch(() => null);
   if (!detail) redirect(303, '/liquidations');
 
-  return { detail };
+  const availableTrades: any[] = await convex
+    .query(api.liquidations.getAvailableTrades, {})
+    .catch(() => []);
+
+  return { detail, availableTrades };
 };
 
 export const actions: Actions = {
@@ -18,11 +22,11 @@ export const actions: Actions = {
     const id = formData.get('id') as string;
     if (!id || typeof id !== 'string') return { error: 'Invalid ID' };
     try {
-      await convex.mutation(api.liquidations.deleteLiquidation, { id });
-      redirect(303, '/liquidations');
+      await convex.mutation(api.liquidations.deleteLiquidation, { id: id as any });
     } catch {
       return { error: 'Failed to delete liquidation' };
     }
+    redirect(303, '/liquidations');
   },
   'unlink': async ({ locals: { convex }, request }) => {
     const formData = await request.formData();
@@ -34,10 +38,10 @@ export const actions: Actions = {
         liquidationId: liquidationId as any,
         tradeId: tradeId as any,
       });
-      redirect(303, `/liquidations/${liquidationId}`);
     } catch {
       return { error: 'Failed to unlink trade' };
     }
+    redirect(303, `/liquidations/${liquidationId}`);
   },
   'addTrades': async ({ locals: { convex }, request }) => {
     const formData = await request.formData();
@@ -51,9 +55,9 @@ export const actions: Actions = {
         liquidationId: liquidationId as any,
         tradeIds: tradeIds as any[],
       });
-      redirect(303, `/liquidations/${liquidationId}`);
     } catch {
       return { error: 'Failed to add trades' };
     }
+    redirect(303, `/liquidations/${liquidationId}`);
   },
 };

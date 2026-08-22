@@ -7,7 +7,6 @@
   const navItems = [
     { href: '/', label: 'Dashboard', icon: gridIcon },
     { href: '/trades', label: 'Trades', icon: trendingIcon },
-    { href: '/trades/import', label: 'Import', icon: uploadIcon },
     { href: '/ledger', label: 'Ledger', icon: walletIcon },
     { href: '/liquidations', label: 'Liquidations', icon: alertIcon },
     { href: '/sessions', label: 'Sessions', icon: calendarIcon },
@@ -23,7 +22,6 @@
   // SVG icon strings
   function gridIcon() { return `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>`; }
   function trendingIcon() { return `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>`; }
-  function uploadIcon() { return `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>`; }
   function walletIcon() { return `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 12V22H4V12"/><path d="M22 7H2v5h20V7z"/><path d="M12 22V7"/><path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z"/><path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"/></svg>`; }
   function alertIcon() { return `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>`; }
   function calendarIcon() { return `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>`; }
@@ -42,8 +40,9 @@
   overflow: hidden;
   flex-shrink: 0;
 ">
-  <!-- Logo -->
-  <div style="padding: {collapsed ? '1rem 0.75rem' : '1.25rem 1rem'};border-bottom: 1px solid var(--border);display:flex;align-items:center;gap:0.75rem;">
+  <!-- Logo (click to toggle collapse) -->
+  <div style="padding: {collapsed ? '1rem 0.75rem' : '1.25rem 1rem'};border-bottom: 1px solid var(--border);display:flex;align-items:center;gap:0.75rem;cursor:pointer;"
+    onclick={() => collapsed = !collapsed} title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}>
     <div style="width:32px;height:32px;background:var(--accent);border-radius:0.375rem;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5">
         <polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/>
@@ -51,7 +50,7 @@
       </svg>
     </div>
     {#if !collapsed}
-      <span style="font-family:'JetBrains Mono',monospace;font-weight:600;font-size:0.9rem;color:var(--text-primary);white-space:nowrap;">Qulem-Trade</span>
+      <span style="font-family:'JetBrains Mono',monospace;font-weight:600;font-size:0.9rem;color:var(--text-primary);white-space:nowrap;flex:1;">Qulem-Trade</span>
     {/if}
   </div>
 

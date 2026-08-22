@@ -449,7 +449,11 @@
               >
                 {#if selectionMode}
                   <td
-                    style="padding:0.625rem 0.75rem;text-align:center;pointer-events:none;"
+                    style="padding:0.625rem 0.75rem;text-align:center;"
+                    onclick={(e) => {
+                      e.stopPropagation();
+                      toggleTradeSelect(trade.id, !selectedSet.has(trade.id));
+                    }}
                   >
                     <input
                       type="checkbox"
