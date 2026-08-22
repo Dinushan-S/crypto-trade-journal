@@ -70,10 +70,10 @@
 
 <svelte:head><title>Import Ledger — Qulem-Trade</title></svelte:head>
 
-<div style="padding:1.5rem;max-width:900px;">
+<div class="page">
   <div style="display:flex;align-items:center;gap:1rem;margin-bottom:1.5rem;">
-    <a href="/ledger" style="color:var(--text-muted);text-decoration:none;font-size:0.875rem;">← Ledger</a>
-    <h1 style="font-family:'JetBrains Mono',monospace;font-size:1.25rem;font-weight:600;color:var(--text-primary);">Import C2C Orders</h1>
+    <a href="/ledger" class="link-muted">← Ledger</a>
+    <h1 class="stat-value">Import C2C Orders</h1>
   </div>
 
   <div style="display:flex;gap:0;margin-bottom:1.5rem;background:var(--surface);border:1px solid var(--border);border-radius:0.5rem;overflow:hidden;">
@@ -116,7 +116,7 @@
       <div style="overflow-x:auto;max-height:400px;overflow-y:auto;">
         <table style="width:100%;border-collapse:collapse;font-size:0.8rem;">
           <thead style="position:sticky;top:0;background:var(--bg);">
-            <tr style="border-bottom:1px solid var(--border);">
+            <tr class="row-divider">
               <th style="padding:0.5rem 0.75rem;text-align:left;font-size:0.7rem;color:var(--text-muted);text-transform:uppercase;width:40px;"></th>
               {#each ['Date','Type','LKR Sent','Rate','USDT','Counterparty'] as col}
                 <th style="padding:0.5rem 0.75rem;text-align:left;font-size:0.7rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;">{col}</th>
@@ -125,16 +125,16 @@
           </thead>
           <tbody>
             {#each parsedEntries as entry, i}
-              <tr style="border-bottom:1px solid var(--border);">
-                <td style="padding:0.5rem 0.75rem;">
+              <tr class="row-divider">
+                <td class="td">
                   <input type="checkbox" checked={selected.has(i)} onchange={() => toggleSelect(i)} />
                 </td>
                 <td style="padding:0.5rem 0.75rem;font-family:'JetBrains Mono',monospace;color:var(--text-muted);">{entry.date}</td>
-                <td style="padding:0.5rem 0.75rem;">
+                <td class="td">
                   <span style="color:{entry.type === 'deposit' ? 'var(--win)' : 'var(--loss)'};font-weight:600;">{entry.type === 'deposit' ? '↓ Deposit' : '↑ Withdraw'}</span>
                 </td>
-                <td style="padding:0.5rem 0.75rem;font-family:'JetBrains Mono',monospace;">{entry.fiat_sent?.toFixed(2) ?? '—'}</td>
-                <td style="padding:0.5rem 0.75rem;font-family:'JetBrains Mono',monospace;">{entry.usd_rate?.toFixed(2) ?? '—'}</td>
+                <td class="td-mono">{entry.fiat_sent?.toFixed(2) ?? '—'}</td>
+                <td class="td-mono">{entry.usd_rate?.toFixed(2) ?? '—'}</td>
                 <td style="padding:0.5rem 0.75rem;font-family:'JetBrains Mono',monospace;font-weight:600;color:var(--accent);">
                   ${(entry.usd_received ?? entry.usd_quantity ?? 0).toFixed(2)}
                 </td>
@@ -153,7 +153,7 @@
         style="padding:0.625rem 1.5rem;background:var(--accent);color:#fff;border:none;border-radius:0.5rem;font-weight:600;font-size:0.875rem;cursor:pointer;opacity:{importing || selectedEntries.length === 0 ? 0.5 : 1};">
         {importing ? 'Importing…' : `Import ${selectedEntries.length} Entries`}
       </button>
-      <button onclick={() => { step = 1; parsedEntries = []; }} style="padding:0.625rem 1rem;border:1px solid var(--border);border-radius:0.5rem;background:transparent;color:var(--text-muted);font-size:0.875rem;cursor:pointer;">← Back</button>
+      <button onclick={() => { step = 1; parsedEntries = []; }} class="btn-ghost">← Back</button>
     </div>
 
   {:else}
@@ -163,7 +163,7 @@
       <p style="color:var(--text-muted);font-size:0.875rem;">{importResult?.imported} entries imported · {importResult?.skipped} duplicates skipped</p>
       <div style="display:flex;gap:0.75rem;justify-content:center;margin-top:1.5rem;">
         <a href="/ledger" style="padding:0.625rem 1.5rem;background:var(--accent);color:#fff;border-radius:0.5rem;text-decoration:none;font-size:0.875rem;font-weight:500;">View Ledger</a>
-        <button onclick={() => { step = 1; parsedEntries = []; importResult = null; }} style="padding:0.625rem 1rem;border:1px solid var(--border);border-radius:0.5rem;background:transparent;color:var(--text-muted);font-size:0.875rem;cursor:pointer;">Import Another</button>
+        <button onclick={() => { step = 1; parsedEntries = []; importResult = null; }} class="btn-ghost">Import Another</button>
       </div>
     </div>
   {/if}

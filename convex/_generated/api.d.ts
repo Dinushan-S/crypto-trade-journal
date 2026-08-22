@@ -9,13 +9,10 @@
  */
 
 import type * as auth from "../auth.js";
-import type * as fixDates from "../fixDates.js";
 import type * as http from "../http.js";
-import type * as imports from "../imports.js";
 import type * as ledger from "../ledger.js";
 import type * as liquidations from "../liquidations.js";
 import type * as mistakes from "../mistakes.js";
-import type * as seed from "../seed.js";
 import type * as sessions from "../sessions.js";
 import type * as trades from "../trades.js";
 import type * as userSettings from "../userSettings.js";
@@ -28,13 +25,10 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   auth: typeof auth;
-  fixDates: typeof fixDates;
   http: typeof http;
-  imports: typeof imports;
   ledger: typeof ledger;
   liquidations: typeof liquidations;
   mistakes: typeof mistakes;
-  seed: typeof seed;
   sessions: typeof sessions;
   trades: typeof trades;
   userSettings: typeof userSettings;

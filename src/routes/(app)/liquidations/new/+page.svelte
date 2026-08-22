@@ -15,9 +15,6 @@
   let mistake = $state('');
   let loading = $state(false);
 
-  const inputStyle = `padding:0.5rem 0.75rem;background:var(--bg);border:1px solid var(--border);border-radius:0.5rem;color:var(--text-primary);font-size:0.875rem;width:100%;box-sizing:border-box;outline:none;`;
-  const labelStyle = `display:block;font-size:0.7rem;font-weight:600;color:var(--text-muted);margin-bottom:0.25rem;text-transform:uppercase;letter-spacing:0.05em;`;
-
   // If coming from Trade Log, show trade count badge
   const isLinkedMode = initial !== null && initial.count > 0;
 
@@ -74,8 +71,8 @@
 
 <div style="padding:1.5rem;max-width:600px;">
   <div style="display:flex;align-items:center;gap:1rem;margin-bottom:1.5rem;">
-    <a href="/liquidations" style="color:var(--text-muted);text-decoration:none;font-size:0.875rem;">← Liquidations</a>
-    <h1 style="font-family:'JetBrains Mono',monospace;font-size:1.25rem;font-weight:600;color:var(--text-primary);">Log Liquidation</h1>
+    <a href="/liquidations" class="link-muted">← Liquidations</a>
+    <h1 class="stat-value">Log Liquidation</h1>
   </div>
 
   <!-- Trade summary banner (linked mode only) -->
@@ -102,14 +99,14 @@
     <div style="background:var(--surface);border:1px solid var(--border);border-radius:0.75rem;padding:1.5rem;">
       <!-- Trade picker -->
       <div style="margin-bottom:1.25rem;">
-          <label style={labelStyle}>Link Trades (Optional)</label>
+          <label class="form-label">Link Trades (Optional)</label>
           <div style="position:relative;">
             <input
               type="text"
               bind:value={search}
               onfocus={() => pickerOpen = true}
               placeholder="Search trades by date, coin, position…"
-              style={inputStyle}
+              class="input"
             />
             {#if pickerOpen}
               <div style="position:absolute;top:calc(100% + 0.25rem);left:0;right:0;background:var(--surface);border:1px solid var(--border);border-radius:0.5rem;box-shadow:0 8px 24px rgba(0,0,0,0.15);z-index:20;max-height:240px;overflow-y:auto;">
@@ -126,7 +123,7 @@
                     >
                       <span style="font-family:'JetBrains Mono',monospace;font-size:0.75rem;color:var(--text-muted);white-space:nowrap;">{t.date}</span>
                       <span style="font-weight:600;">{t.coin ?? '—'}</span>
-                      <span style="font-size:0.75rem;color:var(--text-muted);">{t.position ?? ''}</span>
+                      <span class="muted-xs">{t.position ?? ''}</span>
                       <span style="font-family:'JetBrains Mono',monospace;font-size:0.75rem;color:{t.pnl > 0 ? 'var(--win)' : t.pnl < 0 ? 'var(--loss)' : 'var(--text-muted)'};">
                         {t.pnl != null ? `$${t.pnl.toFixed(2)}` : '—'}
                       </span>
@@ -154,15 +151,15 @@
 
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;">
         <div>
-          <label style={labelStyle}>Date</label>
-          <input type="date" name="date" bind:value={date} style={inputStyle} required />
+          <label class="form-label">Date</label>
+          <input type="date" name="date" bind:value={date} class="input" required />
         </div>
         <div>
-          <label style={labelStyle}>Coin</label>
-          <input name="coin" bind:value={coin} placeholder="BTC" style={inputStyle} />
+          <label class="form-label">Coin</label>
+          <input name="coin" bind:value={coin} placeholder="BTC" class="input" />
         </div>
         <div>
-          <label style={labelStyle}>Position</label>
+          <label class="form-label">Position</label>
           <div style="display:flex;gap:0.5rem;">
             {#each (['Long', 'Short', ''] as const) as p}
               <button
@@ -175,24 +172,24 @@
           </div>
         </div>
         <div>
-          <label style={labelStyle}>Amount Lost ($)</label>
-          <input type="number" name="amount_lost" bind:value={amount_lost} step="any" onfocus={markAmountManual} placeholder="500.00" style={inputStyle} />
+          <label class="form-label">Amount Lost ($)</label>
+          <input type="number" name="amount_lost" bind:value={amount_lost} step="any" onfocus={markAmountManual} placeholder="500.00" class="input" />
         </div>
         <div>
-          <label style={labelStyle}>Strategy</label>
-          <input name="strategy" bind:value={strategy} placeholder="e.g. Breakout" style={inputStyle} />
+          <label class="form-label">Strategy</label>
+          <input name="strategy" bind:value={strategy} placeholder="e.g. Breakout" class="input" />
         </div>
         <div>
-          <label style={labelStyle}>Reason</label>
-          <input name="reason" bind:value={reason} placeholder="e.g. No stop loss, overleveraged" style={inputStyle} />
+          <label class="form-label">Reason</label>
+          <input name="reason" bind:value={reason} placeholder="e.g. No stop loss, overleveraged" class="input" />
         </div>
-        <div style="grid-column:1/-1;">
-          <label style={labelStyle}>Mistake</label>
-          <input name="mistake" bind:value={mistake} placeholder="What went wrong?" style="{inputStyle}resize:vertical;font-family:inherit;" />
+        <div class="span-full">
+          <label class="form-label">Mistake</label>
+          <input name="mistake" bind:value={mistake} placeholder="What went wrong?" class="input" style="resize:vertical;font-family:inherit;" />
         </div>
-        <div style="grid-column:1/-1;">
-          <label style={labelStyle}>Notes</label>
-          <textarea name="notes" bind:value={notes} rows="3" placeholder="What happened? What did you learn?" style="{inputStyle}resize:vertical;font-family:inherit;"></textarea>
+        <div class="span-full">
+          <label class="form-label">Notes</label>
+          <textarea name="notes" bind:value={notes} rows="3" placeholder="What happened? What did you learn?" class="input" style="resize:vertical;font-family:inherit;"></textarea>
         </div>
       </div>
       <div style="margin-top:1.5rem;padding-top:1.5rem;border-top:1px solid var(--border);display:flex;gap:0.75rem;">

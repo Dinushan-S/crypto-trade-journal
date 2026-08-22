@@ -14,20 +14,6 @@ export const getSessions = query({
   },
 });
 
-export const getSessionByDateAndType = query({
-  args: { date: v.string(), session_type: v.string() },
-  handler: async (ctx, args) => {
-    const userId = await getAuthUserId(ctx);
-    if (!userId) return null;
-    return await ctx.db
-      .query("sessions")
-      .withIndex("by_userId_and_date_and_session_type", (q) =>
-        q.eq("userId", userId).eq("date", args.date).eq("session_type", args.session_type)
-      )
-      .first();
-  },
-});
-
 export const upsertSession = mutation({
   args: {
     date: v.string(),
@@ -36,10 +22,7 @@ export const upsertSession = mutation({
     market_bias: v.optional(v.string()),
     news_events: v.optional(v.array(v.string())),
     watchlist: v.optional(v.array(v.string())),
-    live_trades: v.optional(v.array(v.string())),
     session_notes: v.optional(v.string()),
-    what_seen: v.optional(v.string()),
-    what_skipped: v.optional(v.string()),
     trades_count: v.optional(v.number()),
     wins: v.optional(v.number()),
     losses: v.optional(v.number()),
@@ -47,7 +30,6 @@ export const upsertSession = mutation({
     what_right: v.optional(v.string()),
     what_wrong: v.optional(v.string()),
     tomorrow_plan: v.optional(v.string()),
-    checklist: v.optional(v.array(v.string())),
   },
   handler: async (ctx, args) => {
     const userId = await getAuthUserId(ctx);

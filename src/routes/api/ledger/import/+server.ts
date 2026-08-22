@@ -1,27 +1,9 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
+import type { FunctionArgs } from 'convex/server';
 import { api } from '../../../../../convex/_generated/api';
 
-type LedgerImportEntry = {
-	type: string;
-	date: string;
-	time?: string;
-	my_bank?: string;
-	recipient_bank?: string;
-	sender_bank?: string;
-	receiver_bank?: string;
-	fiat_sent?: number;
-	usd_fee?: number;
-	usd_rate?: number;
-	usd_received?: number;
-	usd_quantity?: number;
-	fee?: number;
-	fiat_amount?: number;
-	notes?: string;
-	order_number?: string;
-	counterparty?: string;
-	source?: string;
-};
+type LedgerImportEntry = FunctionArgs<typeof api.ledger.batchCreateLedger>['entries'][number];
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
 	typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -32,7 +14,7 @@ export const POST: RequestHandler = async ({ request, locals: { convex } }) => {
 		return json({ success: false, message: 'Invalid request body' }, { status: 400 });
 	}
 
-	const { filename, entries } = body as { filename?: string; entries?: unknown[] };
+	const { entries } = body as { entries?: unknown[] };
 	if (!Array.isArray(entries) || !entries.every(isRecord)) {
 		return json({ success: false, message: 'Entries array required' }, { status: 400 });
 	}
@@ -47,13 +29,6 @@ export const POST: RequestHandler = async ({ request, locals: { convex } }) => {
 	try {
 		const inserted = await convex.mutation(api.ledger.batchCreateLedger, {
 			entries: normalizedEntries
-		});
-		await convex.mutation(api.imports.createImportRecord, {
-			filename,
-			import_type: 'c2c',
-			trades_count: inserted,
-			skipped_count: normalizedEntries.length - inserted,
-			status: 'complete'
 		});
 		return json({ success: true, inserted });
 	} catch (err: unknown) {

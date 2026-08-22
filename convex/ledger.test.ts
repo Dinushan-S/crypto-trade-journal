@@ -239,7 +239,7 @@ test("rebalance allocations: shift amount between deposits", async () => {
   await lock(t, d2);
   await allocate(t, w, [{ depositId: d1, releasedUsd: 2500 }]);
   // rebalance: move 1000 from d1 to d2
-  await t.mutation(api.ledger.rebalanceAllocations, {
+  await t.mutation(api.ledger.allocateRelease, {
     withdrawalId: w,
     allocations: [
       { depositId: d1, releasedUsd: 1500 },

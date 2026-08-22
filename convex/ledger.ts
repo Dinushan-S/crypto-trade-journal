@@ -196,20 +196,6 @@ async function applyAllocations(
   }
 }
 
-export const rebalanceAllocations = mutation({
-  args: {
-    withdrawalId: v.id("ledger"),
-    allocations: v.array(
-      v.object({ depositId: v.id("ledger"), releasedUsd: v.number() })
-    ),
-  },
-  handler: async (ctx, args) => {
-    const userId = await getAuthUserId(ctx);
-    if (!userId) throw new Error("Unauthenticated");
-    await applyAllocations(ctx, userId, args.withdrawalId, args.allocations);
-  },
-});
-
 export const createLedgerEntry = mutation({
   args: {
     type: v.string(),

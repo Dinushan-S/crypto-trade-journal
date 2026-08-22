@@ -1,5 +1,6 @@
 <script lang="ts">
-  import { invalidateAll } from '$app/navigation';
+  import { goto, invalidateAll } from '$app/navigation';
+  import { page } from '$app/state';
   import { enhance } from '$app/forms';
   import { formatDate, periodRange, type Period } from '$lib/utils';
 
@@ -94,12 +95,7 @@
   // Quick add / quick edit modal
   let addOpen = $state(false);
   let editEntry = $state<any | null>(null);
-  let resetOpen = $state(false);
-
-  const inputStyle = `padding:0.5rem 0.75rem;background:var(--bg);border:1px solid var(--border);border-radius:0.5rem;color:var(--text-primary);font-size:0.875rem;width:100%;box-sizing:border-box;outline:none;`;
-  const labelStyle = `display:block;font-size:0.7rem;font-weight:600;color:var(--text-muted);margin-bottom:0.25rem;text-transform:uppercase;letter-spacing:0.05em;`;
-  const computedStyle = `padding:0.5rem 0.75rem;background:color-mix(in srgb,var(--accent) 8%,transparent);border:1px solid color-mix(in srgb,var(--accent) 30%,transparent);border-radius:0.5rem;color:var(--accent);font-size:0.875rem;width:100%;box-sizing:border-box;font-family:'JetBrains Mono',monospace;`;
-
+  let resetOpen = $state(false);
   const closeModal = () => {
     addOpen = false;
     editEntry = null;
@@ -127,8 +123,17 @@
 
   function openAdd() {
     editEntry = null;
+    syncModalType();
     addOpen = true;
   }
+
+  // /ledger?add opens the add modal (replaces the old /ledger/new page)
+  $effect(() => {
+    if (page.url.searchParams.has('add')) {
+      openAdd();
+      goto('/ledger', { replaceState: true, noScroll: true, keepFocus: true });
+    }
+  });
   function openEdit(e: any) {
     editEntry = e;
     syncModalType();
@@ -163,9 +168,9 @@
 
 <div style="padding:1.5rem;max-width:100%;">
   <!-- Header -->
-  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.5rem;flex-wrap:wrap;gap:0.75rem;">
+  <div class="page-header">
     <div>
-      <h1 style="font-family:'JetBrains Mono',monospace;font-size:1.25rem;font-weight:600;color:var(--text-primary);">P2P Ledger</h1>
+      <h1 class="stat-value">P2P Ledger</h1>
       <p style="color:var(--text-muted);font-size:0.875rem;margin-top:0.125rem;">{entries.length} entries</p>
     </div>
     <div style="display:flex;gap:0.5rem;">
@@ -187,10 +192,10 @@
       >{label}</button>
     {/each}
     <input type="date" bind:value={dateFrom} oninput={() => (period = 'custom')}
-      style="padding:0.375rem 0.5rem;background:var(--bg);border:1px solid var(--border);border-radius:0.375rem;color:var(--text-primary);font-size:0.8rem;" />
+      class="input-sm" />
     <span style="color:var(--text-muted);font-size:0.8rem;">→</span>
     <input type="date" bind:value={dateTo} oninput={() => (period = 'custom')}
-      style="padding:0.375rem 0.5rem;background:var(--bg);border:1px solid var(--border);border-radius:0.375rem;color:var(--text-primary);font-size:0.8rem;" />
+      class="input-sm" />
     {#if dateFrom || dateTo}
       <button onclick={() => { dateFrom = ''; dateTo = ''; period = 'custom'; }}
         style="padding:0.375rem 0.625rem;border:none;background:transparent;color:var(--text-muted);font-size:0.8rem;cursor:pointer;text-decoration:underline;">Clear</button>
@@ -230,21 +235,21 @@
   </div>
 
     <!-- Table -->
-    <div style="background:var(--surface);border:1px solid var(--border);border-radius:0.75rem;overflow:hidden;">
+    <div class="card-flush">
       {#if visibleEntries.length === 0}
         <div style="padding:3rem;text-align:center;color:var(--text-muted);">
           No entries yet. <a href="/ledger/import" style="color:var(--accent);text-decoration:none;">Import C2C CSV</a> or <button onclick={openAdd} style="background:none;border:none;color:var(--accent);text-decoration:underline;font-size:inherit;cursor:pointer;">add manually</button>.
         </div>
       {:else}
-        <div style="overflow-x:auto;">
+        <div class="scroll-x">
           {#if activeTab === 'all' || activeTab === 'deposits'}
             <!-- Deposits section / all -->
             {#if activeTab === 'all' && deposits.length > 0}
               <div style="padding:0.625rem 0.75rem;background:color-mix(in srgb,var(--win) 8%,transparent);border-bottom:1px solid var(--border);font-size:0.75rem;font-weight:600;color:var(--win);">DEPOSITS</div>
             {/if}
-            <table style="width:100%;border-collapse:collapse;font-size:0.8125rem;">
+            <table class="table">
               <thead>
-                <tr style="background:var(--bg);border-bottom:1px solid var(--border);">
+                <tr class="thead-row">
                   {#each ['Date','LKR Sent','Total LKR','USD Received','Rate','Lock','Released','Remaining','Status',''] as col}
                     <th style="padding:0.5rem 0.75rem;text-align:left;font-size:0.7rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;white-space:nowrap;">{col}</th>
                   {/each}
@@ -253,12 +258,12 @@
               <tbody>
                 {#each (activeTab === 'all' ? pagedDeposits : visibleEntries.slice((depPage - 1) * pageSize, depPage * pageSize)) as e}
                   {@const tr = e.tracking}
-                  <tr style="border-bottom:1px solid var(--border);">
+                  <tr class="row-divider">
                     <td style="padding:0.5rem 0.75rem;font-family:'JetBrains Mono',monospace;color:var(--text-muted);white-space:nowrap;">{formatDate(e.date)}</td>
                     <td style="padding:0.5rem 0.75rem;font-family:'JetBrains Mono',monospace;color:var(--text-primary);">{e.fiat_sent?.toLocaleString('en-US') ?? '—'}</td>
                     <td style="padding:0.5rem 0.75rem;font-family:'JetBrains Mono',monospace;font-weight:600;color:var(--text-primary);">{lkrTotalSent(e).toLocaleString('en-US', {maximumFractionDigits:2})}</td>
                     <td style="padding:0.5rem 0.75rem;font-family:'JetBrains Mono',monospace;font-weight:600;color:var(--win);">${(e.usd_received ?? 0).toFixed(2)}</td>
-                    <td style="padding:0.5rem 0.75rem;font-family:'JetBrains Mono',monospace;">{e.usd_rate?.toFixed(2) ?? '—'}</td>
+                    <td class="td-mono">{e.usd_rate?.toFixed(2) ?? '—'}</td>
                     <td style="padding:0.5rem 0.75rem;font-family:'JetBrains Mono',monospace;font-weight:600;color:var(--text-primary);white-space:nowrap;">
                       {#if tr?.lockedUsd != null}
                         ${tr.lockedUsd.toFixed(2)}
@@ -295,14 +300,14 @@
                         <span style="color:var(--text-muted);">—</span>
                       {/if}
                     </td>
-                    <td style="padding:0.5rem 0.75rem;"><button onclick={() => openEdit(e)} style="background:none;border:none;color:var(--accent);font-size:0.8rem;text-decoration:underline;cursor:pointer;">Edit</button></td>
+                    <td class="td"><button onclick={() => openEdit(e)} style="background:none;border:none;color:var(--accent);font-size:0.8rem;text-decoration:underline;cursor:pointer;">Edit</button></td>
                   </tr>
                 {/each}
               </tbody>
             </table>
             {#if pageButtons(deposits.length, depPage).length > 0}
               <div style="display:flex;align-items:center;gap:0.375rem;justify-content:space-between;padding:0.625rem 0.75rem;border-top:1px solid var(--border);flex-wrap:wrap;">
-                <span style="font-size:0.8rem;color:var(--text-muted);">{deposits.length} deposits</span>
+                <span class="muted-sm">{deposits.length} deposits</span>
                 <div style="display:flex;align-items:center;gap:0.375rem;">
                   <button onclick={() => jumpDep(depPage - 1)} disabled={depPage <= 1} style="padding:0.25rem 0.625rem;border:1px solid var(--border);border-radius:0.25rem;background:transparent;color:var(--text-muted);font-size:0.8rem;cursor:pointer;opacity:{depPage <= 1 ? 0.4 : 1};">←</button>
                   {#each pageButtons(deposits.length, depPage) as p}
@@ -317,9 +322,9 @@
             {#if activeTab === 'all' && withdrawals.length > 0}
               <div style="padding:0.625rem 0.75rem;background:color-mix(in srgb,var(--loss) 8%,transparent);border-top:1px solid var(--border);border-bottom:1px solid var(--border);font-size:0.75rem;font-weight:600;color:var(--loss);">WITHDRAWALS</div>
             {/if}
-            <table style="width:100%;border-collapse:collapse;font-size:0.8125rem;">
+            <table class="table">
               <thead>
-                <tr style="background:var(--bg);border-bottom:1px solid var(--border);">
+                <tr class="thead-row">
                   {#each ['Date','USD Qty','Rate','LKR Received','Source','Balance',''] as col}
                     <th style="padding:0.5rem 0.75rem;text-align:left;font-size:0.7rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;white-space:nowrap;">{col}</th>
                   {/each}
@@ -328,12 +333,12 @@
               <tbody>
                 {#each (activeTab === 'all' ? pagedWithdrawals : visibleEntries.slice((wdPage - 1) * pageSize, wdPage * pageSize)) as e}
                   {@const tr = e.tracking}
-                  <tr style="border-bottom:1px solid var(--border);">
+                  <tr class="row-divider">
                     <td style="padding:0.5rem 0.75rem;font-family:'JetBrains Mono',monospace;color:var(--text-muted);white-space:nowrap;">{formatDate(e.date)}</td>
-                    <td style="padding:0.5rem 0.75rem;font-family:'JetBrains Mono',monospace;">${(e.usd_quantity ?? 0).toFixed(2)}</td>
-                    <td style="padding:0.5rem 0.75rem;font-family:'JetBrains Mono',monospace;">{e.usd_rate?.toFixed(2) ?? '—'}</td>
+                    <td class="td-mono">${(e.usd_quantity ?? 0).toFixed(2)}</td>
+                    <td class="td-mono">{e.usd_rate?.toFixed(2) ?? '—'}</td>
                     <td style="padding:0.5rem 0.75rem;font-family:'JetBrains Mono',monospace;font-weight:600;color:var(--text-primary);">{(e.fiat_amount ?? expectedFiat(e)).toLocaleString('en-US', {maximumFractionDigits:0})}</td>
-                    <td style="padding:0.5rem 0.75rem;"><span style="font-size:0.7rem;padding:0.1rem 0.375rem;border-radius:0.25rem;background:color-mix(in srgb,var(--accent) 12%,transparent);color:var(--accent);">{e.source === 'c2c_import' ? 'Import' : 'Manual'}</span></td>
+                    <td class="td"><span style="font-size:0.7rem;padding:0.1rem 0.375rem;border-radius:0.25rem;background:color-mix(in srgb,var(--accent) 12%,transparent);color:var(--accent);">{e.source === 'c2c_import' ? 'Import' : 'Manual'}</span></td>
                     <td style="padding:0.5rem 0.75rem;font-family:'JetBrains Mono',monospace;font-weight:600;color:{tr?.balanceUsd > 0 ? 'var(--loss)' : 'var(--text-muted)'};white-space:nowrap;">
                       {#if tr?.balanceUsd > 0}
                         ${tr.balanceUsd.toFixed(2)}
@@ -389,7 +394,7 @@
             </table>
             {#if pageButtons(withdrawals.length, wdPage).length > 0}
               <div style="display:flex;align-items:center;gap:0.375rem;justify-content:space-between;padding:0.625rem 0.75rem;border-top:1px solid var(--border);flex-wrap:wrap;">
-                <span style="font-size:0.8rem;color:var(--text-muted);">{withdrawals.length} withdrawals</span>
+                <span class="muted-sm">{withdrawals.length} withdrawals</span>
                 <div style="display:flex;align-items:center;gap:0.375rem;">
                   <button onclick={() => jumpWd(wdPage - 1)} disabled={wdPage <= 1} style="padding:0.25rem 0.625rem;border:1px solid var(--border);border-radius:0.25rem;background:transparent;color:var(--text-muted);font-size:0.8rem;cursor:pointer;opacity:{wdPage <= 1 ? 0.4 : 1};">←</button>
                   {#each pageButtons(withdrawals.length, wdPage) as p}
@@ -445,95 +450,95 @@
 
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.875rem;">
             <div>
-              <label style={labelStyle}>Date</label>
-              <input type="date" name="date" value={editEntry?.date ?? new Date().toISOString().split('T')[0]} style={inputStyle} required />
+              <label class="form-label">Date</label>
+              <input type="date" name="date" value={editEntry?.date ?? new Date().toISOString().split('T')[0]} class="input" required />
             </div>
             <div>
-              <label style={labelStyle}>Time</label>
-              <input type="time" name="time" value={editEntry?.time ?? ''} style={inputStyle} />
+              <label class="form-label">Time</label>
+              <input type="time" name="time" value={editEntry?.time ?? ''} class="input" />
             </div>
 
             {#if modalType === 'deposit'}
               <div>
-                <label style={labelStyle}>My Bank</label>
-                <input name="my_bank" value={editEntry?.my_bank ?? ''} placeholder="e.g. BOC" style={inputStyle} />
+                <label class="form-label">My Bank</label>
+                <input name="my_bank" value={editEntry?.my_bank ?? ''} placeholder="e.g. BOC" class="input" />
               </div>
               <div>
-                <label style={labelStyle}>Recipient (P2P)</label>
-                <input name="recipient_bank" value={editEntry?.recipient_bank ?? ''} placeholder="Counterparty name" style={inputStyle} />
+                <label class="form-label">Recipient (P2P)</label>
+                <input name="recipient_bank" value={editEntry?.recipient_bank ?? ''} placeholder="Counterparty name" class="input" />
               </div>
               <div>
-                <label style={labelStyle}>LKR Sent</label>
-                <input type="number" name="fiat_sent" bind:value={modalFiatSent} step="any" placeholder="5000" style={inputStyle} />
+                <label class="form-label">LKR Sent</label>
+                <input type="number" name="fiat_sent" bind:value={modalFiatSent} step="any" placeholder="5000" class="input" />
               </div>
               <div>
-                <label style={labelStyle}>USD Fee ($)</label>
-                <input type="number" name="usd_fee" bind:value={modalUsdFee} step="any" placeholder="0" style={inputStyle} />
+                <label class="form-label">USD Fee ($)</label>
+                <input type="number" name="usd_fee" bind:value={modalUsdFee} step="any" placeholder="0" class="input" />
               </div>
               <div>
-                <label style={labelStyle}>Rate (LKR/USDT)</label>
-                <input type="number" name="usd_rate" bind:value={modalUsdRate} step="any" placeholder="320" style={inputStyle} />
+                <label class="form-label">Rate (LKR/USDT)</label>
+                <input type="number" name="usd_rate" bind:value={modalUsdRate} step="any" placeholder="320" class="input" />
               </div>
               <div>
-                <label style={labelStyle}>USD Received</label>
-                <input type="number" name="usd_received" bind:value={modalUsdReceived} step="any" placeholder="15.62" style={inputStyle} />
+                <label class="form-label">USD Received</label>
+                <input type="number" name="usd_received" bind:value={modalUsdReceived} step="any" placeholder="15.62" class="input" />
               </div>
               <div>
-                <label style={labelStyle}>Total LKR Sent (computed)</label>
-                <div style={computedStyle}>{modalLkrTotalSent.toLocaleString('en-US', {maximumFractionDigits:2})}</div>
+                <label class="form-label">Total LKR Sent (computed)</label>
+                <div class="computed-field">{modalLkrTotalSent.toLocaleString('en-US', {maximumFractionDigits:2})}</div>
               </div>
               <div>
-                <label style={labelStyle}>Effective Rate (computed)</label>
-                <div style={computedStyle}>{modalUsdReceived && modalFiatSent ? (modalFiatSent / modalUsdReceived).toFixed(2) : '—'}</div>
+                <label class="form-label">Effective Rate (computed)</label>
+                <div class="computed-field">{modalUsdReceived && modalFiatSent ? (modalFiatSent / modalUsdReceived).toFixed(2) : '—'}</div>
               </div>
             {:else}
               <div>
-                <label style={labelStyle}>Sender (P2P)</label>
-                <input name="sender_bank" value={editEntry?.sender_bank ?? ''} placeholder="Counterparty name" style={inputStyle} />
+                <label class="form-label">Sender (P2P)</label>
+                <input name="sender_bank" value={editEntry?.sender_bank ?? ''} placeholder="Counterparty name" class="input" />
               </div>
               <div>
-                <label style={labelStyle}>Receiver Bank</label>
-                <input name="receiver_bank" value={editEntry?.receiver_bank ?? ''} placeholder="e.g. ComBank" style={inputStyle} />
+                <label class="form-label">Receiver Bank</label>
+                <input name="receiver_bank" value={editEntry?.receiver_bank ?? ''} placeholder="e.g. ComBank" class="input" />
               </div>
               <div>
-                <label style={labelStyle}>USD Quantity</label>
-                <input type="number" name="usd_quantity" bind:value={modalUsdQuantity} step="any" placeholder="50" style={inputStyle} />
+                <label class="form-label">USD Quantity</label>
+                <input type="number" name="usd_quantity" bind:value={modalUsdQuantity} step="any" placeholder="50" class="input" />
               </div>
               <div>
-                <label style={labelStyle}>Fee (USDT)</label>
-                <input type="number" name="fee" bind:value={modalFee} step="any" placeholder="0.07" style={inputStyle} />
+                <label class="form-label">Fee (USDT)</label>
+                <input type="number" name="fee" bind:value={modalFee} step="any" placeholder="0.07" class="input" />
               </div>
               <div>
-                <label style={labelStyle}>Rate (LKR/USDT)</label>
-                <input type="number" name="usd_rate" bind:value={modalUsdRate} step="any" placeholder="320" style={inputStyle} />
+                <label class="form-label">Rate (LKR/USDT)</label>
+                <input type="number" name="usd_rate" bind:value={modalUsdRate} step="any" placeholder="320" class="input" />
               </div>
               <div>
-                <label style={labelStyle}>Actual LKR Received</label>
-                <input type="number" name="fiat_amount" value={editEntry?.fiat_amount ?? ''} step="any" placeholder="15990" style={inputStyle} />
+                <label class="form-label">Actual LKR Received</label>
+                <input type="number" name="fiat_amount" value={editEntry?.fiat_amount ?? ''} step="any" placeholder="15990" class="input" />
               </div>
               <div>
-                <label style={labelStyle}>USD Released (computed)</label>
-                <div style={computedStyle}>${modalUsdReleased.toFixed(4)}</div>
+                <label class="form-label">USD Released (computed)</label>
+                <div class="computed-field">${modalUsdReleased.toFixed(4)}</div>
               </div>
               <div>
-                <label style={labelStyle}>Expected LKR (computed)</label>
-                <div style={computedStyle}>{modalExpectedFiat.toLocaleString('en-US', {maximumFractionDigits:0})}</div>
+                <label class="form-label">Expected LKR (computed)</label>
+                <div class="computed-field">{modalExpectedFiat.toLocaleString('en-US', {maximumFractionDigits:0})}</div>
               </div>
             {/if}
 
-            <div style="grid-column:1/-1;">
-              <label style={labelStyle}>Notes</label>
-              <textarea name="notes" rows="2" style="{inputStyle}resize:vertical;font-family:inherit;">{editEntry?.notes ?? ''}</textarea>
+            <div class="span-full">
+              <label class="form-label">Notes</label>
+              <textarea name="notes" rows="2" class="input" style="resize:vertical;font-family:inherit;">{editEntry?.notes ?? ''}</textarea>
             </div>
 
             {#if editEntry}
               <div>
-                <label style={labelStyle}>Order Number</label>
-                <input type="text" name="order_number" value={editEntry?.order_number ?? ''} style={inputStyle} placeholder="Optional" />
+                <label class="form-label">Order Number</label>
+                <input type="text" name="order_number" value={editEntry?.order_number ?? ''} class="input" placeholder="Optional" />
               </div>
               <div>
-                <label style={labelStyle}>Counterparty</label>
-                <input type="text" name="counterparty" value={editEntry?.counterparty ?? ''} style={inputStyle} placeholder="Optional" />
+                <label class="form-label">Counterparty</label>
+                <input type="text" name="counterparty" value={editEntry?.counterparty ?? ''} class="input" placeholder="Optional" />
               </div>
             {/if}
           </div>

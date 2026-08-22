@@ -85,8 +85,8 @@
 
       <div style="display:flex;flex-direction:column;gap:1rem;">
         <!-- Market Bias -->
-        <div style="background:var(--surface);border:1px solid var(--border);border-radius:0.75rem;padding:1.25rem;">
-          <label style="display:block;font-size:0.75rem;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:0.75rem;">
+        <div class="card">
+          <label class="section-label">
             Market Bias
           </label>
           <div style="display:flex;gap:0.5rem;flex-wrap:wrap;">
@@ -101,8 +101,8 @@
         </div>
 
         <!-- Key Levels -->
-        <div style="background:var(--surface);border:1px solid var(--border);border-radius:0.75rem;padding:1.25rem;">
-          <label style="display:block;font-size:0.75rem;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:0.75rem;">
+        <div class="card">
+          <label class="section-label">
             Key Levels
           </label>
           <textarea
@@ -114,21 +114,21 @@
         </div>
 
         <!-- Watchlist -->
-        <div style="background:var(--surface);border:1px solid var(--border);border-radius:0.75rem;padding:1.25rem;">
-          <label style="display:block;font-size:0.75rem;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:0.75rem;">
+        <div class="card">
+          <label class="section-label">
             Watchlist
           </label>
           <textarea
             name="watchlist"
             placeholder="Coins/pairs to watch today and why..."
             value={data.pre?.watchlist ?? ''}
-            style="width:100%;min-height:80px;background:var(--bg);border:1px solid var(--border);border-radius:0.5rem;padding:0.625rem 0.75rem;color:var(--text-primary);font-size:0.875rem;resize:vertical;box-sizing:border-box;"
+            class="textarea"
           ></textarea>
         </div>
 
         <!-- Plan -->
-        <div style="background:var(--surface);border:1px solid var(--border);border-radius:0.75rem;padding:1.25rem;">
-          <label style="display:block;font-size:0.75rem;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:0.75rem;">
+        <div class="card">
+          <label class="section-label">
             Trading Plan
           </label>
           <textarea
@@ -140,15 +140,15 @@
         </div>
 
         <!-- Notes -->
-        <div style="background:var(--surface);border:1px solid var(--border);border-radius:0.75rem;padding:1.25rem;">
-          <label style="display:block;font-size:0.75rem;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:0.75rem;">
+        <div class="card">
+          <label class="section-label">
             Additional Notes
           </label>
           <textarea
             name="notes"
             placeholder="News events, macro context, anything else relevant..."
             value={data.pre?.notes ?? ''}
-            style="width:100%;min-height:80px;background:var(--bg);border:1px solid var(--border);border-radius:0.5rem;padding:0.625rem 0.75rem;color:var(--text-primary);font-size:0.875rem;resize:vertical;box-sizing:border-box;"
+            class="textarea"
           ></textarea>
         </div>
 
@@ -171,8 +171,8 @@
       <input type="hidden" name="session_type" value="tcl" />
 
       <div style="display:flex;flex-direction:column;gap:1rem;">
-        <div style="background:var(--surface);border:1px solid var(--border);border-radius:0.75rem;padding:1.25rem;">
-          <label style="display:block;font-size:0.75rem;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:0.75rem;">
+        <div class="card">
+          <label class="section-label">
             Market Observations
           </label>
           <textarea
@@ -183,8 +183,8 @@
           ></textarea>
         </div>
 
-        <div style="background:var(--surface);border:1px solid var(--border);border-radius:0.75rem;padding:1.25rem;">
-          <label style="display:block;font-size:0.75rem;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:0.75rem;">
+        <div class="card">
+          <label class="section-label">
             Active Trades
           </label>
           <textarea
@@ -195,27 +195,27 @@
           ></textarea>
         </div>
 
-        <div style="background:var(--surface);border:1px solid var(--border);border-radius:0.75rem;padding:1.25rem;">
-          <label style="display:block;font-size:0.75rem;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:0.75rem;">
+        <div class="card">
+          <label class="section-label">
             Adjustments
           </label>
           <textarea
             name="adjustments"
             placeholder="Plan changes, SL/TP moves, position sizing adjustments..."
             value={data.tcl?.adjustments ?? ''}
-            style="width:100%;min-height:80px;background:var(--bg);border:1px solid var(--border);border-radius:0.5rem;padding:0.625rem 0.75rem;color:var(--text-primary);font-size:0.875rem;resize:vertical;box-sizing:border-box;"
+            class="textarea"
           ></textarea>
         </div>
 
-        <div style="background:var(--surface);border:1px solid var(--border);border-radius:0.75rem;padding:1.25rem;">
-          <label style="display:block;font-size:0.75rem;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:0.75rem;">
+        <div class="card">
+          <label class="section-label">
             Notes
           </label>
           <textarea
             name="notes"
             placeholder="Anything else worth noting mid-session..."
             value={data.tcl?.notes ?? ''}
-            style="width:100%;min-height:80px;background:var(--bg);border:1px solid var(--border);border-radius:0.5rem;padding:0.625rem 0.75rem;color:var(--text-primary);font-size:0.875rem;resize:vertical;box-sizing:border-box;"
+            class="textarea"
           ></textarea>
         </div>
 
@@ -238,8 +238,8 @@
       <input type="hidden" name="session_type" value="post" />
 
       <div style="display:flex;flex-direction:column;gap:1rem;">
-        <div style="background:var(--surface);border:1px solid var(--border);border-radius:0.75rem;padding:1.25rem;">
-          <label style="display:block;font-size:0.75rem;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:0.75rem;">
+        <div class="card">
+          <label class="section-label">
             Session Review
           </label>
           <textarea
@@ -250,33 +250,33 @@
           ></textarea>
         </div>
 
-        <div style="background:var(--surface);border:1px solid var(--border);border-radius:0.75rem;padding:1.25rem;">
-          <label style="display:block;font-size:0.75rem;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:0.75rem;">
+        <div class="card">
+          <label class="section-label">
             Mistakes
           </label>
           <textarea
             name="mistakes"
             placeholder="What went wrong? Emotional trades, rule breaks, missed setups..."
             value={data.post?.mistakes ?? ''}
-            style="width:100%;min-height:80px;background:var(--bg);border:1px solid var(--border);border-radius:0.5rem;padding:0.625rem 0.75rem;color:var(--text-primary);font-size:0.875rem;resize:vertical;box-sizing:border-box;"
+            class="textarea"
           ></textarea>
         </div>
 
-        <div style="background:var(--surface);border:1px solid var(--border);border-radius:0.75rem;padding:1.25rem;">
-          <label style="display:block;font-size:0.75rem;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:0.75rem;">
+        <div class="card">
+          <label class="section-label">
             Lessons Learned
           </label>
           <textarea
             name="lessons"
             placeholder="What would you do differently? Key takeaways for next session..."
             value={data.post?.lessons ?? ''}
-            style="width:100%;min-height:80px;background:var(--bg);border:1px solid var(--border);border-radius:0.5rem;padding:0.625rem 0.75rem;color:var(--text-primary);font-size:0.875rem;resize:vertical;box-sizing:border-box;"
+            class="textarea"
           ></textarea>
         </div>
 
         <!-- Emotion Rating -->
-        <div style="background:var(--surface);border:1px solid var(--border);border-radius:0.75rem;padding:1.25rem;">
-          <label style="display:block;font-size:0.75rem;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:0.75rem;">
+        <div class="card">
+          <label class="section-label">
             Emotional Control Rating
           </label>
           <div style="display:flex;gap:0.5rem;">
@@ -297,15 +297,15 @@
           </div>
         </div>
 
-        <div style="background:var(--surface);border:1px solid var(--border);border-radius:0.75rem;padding:1.25rem;">
-          <label style="display:block;font-size:0.75rem;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:0.75rem;">
+        <div class="card">
+          <label class="section-label">
             Notes
           </label>
           <textarea
             name="notes"
             placeholder="Any other post-session thoughts..."
             value={data.post?.notes ?? ''}
-            style="width:100%;min-height:80px;background:var(--bg);border:1px solid var(--border);border-radius:0.5rem;padding:0.625rem 0.75rem;color:var(--text-primary);font-size:0.875rem;resize:vertical;box-sizing:border-box;"
+            class="textarea"
           ></textarea>
         </div>
 

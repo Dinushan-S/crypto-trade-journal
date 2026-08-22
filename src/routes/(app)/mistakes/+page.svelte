@@ -53,7 +53,7 @@
   <!-- Header -->
   <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.5rem;flex-wrap:wrap;gap:1rem;">
     <div>
-      <h1 style="font-family:'JetBrains Mono',monospace;font-size:1.5rem;font-weight:700;color:var(--text-primary);">
+      <h1 class="stat-value-lg">
         Mistakes Journal
       </h1>
       <p style="color:var(--text-muted);font-size:0.875rem;margin-top:0.25rem;">
@@ -75,7 +75,7 @@
   <!-- Summary Cards Bar -->
   <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(220px, 1fr));gap:1rem;margin-bottom:1.5rem;">
     <!-- Total Mistakes -->
-    <div style="background:var(--surface);border:1px solid var(--border);border-radius:0.75rem;padding:1.25rem;">
+    <div class="card">
       <div style="font-size:0.75rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;font-weight:600;">
         Total Mistakes Logged
       </div>
@@ -85,7 +85,7 @@
     </div>
 
     <!-- Top Category -->
-    <div style="background:var(--surface);border:1px solid var(--border);border-radius:0.75rem;padding:1.25rem;">
+    <div class="card">
       <div style="font-size:0.75rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;font-weight:600;">
         Top Mistake Trigger
       </div>
@@ -102,7 +102,7 @@
     </div>
 
     <!-- Lessons Learned -->
-    <div style="background:var(--surface);border:1px solid var(--border);border-radius:0.75rem;padding:1.25rem;">
+    <div class="card">
       <div style="font-size:0.75rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;font-weight:600;">
         Actionable Lessons Recorded
       </div>

@@ -22,7 +22,6 @@ export default defineSchema({
     confidence: v.optional(v.number()),
     risk_pct: v.optional(v.number()),
     range_pct: v.optional(v.number()),
-    fib_match_macro: v.optional(v.string()),
     limit_type: v.optional(v.string()),
     pnl: v.optional(v.number()),
     fee: v.optional(v.number()),
@@ -38,7 +37,6 @@ export default defineSchema({
     order_id: v.optional(v.string()),
     fills: v.optional(v.number()),
     source: v.optional(v.string()),
-    annotated: v.optional(v.boolean()),
     created_at: v.optional(v.string()),
   })
     .index("by_user", ["userId"])
@@ -102,10 +100,7 @@ export default defineSchema({
     market_bias: v.optional(v.string()),
     news_events: v.optional(v.array(v.string())),
     watchlist: v.optional(v.array(v.string())),
-    live_trades: v.optional(v.array(v.string())),
     session_notes: v.optional(v.string()),
-    what_seen: v.optional(v.string()),
-    what_skipped: v.optional(v.string()),
     trades_count: v.optional(v.number()),
     wins: v.optional(v.number()),
     losses: v.optional(v.number()),
@@ -113,21 +108,10 @@ export default defineSchema({
     what_right: v.optional(v.string()),
     what_wrong: v.optional(v.string()),
     tomorrow_plan: v.optional(v.string()),
-    checklist: v.optional(v.array(v.string())),
     created_at: v.optional(v.string()),
   })
     .index("by_user", ["userId"])
     .index("by_userId_and_date_and_session_type", ["userId", "date", "session_type"]),
-
-  binance_imports: defineTable({
-    userId: v.string(),
-    filename: v.optional(v.string()),
-    import_type: v.string(),
-    imported_at: v.optional(v.string()),
-    trades_count: v.optional(v.number()),
-    skipped_count: v.optional(v.number()),
-    status: v.optional(v.string()),
-  }).index("by_user", ["userId"]),
 
   mistakes: defineTable({
     userId: v.string(),

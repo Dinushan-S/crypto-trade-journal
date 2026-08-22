@@ -18,9 +18,6 @@
     return 'var(--text-muted)';
   }
 
-  const inputStyle = `padding:0.5rem 0.75rem;background:var(--bg);border:1px solid var(--border);border-radius:0.5rem;color:var(--text-primary);font-size:0.875rem;width:100%;box-sizing:border-box;outline:none;`;
-  const labelStyle = `display:block;font-size:0.7rem;font-weight:600;color:var(--text-muted);margin-bottom:0.25rem;text-transform:uppercase;letter-spacing:0.05em;`;
-
   // Delete confirmation dialog
   let showDeleteDialog = $state(false);
   let deleting = $state(false);
@@ -146,7 +143,7 @@
 
 <svelte:head><title>Liquidation — Qulem-Trade</title></svelte:head>
 
-<div style="padding:1.5rem;max-width:900px;">
+<div class="page">
   <!-- Error banner -->
   {#if formError}
     <button type="button" onclick={clearErrors} style="background:color-mix(in srgb,var(--loss) 10%,transparent);border:1px solid var(--loss);border-radius:0.75rem;padding:0.75rem 1rem;margin-bottom:1rem;color:var(--loss);font-size:0.875rem;cursor:pointer;display:flex;align-items:center;justify-content:space-between;">
@@ -156,10 +153,10 @@
   {/if}
 
   <!-- Header -->
-  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.5rem;flex-wrap:wrap;gap:0.75rem;">
+  <div class="page-header">
     <div style="display:flex;align-items:center;gap:1rem;">
-      <a href="/liquidations" style="color:var(--text-muted);text-decoration:none;font-size:0.875rem;">← Liquidations</a>
-      <h1 style="font-family:'JetBrains Mono',monospace;font-size:1.25rem;font-weight:600;color:var(--text-primary);">Liquidation Details</h1>
+      <a href="/liquidations" class="link-muted">← Liquidations</a>
+      <h1 class="stat-value">Liquidation Details</h1>
     </div>
     <div style="display:flex;gap:0.5rem;">
       <button
@@ -174,15 +171,15 @@
   <div style="background:var(--surface);border:1px solid var(--border);border-radius:0.75rem;padding:1.5rem;margin-bottom:1.5rem;">
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:1.25rem;">
       <div>
-        <label style={labelStyle}>Date</label>
+        <label class="form-label">Date</label>
         <div style="font-size:0.9rem;color:var(--text-primary);">{formatDate(liquidation.date)}</div>
       </div>
       <div>
-        <label style={labelStyle}>Coin</label>
+        <label class="form-label">Coin</label>
         <div style="font-size:0.9rem;font-weight:600;color:var(--text-primary);">{liquidation.coin ?? '—'}</div>
       </div>
       <div>
-        <label style={labelStyle}>Position</label>
+        <label class="form-label">Position</label>
         <div>
           {#if liquidation.position}
             <span style="padding:0.125rem 0.5rem;border-radius:0.25rem;font-size:0.8rem;font-weight:600;
@@ -196,26 +193,26 @@
         </div>
       </div>
       <div>
-        <label style={labelStyle}>Strategy</label>
+        <label class="form-label">Strategy</label>
         <div style="font-size:0.9rem;color:var(--text-muted);">{liquidation.strategy ?? '—'}</div>
       </div>
       <div>
-        <label style={labelStyle}>Amount Lost ($)</label>
+        <label class="form-label">Amount Lost ($)</label>
         <div style="font-size:1rem;font-weight:700;color:var(--loss);">{liquidation.amount_lost != null ? `$${liquidation.amount_lost.toFixed(2)}` : '—'}</div>
       </div>
       <div>
-        <label style={labelStyle}>Reason</label>
+        <label class="form-label">Reason</label>
         <div style="font-size:0.9rem;color:var(--text-muted);">{liquidation.reason ?? '—'}</div>
       </div>
       {#if liquidation.mistake}
-        <div style="grid-column:1/-1;">
-          <label style={labelStyle}>Mistake</label>
+        <div class="span-full">
+          <label class="form-label">Mistake</label>
           <div style="font-size:0.9rem;color:var(--loss);">{liquidation.mistake}</div>
         </div>
       {/if}
       {#if liquidation.notes}
-        <div style="grid-column:1/-1;">
-          <label style={labelStyle}>Notes</label>
+        <div class="span-full">
+          <label class="form-label">Notes</label>
           <div style="font-size:0.9rem;color:var(--text-muted);white-space:pre-wrap;">{liquidation.notes}</div>
         </div>
       {/if}
@@ -223,15 +220,15 @@
   </div>
 
   <!-- Linked trades section -->
-  <div style="background:var(--surface);border:1px solid var(--border);border-radius:0.75rem;overflow:hidden;">
+  <div class="card-flush">
     <div style="padding:1rem 1.25rem;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:0.75rem;">
       <div style="display:flex;align-items:center;gap:1rem;">
         <h3 style="font-size:0.95rem;font-weight:600;color:var(--text-primary);">Linked Trades</h3>
-        <span style="font-size:0.8rem;color:var(--text-muted);">{aggregated.count} trade{aggregated.count !== 1 ? 's' : ''}</span>
+        <span class="muted-sm">{aggregated.count} trade{aggregated.count !== 1 ? 's' : ''}</span>
       </div>
       <div style="display:flex;align-items:center;gap:1rem;flex-wrap:wrap;">
-        <span style="font-size:0.8rem;color:var(--text-muted);">Net PnL: <strong style="color:{pnlColor(aggregated.netPnL)}">{formatCurrency(aggregated.netPnL)}</strong></span>
-        <span style="font-size:0.8rem;color:var(--text-muted);">Fees: <strong>{formatCurrency(aggregated.fees)}</strong></span>
+        <span class="muted-sm">Net PnL: <strong style="color:{pnlColor(aggregated.netPnL)}">{formatCurrency(aggregated.netPnL)}</strong></span>
+        <span class="muted-sm">Fees: <strong>{formatCurrency(aggregated.fees)}</strong></span>
         <button onclick={openModal} style="padding:0.375rem 0.75rem;border:1px solid var(--border);border-radius:0.375rem;color:var(--text-muted);font-size:0.8rem;cursor:pointer;background:transparent;">
           + Manage Links
         </button>
@@ -243,24 +240,24 @@
         No trades linked yet. Click "+ Manage Links" above to add trades.
       </div>
     {:else}
-      <div style="overflow-x:auto;">
-        <table style="width:100%;border-collapse:collapse;font-size:0.8125rem;">
+      <div class="scroll-x">
+        <table class="table">
           <thead>
-            <tr style="background:var(--bg);border-bottom:1px solid var(--border);">
-              <th style="padding:0.625rem 0.75rem;text-align:left;font-size:0.7rem;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;">Date</th>
-              <th style="padding:0.625rem 0.75rem;text-align:left;font-size:0.7rem;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;">Coin</th>
-              <th style="padding:0.625rem 0.75rem;text-align:left;font-size:0.7rem;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;">Pos</th>
-              <th style="padding:0.625rem 0.75rem;text-align:left;font-size:0.7rem;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;">PnL</th>
-              <th style="padding:0.625rem 0.75rem;text-align:left;font-size:0.7rem;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;">Fee</th>
-              <th style="padding:0.625rem 0.75rem;text-align:left;font-size:0.7rem;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;">Result</th>
-              <th style="padding:0.625rem 0.75rem;text-align:left;font-size:0.7rem;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;">Duration</th>
-              <th style="padding:0.625rem 0.75rem;text-align:left;font-size:0.7rem;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;">Source</th>
+            <tr class="thead-row">
+              <th class="th">Date</th>
+              <th class="th">Coin</th>
+              <th class="th">Pos</th>
+              <th class="th">PnL</th>
+              <th class="th">Fee</th>
+              <th class="th">Result</th>
+              <th class="th">Duration</th>
+              <th class="th">Source</th>
               <th style="padding:0.625rem 0.75rem;text-align:right;font-size:0.7rem;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;">Action</th>
             </tr>
           </thead>
           <tbody>
             {#each linkedTrades as trade}
-              <tr style="border-bottom:1px solid var(--border);">
+              <tr class="row-divider">
                 <td style="padding:0.625rem 0.75rem;font-family:'JetBrains Mono',monospace;color:var(--text-muted);white-space:nowrap;">{formatDate(trade.date)}</td>
                 <td style="padding:0.625rem 0.75rem;font-weight:600;color:var(--text-primary);">{trade.coin}</td>
                 <td style="padding:0.625rem 0.75rem;">
@@ -329,12 +326,12 @@
         <!-- Filters -->
         <div style="padding:0.875rem 1.25rem;border-bottom:1px solid var(--border);display:flex;gap:0.75rem;flex-wrap:wrap;align-items:flex-end;">
           <div>
-            <label style={labelStyle}>Coin</label>
-            <input type="text" bind:value={modalCoinFilter} placeholder="BTC, ETH…" style="{inputStyle}width:120px;" />
+            <label class="form-label">Coin</label>
+            <input type="text" bind:value={modalCoinFilter} placeholder="BTC, ETH…" class="input" style="width:120px;" />
           </div>
           <div>
-            <label style={labelStyle}>Result</label>
-            <select bind:value={modalResultFilter} style="{inputStyle}width:120px;">
+            <label class="form-label">Result</label>
+            <select bind:value={modalResultFilter} class="input" style="width:120px;">
               <option value="all">All</option>
               <option value="win">Win</option>
               <option value="loss">Loss</option>
@@ -342,7 +339,7 @@
             </select>
           </div>
           <div style="margin-left:auto;display:flex;gap:0.5rem;align-items:center;">
-            <span style="font-size:0.8rem;color:var(--text-muted);">
+            <span class="muted-sm">
               {filteredTrades.length} found · Page {modalSearchPage}/{totalFilteredPages}
             </span>
             <span style="font-size:0.8rem;font-weight:600;color:{hasAnyUnlinkedSelected ? 'var(--accent)' : 'var(--text-muted)'};">
@@ -356,7 +353,7 @@
           {#if allUserTrades.length === 0}
             <div style="padding:3rem;text-align:center;color:var(--text-muted);">No trades found.</div>
           {:else}
-            <table style="width:100%;border-collapse:collapse;font-size:0.8125rem;">
+            <table class="table">
               <thead>
                 <tr style="background:var(--bg);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:1;">
                   <th style="padding:0.5rem 0.75rem;text-align:center;font-size:0.7rem;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;width:40px;">
@@ -383,7 +380,7 @@
                     </td>
                     <td style="padding:0.5rem 0.75rem;font-family:'JetBrains Mono',monospace;color:var(--text-muted);white-space:nowrap;font-size:0.75rem;">{formatDate(trade.date)}</td>
                     <td style="padding:0.5rem 0.75rem;font-weight:600;color:var(--text-primary);font-size:0.8rem;">{trade.coin}</td>
-                    <td style="padding:0.5rem 0.75rem;">
+                    <td class="td">
                       <span style="padding:0.1rem 0.4rem;border-radius:0.25rem;font-size:0.7rem;font-weight:600;
                         background:{trade.position === 'Long' ? 'color-mix(in srgb,var(--win) 15%,transparent)' : 'color-mix(in srgb,var(--loss) 15%,transparent)'};
                         color:{trade.position === 'Long' ? 'var(--win)' : 'var(--loss)'};">
@@ -391,7 +388,7 @@
                       </span>
                     </td>
                     <td style="padding:0.5rem 0.75rem;font-family:'JetBrains Mono',monospace;font-weight:600;text-align:right;color:{pnlColor(trade.pnl)};">{formatCurrency(trade.pnl)}</td>
-                    <td style="padding:0.5rem 0.75rem;">
+                    <td class="td">
                       <span style="font-size:0.7rem;font-weight:600;color:{trade.win ? 'var(--win)' : trade.loss ? 'var(--loss)' : 'var(--text-muted)'};">
                         {trade.win ? 'Win' : trade.loss ? 'Loss' : trade.be ? 'BE' : '—'}
                       </span>
@@ -414,7 +411,7 @@
 
         <!-- Modal footer -->
         <div style="padding:1rem 1.25rem;border-top:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:0.75rem;">
-          <span style="font-size:0.8rem;color:var(--text-muted);">
+          <span class="muted-sm">
             {linkedTrades.length} already linked · {getAvailableTrades().length} available
           </span>
           <div style="display:flex;gap:0.5rem;">
