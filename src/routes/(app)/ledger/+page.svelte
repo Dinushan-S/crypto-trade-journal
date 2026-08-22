@@ -90,6 +90,72 @@
     await update();
     await invalidateAll();
   };
+
+  // Quick add / quick edit modal
+  let addOpen = $state(false);
+  let editEntry = $state<any | null>(null);
+  let resetOpen = $state(false);
+
+  const inputStyle = `padding:0.5rem 0.75rem;background:var(--bg);border:1px solid var(--border);border-radius:0.5rem;color:var(--text-primary);font-size:0.875rem;width:100%;box-sizing:border-box;outline:none;`;
+  const labelStyle = `display:block;font-size:0.7rem;font-weight:600;color:var(--text-muted);margin-bottom:0.25rem;text-transform:uppercase;letter-spacing:0.05em;`;
+  const computedStyle = `padding:0.5rem 0.75rem;background:color-mix(in srgb,var(--accent) 8%,transparent);border:1px solid color-mix(in srgb,var(--accent) 30%,transparent);border-radius:0.5rem;color:var(--accent);font-size:0.875rem;width:100%;box-sizing:border-box;font-family:'JetBrains Mono',monospace;`;
+
+  const closeModal = () => {
+    addOpen = false;
+    editEntry = null;
+    resetOpen = false;
+  };
+
+  const modalEnhance = () => async ({ update }: any) => {
+    await update();
+    await invalidateAll();
+    closeModal();
+  };
+
+  $effect(() => {
+    if (form?.error) alert(form.error);
+  });
+
+  // Escape closes the modal
+  $effect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') closeModal();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  });
+
+  function openAdd() {
+    editEntry = null;
+    addOpen = true;
+  }
+  function openEdit(e: any) {
+    editEntry = e;
+    addOpen = true;
+  }
+
+  // Live computed previews for the modal
+  let modalType = $state<'deposit' | 'withdrawal'>('deposit');
+  let modalFiatSent = $state<number | null>(null);
+  let modalUsdFee = $state<number>(0);
+  let modalUsdRate = $state<number | null>(null);
+  let modalUsdQuantity = $state<number | null>(null);
+  let modalFee = $state<number>(0.07);
+  let modalUsdReceived = $state<number | null>(null);
+
+  let modalLkrTotalSent = $derived((modalFiatSent ?? 0) + (modalUsdFee * (modalUsdRate ?? 0)));
+  let modalUsdReleased = $derived((modalUsdQuantity ?? 0) - modalFee);
+  let modalExpectedFiat = $derived(modalUsdReleased * (modalUsdRate ?? 0));
+
+  function syncModalType() {
+    modalType = editEntry?.type === 'withdrawal' ? 'withdrawal' : 'deposit';
+    modalFiatSent = editEntry?.fiat_sent ?? null;
+    modalUsdFee = editEntry?.usd_fee ?? 0;
+    modalUsdRate = editEntry?.usd_rate ?? null;
+    modalUsdQuantity = editEntry?.usd_quantity ?? null;
+    modalFee = editEntry?.fee ?? 0.07;
+    modalUsdReceived = editEntry?.usd_received ?? null;
+  }
 </script>
 
 <svelte:head><title>Ledger — Qulem-Trade</title></svelte:head>
@@ -105,9 +171,9 @@
       <a href="/ledger/import" style="padding:0.5rem 0.875rem;border:1px solid var(--border);border-radius:0.5rem;color:var(--text-muted);text-decoration:none;font-size:0.875rem;display:inline-flex;align-items:center;gap:0.375rem;">
         📥 Import C2C
       </a>
-      <a href="/ledger/new" style="padding:0.5rem 0.875rem;background:var(--accent);border:none;border-radius:0.5rem;color:#fff;text-decoration:none;font-size:0.875rem;font-weight:500;">
+      <button onclick={openAdd} style="padding:0.5rem 0.875rem;background:var(--accent);border:none;border-radius:0.5rem;color:#fff;font-size:0.875rem;font-weight:500;cursor:pointer;">
         + Add Entry
-      </a>
+      </button>
     </div>
   </div>
 
@@ -166,7 +232,7 @@
     <div style="background:var(--surface);border:1px solid var(--border);border-radius:0.75rem;overflow:hidden;">
       {#if visibleEntries.length === 0}
         <div style="padding:3rem;text-align:center;color:var(--text-muted);">
-          No entries yet. <a href="/ledger/import" style="color:var(--accent);text-decoration:none;">Import C2C CSV</a> or <a href="/ledger/new" style="color:var(--accent);text-decoration:none;">add manually</a>.
+          No entries yet. <a href="/ledger/import" style="color:var(--accent);text-decoration:none;">Import C2C CSV</a> or <button onclick={openAdd} style="background:none;border:none;color:var(--accent);text-decoration:underline;font-size:inherit;cursor:pointer;">add manually</button>.
         </div>
       {:else}
         <div style="overflow-x:auto;">
@@ -228,7 +294,7 @@
                         <span style="color:var(--text-muted);">—</span>
                       {/if}
                     </td>
-                    <td style="padding:0.5rem 0.75rem;"><a href="/ledger/{e._id}" style="color:var(--accent);text-decoration:none;font-size:0.8rem;">Edit</a></td>
+                    <td style="padding:0.5rem 0.75rem;"><button onclick={() => { syncModalType(); openEdit(e); }} style="background:none;border:none;color:var(--accent);font-size:0.8rem;text-decoration:underline;cursor:pointer;">Edit</button></td>
                   </tr>
                 {/each}
               </tbody>
@@ -275,7 +341,7 @@
                       {/if}
                     </td>
                     <td style="padding:0.5rem 0.75rem;white-space:nowrap;">
-                      <a href="/ledger/{e._id}" style="color:var(--accent);text-decoration:none;font-size:0.8rem;margin-right:0.5rem;">Edit</a>
+                      <button onclick={() => { syncModalType(); openEdit(e); }} style="background:none;border:none;color:var(--accent);font-size:0.8rem;text-decoration:underline;cursor:pointer;margin-right:0.5rem;">Edit</button>
                       <button onclick={() => releaseOpen = releaseOpen === e.id ? null : e.id}
                         style="padding:0.25rem 0.5rem;border:1px solid var(--border);border-radius:0.25rem;background:transparent;color:var(--text-muted);font-size:0.75rem;cursor:pointer;">
                         {releaseOpen === e.id ? '✕' : 'Release'}
@@ -336,4 +402,194 @@
         </div>
       {/if}
     </div>
+
+  <!-- Quick Add / Quick Edit Modal -->
+  {#if addOpen}
+    <div
+      style="position:fixed;inset:0;background:rgba(0,0,0,0.6);display:flex;align-items:center;justify-content:center;z-index:50;"
+      onclick={(e) => { if (e.target === e.currentTarget) closeModal(); }}
+    >
+      <div
+        style="background:var(--surface);border:1px solid var(--border);border-radius:0.75rem;padding:1.5rem;width:min(560px,92vw);max-height:90vh;overflow-y:auto;"
+      >
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.25rem;">
+          <h2 style="font-family:'JetBrains Mono',monospace;font-size:1.1rem;font-weight:600;color:var(--text-primary);">
+            {editEntry ? `Edit ${editEntry.type === 'deposit' ? 'Deposit' : 'Withdrawal'}` : 'Add Entry'}
+          </h2>
+          <button onclick={closeModal} style="background:none;border:none;color:var(--text-muted);font-size:1.25rem;cursor:pointer;line-height:1;">✕</button>
+        </div>
+
+        <form method="POST" action={editEntry ? '?/quickUpdate' : '?/add'} use:enhance={modalEnhance}>
+          {#if editEntry}
+            <input type="hidden" name="id" value={editEntry.id} />
+          {:else}
+            <input type="hidden" name="type" value={modalType} />
+          {/if}
+
+          {#if !editEntry}
+            <div style="display:inline-flex;background:var(--surface);border:1px solid var(--border);border-radius:0.5rem;padding:0.25rem;margin-bottom:1.25rem;">
+              {#each (['deposit', 'withdrawal'] as const) as t}
+                <button
+                  type="button"
+                  onclick={() => modalType = t}
+                  style="padding:0.5rem 1.25rem;border-radius:0.375rem;border:none;cursor:pointer;font-size:0.875rem;font-weight:500;transition:all 0.15s;
+                    background:{modalType === t ? (t === 'deposit' ? 'var(--win)' : 'var(--loss)') : 'transparent'};
+                    color:{modalType === t ? '#fff' : 'var(--text-muted)'};"
+                >
+                  {t === 'deposit' ? '↓ Deposit' : '↑ Withdrawal'}
+                </button>
+              {/each}
+            </div>
+          {/if}
+
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.875rem;">
+            <div>
+              <label style={labelStyle}>Date</label>
+              <input type="date" name="date" value={editEntry?.date ?? new Date().toISOString().split('T')[0]} style={inputStyle} required />
+            </div>
+            <div>
+              <label style={labelStyle}>Time</label>
+              <input type="time" name="time" value={editEntry?.time ?? ''} style={inputStyle} />
+            </div>
+
+            {#if modalType === 'deposit'}
+              <div>
+                <label style={labelStyle}>My Bank</label>
+                <input name="my_bank" value={editEntry?.my_bank ?? ''} placeholder="e.g. BOC" style={inputStyle} />
+              </div>
+              <div>
+                <label style={labelStyle}>Recipient (P2P)</label>
+                <input name="recipient_bank" value={editEntry?.recipient_bank ?? ''} placeholder="Counterparty name" style={inputStyle} />
+              </div>
+              <div>
+                <label style={labelStyle}>LKR Sent</label>
+                <input type="number" name="fiat_sent" bind:value={modalFiatSent} step="any" placeholder="5000" style={inputStyle} />
+              </div>
+              <div>
+                <label style={labelStyle}>USD Fee ($)</label>
+                <input type="number" name="usd_fee" bind:value={modalUsdFee} step="any" placeholder="0" style={inputStyle} />
+              </div>
+              <div>
+                <label style={labelStyle}>Rate (LKR/USDT)</label>
+                <input type="number" name="usd_rate" bind:value={modalUsdRate} step="any" placeholder="320" style={inputStyle} />
+              </div>
+              <div>
+                <label style={labelStyle}>USD Received</label>
+                <input type="number" name="usd_received" bind:value={modalUsdReceived} step="any" placeholder="15.62" style={inputStyle} />
+              </div>
+              <div>
+                <label style={labelStyle}>Total LKR Sent (computed)</label>
+                <div style={computedStyle}>{modalLkrTotalSent.toLocaleString('en-US', {maximumFractionDigits:2})}</div>
+              </div>
+              <div>
+                <label style={labelStyle}>Effective Rate (computed)</label>
+                <div style={computedStyle}>{modalUsdReceived && modalFiatSent ? (modalFiatSent / modalUsdReceived).toFixed(2) : '—'}</div>
+              </div>
+            {:else}
+              <div>
+                <label style={labelStyle}>Sender (P2P)</label>
+                <input name="sender_bank" value={editEntry?.sender_bank ?? ''} placeholder="Counterparty name" style={inputStyle} />
+              </div>
+              <div>
+                <label style={labelStyle}>Receiver Bank</label>
+                <input name="receiver_bank" value={editEntry?.receiver_bank ?? ''} placeholder="e.g. ComBank" style={inputStyle} />
+              </div>
+              <div>
+                <label style={labelStyle}>USD Quantity</label>
+                <input type="number" name="usd_quantity" bind:value={modalUsdQuantity} step="any" placeholder="50" style={inputStyle} />
+              </div>
+              <div>
+                <label style={labelStyle}>Fee (USDT)</label>
+                <input type="number" name="fee" bind:value={modalFee} step="any" placeholder="0.07" style={inputStyle} />
+              </div>
+              <div>
+                <label style={labelStyle}>Rate (LKR/USDT)</label>
+                <input type="number" name="usd_rate" bind:value={modalUsdRate} step="any" placeholder="320" style={inputStyle} />
+              </div>
+              <div>
+                <label style={labelStyle}>Actual LKR Received</label>
+                <input type="number" name="fiat_amount" value={editEntry?.fiat_amount ?? ''} step="any" placeholder="15990" style={inputStyle} />
+              </div>
+              <div>
+                <label style={labelStyle}>USD Released (computed)</label>
+                <div style={computedStyle}>${modalUsdReleased.toFixed(4)}</div>
+              </div>
+              <div>
+                <label style={labelStyle}>Expected LKR (computed)</label>
+                <div style={computedStyle}>{modalExpectedFiat.toLocaleString('en-US', {maximumFractionDigits:0})}</div>
+              </div>
+            {/if}
+
+            <div style="grid-column:1/-1;">
+              <label style={labelStyle}>Notes</label>
+              <textarea name="notes" rows="2" style="{inputStyle}resize:vertical;font-family:inherit;">{editEntry?.notes ?? ''}</textarea>
+            </div>
+
+            {#if editEntry}
+              <div>
+                <label style={labelStyle}>Order Number</label>
+                <input type="text" name="order_number" value={editEntry?.order_number ?? ''} style={inputStyle} placeholder="Optional" />
+              </div>
+              <div>
+                <label style={labelStyle}>Counterparty</label>
+                <input type="text" name="counterparty" value={editEntry?.counterparty ?? ''} style={inputStyle} placeholder="Optional" />
+              </div>
+            {/if}
+          </div>
+
+          <div style="margin-top:1.25rem;padding-top:1.25rem;border-top:1px solid var(--border);display:flex;gap:0.75rem;justify-content:flex-end;align-items:center;">
+            {#if editEntry && editEntry.type === 'withdrawal' && (editEntry.tracking?.balanceUsd ?? 0) > 0}
+              <button
+                type="button"
+                onclick={() => resetOpen = true}
+                style="padding:0.5rem 1rem;border:1px solid var(--loss);border-radius:0.5rem;background:transparent;color:var(--loss);font-size:0.875rem;cursor:pointer;"
+                >Reset Releases</button
+              >
+            {:else if editEntry && editEntry.type === 'deposit' && editEntry.tracking?.lockedUsd != null}
+              <button
+                type="button"
+                onclick={() => resetOpen = true}
+                style="padding:0.5rem 1rem;border:1px solid var(--loss);border-radius:0.5rem;background:transparent;color:var(--loss);font-size:0.875rem;cursor:pointer;"
+                >Reset Lock</button
+              >
+            {/if}
+            <button
+              type="button"
+              onclick={closeModal}
+              style="padding:0.5rem 1rem;border:1px solid var(--border);border-radius:0.5rem;background:transparent;color:var(--text-muted);font-size:0.875rem;cursor:pointer;"
+              >Cancel</button
+            >
+            <button
+              type="submit"
+              style="padding:0.5rem 1.25rem;background:var(--accent);color:#fff;border:none;border-radius:0.5rem;font-weight:600;font-size:0.875rem;cursor:pointer;"
+              >{editEntry ? 'Save Changes' : '+ Add Entry'}</button
+            >
+          </div>
+        </form>
+
+        {#if resetOpen}
+          <form method="POST" action="?/reset" use:enhance={() => async ({ update }: any) => {
+            await update();
+            await invalidateAll();
+            resetOpen = false;
+            closeModal();
+          }}>
+            <input type="hidden" name="id" value={editEntry.id} />
+            <input type="hidden" name="type" value={editEntry.type} />
+            <div style="margin-top:1rem;padding-top:1rem;border-top:1px solid var(--border);">
+              <p style="font-size:0.875rem;color:var(--text-muted);margin-bottom:0.75rem;">
+                {editEntry.type === 'withdrawal'
+                  ? 'Reset releases on this withdrawal? This unlinks all allocations and frees the deposits back up.'
+                  : 'Reset the lock on this deposit? This will remove the tracking lock.'}
+              </p>
+              <div style="display:flex;gap:0.5rem;justify-content:flex-end;">
+                <button type="button" onclick={() => resetOpen = false} style="padding:0.4rem 0.875rem;border:1px solid var(--border);border-radius:0.375rem;background:transparent;color:var(--text-muted);font-size:0.85rem;cursor:pointer;">Cancel</button>
+                <button type="submit" style="padding:0.4rem 0.875rem;background:var(--loss);color:#fff;border:none;border-radius:0.375rem;font-size:0.85rem;font-weight:600;cursor:pointer;">Reset</button>
+              </div>
+            </div>
+          </form>
+        {/if}
+      </div>
+    </div>
+  {/if}
 </div>

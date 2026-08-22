@@ -1,9 +1,10 @@
 <script lang="ts">
-  import { goto } from '$app/navigation';
+  import { goto, invalidateAll } from '$app/navigation';
+  import { enhance } from '$app/forms';
   import { untrack } from 'svelte';
   import { formatCurrency, formatDate, periodRange, type Period } from '$lib/utils';
 
-  let { data } = $props();
+  let { data, form } = $props();
 
   // Local filter state (mirrors URL params — seeded once from server data)
   let coin = $state(untrack(() => data.filters.coin));
@@ -86,8 +87,62 @@
     goto(`/liquidations/new?tradeIds=${encodeURIComponent(tradeIds)}`);
   }
 
+  // Quick add / quick edit modal
+  let addOpen = $state(false);
+  let editTrade = $state<any | null>(null);
+  let modalMode = $state<'quick' | 'full'>('quick');
 
+  const tfOptions = ['1m', '5m', '15m', '30m', '1h', '4h', '1D', '1W'];
 
+  const inputStyle = `padding:0.5rem 0.75rem;background:var(--bg);border:1px solid var(--border);border-radius:0.5rem;color:var(--text-primary);font-size:0.875rem;width:100%;box-sizing:border-box;outline:none;`;
+  const labelStyle = `display:block;font-size:0.7rem;font-weight:600;color:var(--text-muted);margin-bottom:0.25rem;text-transform:uppercase;letter-spacing:0.05em;`;
+
+  const closeModal = () => {
+    addOpen = false;
+    editTrade = null;
+    modalMode = 'quick';
+  };
+
+  const submitEnhance = () => async ({ update }: any) => {
+    await update();
+    await invalidateAll();
+    closeModal();
+  };
+
+  $effect(() => {
+    if (form?.error) {
+      alert(form.error);
+    }
+  });
+
+  // Escape closes the modal
+  $effect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') closeModal();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  });
+
+  function openAdd() {
+    addOpen = true;
+    editTrade = null;
+    modalMode = 'quick';
+  }
+  function openEdit(t: any) {
+    editTrade = t;
+    addOpen = true;
+    modalMode = 'quick';
+  }
+
+  function toggleTf(tf: string) {
+    if (!editTrade) return;
+    const cur: string[] = editTrade.timeframes ?? [];
+    editTrade = {
+      ...editTrade,
+      timeframes: cur.includes(tf) ? cur.filter((x) => x !== tf) : [...cur, tf],
+    };
+  }
 
   // Summary stats for visible trades
   let totalPnl = $derived(data.trades.reduce((s: number, t: any) => s + (t.pnl ?? 0), 0));
@@ -217,12 +272,12 @@
         </svg>
         Import CSV
       </a>
-      <a
-        href="/trades/new"
-        style="padding:0.5rem 0.875rem;background:var(--accent);border:none;border-radius:0.5rem;color:#fff;text-decoration:none;font-size:0.875rem;font-weight:500;display:inline-flex;align-items:center;gap:0.375rem;"
+      <button
+        onclick={openAdd}
+        style="padding:0.5rem 0.875rem;background:var(--accent);border:none;border-radius:0.5rem;color:#fff;font-size:0.875rem;font-weight:500;display:inline-flex;align-items:center;gap:0.375rem;cursor:pointer;"
       >
         + New Trade
-      </a>
+      </button>
     </div>
   </div>
 
@@ -404,6 +459,7 @@
                 {label}{col ? ` ${sortIcon(col)}` : ''}
               </th>
             {/each}
+            <th style="padding:0.625rem 0.75rem;text-align:left;font-size:0.7rem;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;white-space:nowrap;">Edit</th>
           </tr>
         </thead>
         <tbody>
@@ -411,8 +467,10 @@
             <tr>
               <td colspan="{selectionMode ? 17 : 16}" style="padding:3rem;text-align:center;color:var(--text-muted);">
                 No trades found.
-                <a href="/trades/new" style="color:var(--accent);text-decoration:none;"
-                  >Add your first trade</a
+                <button
+                  onclick={openAdd}
+                  style="background:none;border:none;color:var(--accent);font-size:inherit;text-decoration:underline;cursor:pointer;"
+                  >Add your first trade</button
                 >
                 or
                 <a href="/trades/import" style="color:var(--accent);text-decoration:none;"
@@ -541,6 +599,16 @@
                   style="padding:0.625rem 0.75rem;color:var(--text-muted);max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"
                   >{trade.reason ?? '—'}</td
                 >
+                <td
+                  style="padding:0.625rem 0.75rem;white-space:nowrap;"
+                  onclick={(e) => e.stopPropagation()}
+                >
+                  <button
+                    onclick={() => openEdit(trade)}
+                    style="padding:0.2rem 0.5rem;border:1px solid var(--border);border-radius:0.25rem;background:transparent;color:var(--text-muted);font-size:0.7rem;cursor:pointer;"
+                    >✏️</button
+                  >
+                </td>
               </tr>
             {/each}
           {/if}
@@ -566,7 +634,7 @@
               >
                 {formatCurrency(totalPnl)}
               </td>
-              <td colspan="5"></td>
+              <td colspan="4"></td>
             </tr>
           </tfoot>
         {/if}
@@ -600,6 +668,214 @@
       </div>
     {/if}
   </div>
+
+  <!-- Quick Add / Quick Edit Modal -->
+  {#if addOpen}
+    <div
+      style="position:fixed;inset:0;background:rgba(0,0,0,0.6);display:flex;align-items:center;justify-content:center;z-index:50;"
+      onclick={(e) => { if (e.target === e.currentTarget) closeModal(); }}
+    >
+      <div
+        style="background:var(--surface);border:1px solid var(--border);border-radius:0.75rem;padding:1.5rem;width:min(720px,94vw);max-height:90vh;overflow-y:auto;"
+      >
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.25rem;">
+          <h2 style="font-family:'JetBrains Mono',monospace;font-size:1.1rem;font-weight:600;color:var(--text-primary);">
+            {editTrade ? `Edit ${editTrade.coin}` : 'Add Trade'}
+          </h2>
+          <button onclick={closeModal} style="background:none;border:none;color:var(--text-muted);font-size:1.25rem;cursor:pointer;line-height:1;">✕</button>
+        </div>
+
+        <!-- Mode toggle -->
+        <div style="display:inline-flex;background:var(--surface);border:1px solid var(--border);border-radius:0.5rem;padding:0.25rem;margin-bottom:1.25rem;">
+          {#each (['quick', 'full'] as const) as m}
+            <button
+              type="button"
+              onclick={() => modalMode = m}
+              style="padding:0.375rem 1rem;border-radius:0.375rem;border:none;cursor:pointer;font-size:0.875rem;font-weight:500;transition:all 0.15s;
+                background:{modalMode === m ? 'var(--accent)' : 'transparent'};
+                color:{modalMode === m ? '#fff' : 'var(--text-muted)'};"
+            >
+              {m === 'quick' ? '⚡ Quick' : '📋 Full'}
+            </button>
+          {/each}
+        </div>
+
+        <form
+          method="POST"
+          action={editTrade ? '?/quickUpdate' : '?/add'}
+          use:enhance={submitEnhance}
+        >
+          {#if editTrade}
+            <input type="hidden" name="id" value={editTrade.id} />
+          {/if}
+          {#if modalMode === 'quick'}
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.875rem;">
+              <div>
+                <label style={labelStyle}>Coin</label>
+                <input name="coin" required value={editTrade?.coin ?? ''} placeholder="BTC" style={inputStyle} />
+              </div>
+              <div>
+                <label style={labelStyle}>Position</label>
+                <select name="position" style={inputStyle}>
+                  {#each (['Long', 'Short'] as const) as p}
+                    <option value={p} selected={editTrade?.position === p}>{p}</option>
+                  {/each}
+                </select>
+              </div>
+              <div>
+                <label style={labelStyle}>Date</label>
+                <input type="date" name="date" value={editTrade?.date ?? new Date().toISOString().split('T')[0]} style={inputStyle} required />
+              </div>
+              <div>
+                <label style={labelStyle}>Time</label>
+                <input type="time" name="time" value={editTrade?.time ?? ''} style={inputStyle} />
+              </div>
+              <div>
+                <label style={labelStyle}>Entry Price</label>
+                <input type="number" name="entry_price" value={editTrade?.entry_price ?? ''} step="any" placeholder="0.00" style={inputStyle} />
+              </div>
+              <div>
+                <label style={labelStyle}>PnL ($)</label>
+                <input type="number" name="pnl" value={editTrade?.pnl ?? ''} step="any" placeholder="+0.00" style={inputStyle} />
+              </div>
+              <div>
+                <label style={labelStyle}>Strategy</label>
+                <input name="strategy" value={editTrade?.strategy ?? ''} placeholder="Breakout, Retest…" style={inputStyle} />
+              </div>
+              <div>
+                <label style={labelStyle}>Reason</label>
+                <input name="reason" value={editTrade?.reason ?? ''} placeholder="Setup notes…" style={inputStyle} />
+              </div>
+            </div>
+          {:else}
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.875rem;">
+              <div>
+                <label style={labelStyle}>Coin</label>
+                <input name="coin" required value={editTrade?.coin ?? ''} placeholder="BTC" style={inputStyle} />
+              </div>
+              <div>
+                <label style={labelStyle}>Position</label>
+                <select name="position" style={inputStyle}>
+                  {#each (['Long', 'Short'] as const) as p}
+                    <option value={p} selected={editTrade?.position === p}>{p}</option>
+                  {/each}
+                </select>
+              </div>
+              <div>
+                <label style={labelStyle}>Date</label>
+                <input type="date" name="date" value={editTrade?.date ?? new Date().toISOString().split('T')[0]} style={inputStyle} required />
+              </div>
+              <div>
+                <label style={labelStyle}>Time</label>
+                <input type="time" name="time" value={editTrade?.time ?? ''} style={inputStyle} />
+              </div>
+              <div>
+                <label style={labelStyle}>Entry Price</label>
+                <input type="number" name="entry_price" value={editTrade?.entry_price ?? ''} step="any" placeholder="0.00" style={inputStyle} />
+              </div>
+              <div>
+                <label style={labelStyle}>Exit Price</label>
+                <input type="number" name="exit_price" value={editTrade?.exit_price ?? ''} step="any" placeholder="0.00" style={inputStyle} />
+              </div>
+              <div>
+                <label style={labelStyle}>Stop Loss</label>
+                <input type="number" name="stop_loss" value={editTrade?.stop_loss ?? ''} step="any" placeholder="0.00" style={inputStyle} />
+              </div>
+              <div>
+                <label style={labelStyle}>Quantity</label>
+                <input type="number" name="quantity" value={editTrade?.quantity ?? ''} step="any" placeholder="0" style={inputStyle} />
+              </div>
+              <div>
+                <label style={labelStyle}>PnL ($)</label>
+                <input type="number" name="pnl" value={editTrade?.pnl ?? ''} step="any" placeholder="+0.00" style={inputStyle} />
+              </div>
+              <div>
+                <label style={labelStyle}>Fee ($)</label>
+                <input type="number" name="fee" value={editTrade?.fee ?? ''} step="any" placeholder="0.00" style={inputStyle} />
+              </div>
+              <div>
+                <label style={labelStyle}>Strategy</label>
+                <input name="strategy" value={editTrade?.strategy ?? ''} placeholder="e.g. Breakout, Retest" style={inputStyle} />
+              </div>
+              <div>
+                <label style={labelStyle}>Leverage</label>
+                <input name="leverage" value={editTrade?.leverage ?? ''} placeholder="e.g. 10x" style={inputStyle} />
+              </div>
+              <div>
+                <label style={labelStyle}>Confidence (1-5)</label>
+                <input type="number" name="confidence" min="1" max="5" value={editTrade?.confidence ?? ''} placeholder="3" style={inputStyle} />
+              </div>
+              <div>
+                <label style={labelStyle}>Risk %</label>
+                <input type="number" name="risk_pct" value={editTrade?.risk_pct ?? ''} step="any" placeholder="1.0" style={inputStyle} />
+              </div>
+              <div>
+                <label style={labelStyle}>Range %</label>
+                <input type="number" name="range_pct" value={editTrade?.range_pct ?? ''} step="any" placeholder="2.5" style={inputStyle} />
+              </div>
+              <div>
+                <label style={labelStyle}>Limit Type</label>
+                <input name="limit_type" value={editTrade?.limit_type ?? ''} placeholder="Limit / Market / Stop" style={inputStyle} />
+              </div>
+              <div>
+                <label style={labelStyle}>Duration</label>
+                <input name="duration" value={editTrade?.duration ?? ''} placeholder="e.g. 2h 30m" style={inputStyle} />
+              </div>
+              <div>
+                <label style={labelStyle}>Date Closed</label>
+                <input type="date" name="date_closed" value={editTrade?.date_closed ?? ''} style={inputStyle} />
+              </div>
+              <div>
+                <label style={labelStyle}>Closed Reason</label>
+                <input name="closed_reason" value={editTrade?.closed_reason ?? ''} placeholder="Why closed…" style={inputStyle} />
+              </div>
+
+              <!-- Timeframes -->
+              <div style="grid-column:1/-1;">
+                <label style={labelStyle}>Timeframes</label>
+                <div style="display:flex;flex-wrap:wrap;gap:0.375rem;margin-top:0.25rem;">
+                  {#each tfOptions as tf}
+                    {@const active = editTrade ? (editTrade.timeframes ?? []).includes(tf) : false}
+                    <label style="padding:0.25rem 0.625rem;border-radius:0.375rem;border:1px solid {active ? 'var(--accent)' : 'var(--border)'};background:{active ? 'color-mix(in srgb,var(--accent) 15%,transparent)' : 'transparent'};color:{active ? 'var(--accent)' : 'var(--text-muted)'};font-size:0.75rem;font-family:'JetBrains Mono',monospace;cursor:pointer;">
+                      <input type="checkbox" name="timeframes" value={tf} checked={active} onchange={() => toggleTf(tf)} style="display:none;" />
+                      {tf}
+                    </label>
+                  {/each}
+                </div>
+              </div>
+
+              <div style="grid-column:1/-1;">
+                <label style={labelStyle}>Reason / Setup</label>
+                <textarea name="reason" rows="3" placeholder="Why did you take this trade?" style="{inputStyle}resize:vertical;font-family:inherit;">{editTrade?.reason ?? ''}</textarea>
+              </div>
+              <div style="grid-column:1/-1;">
+                <label style={labelStyle}>Pre Notes</label>
+                <textarea name="pre_notes" rows="3" placeholder="Before entry thoughts…" style="{inputStyle}resize:vertical;font-family:inherit;">{editTrade?.pre_notes ?? ''}</textarea>
+              </div>
+              <div style="grid-column:1/-1;">
+                <label style={labelStyle}>Post Notes</label>
+                <textarea name="post_notes" rows="3" placeholder="After exit thoughts…" style="{inputStyle}resize:vertical;font-family:inherit;">{editTrade?.post_notes ?? ''}</textarea>
+              </div>
+            </div>
+          {/if}
+
+          <div style="margin-top:1.25rem;padding-top:1.25rem;border-top:1px solid var(--border);display:flex;gap:0.75rem;justify-content:flex-end;">
+            <button
+              type="button"
+              onclick={closeModal}
+              style="padding:0.5rem 1rem;border:1px solid var(--border);border-radius:0.5rem;background:transparent;color:var(--text-muted);font-size:0.875rem;cursor:pointer;"
+              >Cancel</button
+            >
+            <button
+              type="submit"
+              style="padding:0.5rem 1.25rem;background:var(--accent);color:#fff;border:none;border-radius:0.5rem;font-weight:600;font-size:0.875rem;cursor:pointer;"
+              >{editTrade ? 'Save Changes' : '+ Add Trade'}</button
+            >
+          </div>
+        </form>
+      </div>
+    </div>
+  {/if}
 </div>
 
 <style>
