@@ -67,10 +67,11 @@ export const load: PageServerLoad = async ({ locals: { convex }, url, cookies })
     return order.map((session) => {
       const list = by[session] ?? [];
       const wins = list.filter((t) => t.win).length;
+      const completed = list.filter(t => !t.is_group || t.status === 'Closed');
       const netPnl = list.reduce((s, t) => s + (t.pnl ?? 0), 0);
       const grossWin = list.filter((t) => (t.pnl ?? 0) > 0).reduce((s, t) => s + t.pnl, 0);
       const grossLoss = Math.abs(list.filter((t) => (t.pnl ?? 0) < 0).reduce((s, t) => s + t.pnl, 0));
-      return { session, count: list.length, wins, losses: list.filter((t) => t.loss).length, bes: list.filter((t) => t.be).length, winRate: list.length ? (wins / list.length) * 100 : 0, netPnl, avgPnl: list.length ? netPnl / list.length : 0, grossWin, grossLoss, profitFactor: grossLoss > 0 ? grossWin / grossLoss : grossWin > 0 ? Infinity : null };
+      return { session, count: list.length, wins, losses: list.filter((t) => t.loss).length, bes: list.filter((t) => t.be).length, winRate: completed.length ? (wins / completed.length) * 100 : 0, netPnl, avgPnl: list.length ? netPnl / list.length : 0, grossWin, grossLoss, profitFactor: grossLoss > 0 ? grossWin / grossLoss : grossWin > 0 ? Infinity : null };
     });
   };
 

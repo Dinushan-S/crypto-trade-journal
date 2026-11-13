@@ -13,7 +13,7 @@
   // Stored trade date/time are Colombo (LKR, UTC+05:30). Re-bucket to UTC day and clock for the UTC view.
   function utcDateFromColombo(dateStr: string, timeStr: string | null): string {
     if (!timeStr) return dateStr;
-    const d = new Date(`${dateStr}T${timeStr}+05:00`);
+    const d = new Date(`${dateStr}T${timeStr}+05:30`);
     return Number.isNaN(d.getTime()) ? dateStr : d.toISOString().slice(0, 10);
   }
   function utcClockFromColombo(timeStr: string | null): string | null {
@@ -35,7 +35,7 @@
         const uDay = utcDateFromColombo(tr.date_closed ?? tr.date_opened ?? day, tr.time);
         if (!out[uDay]) out[uDay] = { netPnl: 0, tradeCount: 0, trades: [] };
         out[uDay].netPnl += tr.pnl ?? 0;
-        out[uDay].tradeCount += 1;
+        if (!out[uDay].trades.some((t: any) => t.id === tr.id)) out[uDay].tradeCount += 1;
         out[uDay].trades.push({ ...tr, time: utcClockFromColombo(tr.time) });
       }
     }
@@ -262,11 +262,11 @@
   const calendarMonthSummary = $derived.by(() => {
     const days = calendarDays.filter(d => !d.blank && d.stat);
     const netPnl = days.reduce((s, d) => s + (d.stat?.netPnl ?? 0), 0);
-    const trades = days.reduce((s, d) => s + (d.stat?.tradeCount ?? 0), 0);
     const allTrades = days.flatMap(d => d.stat?.trades ?? []);
-    const wins = allTrades.filter((t: any) => t.pnl > 0).length;
-    const nonBeTrades = allTrades.filter((t: any) => t.pnl !== 0);
-    const winRate = nonBeTrades.length > 0 ? (wins / nonBeTrades.length) * 100 : 0;
+    const trades = new Set(allTrades.map((t: any) => t.id)).size;
+    const completed = allTrades.filter((t: any) => t.completed);
+    const wins = completed.filter((t: any) => t.outcome_win).length;
+    const winRate = completed.length > 0 ? (wins / completed.length) * 100 : 0;
     const dayPnls = days.map(d => d.stat?.netPnl ?? 0);
     const bestDay = dayPnls.length > 0 ? Math.max(...dayPnls) : 0;
     const worstDay = dayPnls.length > 0 ? Math.min(...dayPnls) : 0;

@@ -25,10 +25,10 @@ export const POST: RequestHandler = async ({ request, locals: { convex } }) => {
 	);
 
 	try {
-		const inserted = await convex.mutation(api.trades.batchCreateTrades, {
+		const result = await convex.mutation(api.trades.batchCreateTrades, {
 			trades: normalizedTrades
 		});
-		return json({ success: true, inserted });
+		return json({ success: true, ...result });
 	} catch (err: unknown) {
 		const message = err instanceof Error ? err.message : 'Trade import failed';
 		return json({ success: false, message }, { status: 500 });

@@ -5,10 +5,12 @@ export interface FuturesTrade {
   exit_price: number | null;
   quantity: number | null;
   pnl: number;
+  liquidated?: boolean;
   fee?: number | null;
   date: string;        // YYYY-MM-DD
   time: string;        // HH:mm:ss
   date_closed: string; // YYYY-MM-DD
+  time_closed?: string;
   win: boolean;
   loss: boolean;
   be: boolean;

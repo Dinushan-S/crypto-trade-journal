@@ -2,6 +2,48 @@ import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { type Id } from "./_generated/dataModel";
+import { refreshTradeGroup } from './lib/tradeGroup';
+
+const liquidationFields = v.object({
+  date: v.string(),
+  coin: v.optional(v.string()),
+  position: v.optional(v.string()),
+  amount_lost: v.number(),
+  strategy: v.optional(v.string()),
+  reason: v.optional(v.string()),
+  notes: v.optional(v.string()),
+  mistake: v.optional(v.string()),
+});
+
+function validateLiquidation(args: { date: string; amount_lost?: number }) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(args.date)) throw new Error("A valid date is required");
+  if (args.amount_lost === undefined || !Number.isFinite(args.amount_lost) || args.amount_lost <= 0) {
+    throw new Error("Amount lost must be a positive number");
+  }
+}
+
+export const updateLiquidation = mutation({
+  args: liquidationFields.extend({ id: v.id("liquidations") }).fields,
+  handler: async (ctx, args) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) throw new Error("Unauthenticated");
+    const existing = await ctx.db.get(args.id);
+    if (!existing || existing.userId !== userId) throw new Error("Not found");
+    validateLiquidation(args);
+    await ctx.db.patch(args.id, {
+      date: args.date,
+      coin: args.coin?.trim().toUpperCase() || undefined,
+      position: args.position?.trim() || undefined,
+      amount_lost: args.amount_lost,
+      strategy: args.strategy?.trim() || undefined,
+      reason: args.reason?.trim() || undefined,
+      notes: args.notes?.trim() || undefined,
+      mistake: args.mistake?.trim() || undefined,
+      auto_from_trade: false,
+      updated_at: new Date().toISOString(),
+    });
+  },
+});
 
 export const getLiquidations = query({
   args: {},
@@ -17,19 +59,11 @@ export const getLiquidations = query({
 });
 
 export const createLiquidation = mutation({
-  args: {
-    date: v.string(),
-    coin: v.optional(v.string()),
-    position: v.optional(v.string()),
-    amount_lost: v.optional(v.number()),
-    strategy: v.optional(v.string()),
-    reason: v.optional(v.string()),
-    notes: v.optional(v.string()),
-    mistake: v.optional(v.string()),
-  },
+  args: liquidationFields.fields,
   handler: async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
     if (!userId) throw new Error("Unauthenticated");
+    validateLiquidation(args);
     return await ctx.db.insert("liquidations", {
       ...args,
       userId,
@@ -39,34 +73,24 @@ export const createLiquidation = mutation({
 });
 
 export const createLiquidationWithTrades = mutation({
-  args: {
-    date: v.string(),
-    coin: v.optional(v.string()),
-    position: v.optional(v.string()),
-    amount_lost: v.number(),
-    strategy: v.optional(v.string()),
-    reason: v.optional(v.string()),
-    notes: v.optional(v.string()),
-    mistake: v.optional(v.string()),
-    tradeIds: v.array(v.id("trades")),
-  },
+  args: liquidationFields.extend({ tradeIds: v.array(v.id("trades")) }).fields,
   handler: async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
     if (!userId) throw new Error("Unauthenticated");
-    if (args.amount_lost <= 0) {
-      throw new Error("amount_lost must be positive");
-    }
-    if (args.tradeIds.length === 0) {
+    validateLiquidation(args);
+    const { tradeIds, ...fields } = args;
+    if (tradeIds.length === 0) {
       throw new Error("At least one trade must be linked");
     }
 
     // Verify all trades exist and belong to this user before writing
     const validatedTradeIds: Id<"trades">[] = [];
-    for (const tradeId of args.tradeIds) {
+    for (const tradeId of new Set(args.tradeIds)) {
       const trade = await ctx.db.get(tradeId);
       if (!trade || trade.userId !== userId) {
         throw new Error(`Trade ${tradeId} not found or unauthorized`);
       }
+      if (trade.is_group || trade.source === 'combined_notes') throw new Error('Select individual closes from the combined trade history.');
       validatedTradeIds.push(tradeId);
     }
 
@@ -87,13 +111,14 @@ export const createLiquidationWithTrades = mutation({
 
     // Insert liquidation record
     const liquidationId = await ctx.db.insert("liquidations", {
-      ...args,
+      ...fields,
       userId,
       created_at: new Date().toISOString(),
     });
 
     // Insert trade links atomically
     for (const tradeId of validatedTradeIds) {
+      await ctx.db.patch(tradeId, { liquidated: true, previous_liquidation_id: undefined });
       await ctx.db.insert("liquidation_trades", {
         userId,
         liquidation_id: liquidationId,
@@ -101,7 +126,22 @@ export const createLiquidationWithTrades = mutation({
       });
     }
 
+    for (const tradeId of validatedTradeIds) await refreshTradeGroup(ctx, tradeId);
     return liquidationId;
+  },
+});
+
+export const getLiquidationForTrade = query({
+  args: { tradeId: v.id("trades") },
+  handler: async (ctx, { tradeId }) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) return null;
+    const trade = await ctx.db.get(tradeId);
+    if (!trade || trade.userId !== userId) return null;
+    const link = await ctx.db.query("liquidation_trades")
+      .withIndex("by_user_trade", q => q.eq("userId", userId).eq("trade_id", tradeId))
+      .first();
+    return link?.liquidation_id ?? null;
   },
 });
 
@@ -169,11 +209,12 @@ export const updateLiquidationLinkedTrades = mutation({
 
     // Verify all trades exist and belong to this user
     const validatedTradeIds: Id<"trades">[] = [];
-    for (const tradeId of args.tradeIds) {
+    for (const tradeId of new Set(args.tradeIds)) {
       const trade = await ctx.db.get(tradeId);
       if (!trade || trade.userId !== userId) {
         throw new Error(`Trade ${tradeId} not found or unauthorized`);
       }
+      if (trade.is_group || trade.source === 'combined_notes') throw new Error('Select individual closes from the combined trade history.');
       validatedTradeIds.push(tradeId);
     }
 
@@ -204,17 +245,23 @@ export const updateLiquidationLinkedTrades = mutation({
       .collect();
 
     for (const link of existingLinks) {
+      if (await ctx.db.get(link.trade_id)) await ctx.db.patch(link.trade_id, { liquidated: false, previous_liquidation_id: args.liquidationId });
       await ctx.db.delete(link._id);
     }
 
+    const selectionChanged = existingLinks.length !== validatedTradeIds.length ||
+      existingLinks.some(link => !validatedTradeIds.includes(link.trade_id));
+    if (selectionChanged) await ctx.db.patch(args.liquidationId, { auto_from_trade: false });
     // Insert new links
     for (const tradeId of validatedTradeIds) {
+      await ctx.db.patch(tradeId, { liquidated: true, previous_liquidation_id: undefined });
       await ctx.db.insert("liquidation_trades", {
         userId,
         liquidation_id: args.liquidationId,
         trade_id: tradeId,
       });
     }
+    for (const tradeId of new Set([...validatedTradeIds, ...existingLinks.map(l => l.trade_id)])) await refreshTradeGroup(ctx, tradeId);
   },
 });
 
@@ -243,7 +290,9 @@ export const unlinkTradeFromLiquidation = mutation({
       .first();
 
     if (link) {
+      if (await ctx.db.get(args.tradeId)) await ctx.db.patch(args.tradeId, { liquidated: false, previous_liquidation_id: args.liquidationId });
       await ctx.db.delete(link._id);
+      await refreshTradeGroup(ctx, args.tradeId);
     } else {
       throw new Error("Trade not linked to this liquidation");
     }
@@ -270,8 +319,11 @@ export const deleteLiquidation = mutation({
       .collect();
 
     for (const link of linkedRecords) {
+      if (await ctx.db.get(link.trade_id)) await ctx.db.patch(link.trade_id, { liquidated: false });
       await ctx.db.delete(link._id);
     }
+
+    for (const link of linkedRecords) await refreshTradeGroup(ctx, link.trade_id);
 
     // Delete the liquidation itself
     await ctx.db.delete(args.id);
@@ -296,6 +348,6 @@ export const getAvailableTrades = query({
       .collect();
 
     const linkedTradeIds = new Set(linkedRecords.map((l) => l.trade_id));
-    return userTrades.filter((t) => !linkedTradeIds.has(t._id));
+    return userTrades.filter((t) => !t.is_group && t.source !== 'combined_notes' && !linkedTradeIds.has(t._id));
   },
 });

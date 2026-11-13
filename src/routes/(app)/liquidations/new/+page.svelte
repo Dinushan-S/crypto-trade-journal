@@ -173,7 +173,7 @@
         </div>
         <div>
           <label class="form-label">Amount Lost ($)</label>
-          <input type="number" name="amount_lost" bind:value={amount_lost} step="any" onfocus={markAmountManual} placeholder="500.00" class="input" />
+          <input type="number" name="amount_lost" bind:value={amount_lost} step="any" min="0" required oninput={markAmountManual} placeholder="500.00" class="input" />
         </div>
         <div>
           <label class="form-label">Strategy</label>

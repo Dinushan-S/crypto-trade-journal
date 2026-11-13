@@ -9,7 +9,7 @@
   let selected = $state<Set<number>>(new Set());
   let importing = $state(false);
   let processing = $state(false);
-  let importResult = $state<{ imported: number; skipped: number } | null>(null);
+  let importResult = $state<{ imported: number; updated: number; skipped: number } | null>(null);
   let error = $state('');
   let dragOver = $state(false);
 
@@ -65,7 +65,8 @@
 
       importResult = {
         imported: data.inserted ?? toImport.length,
-        skipped: toImport.length - (data.inserted ?? toImport.length),
+        updated: data.updated ?? 0,
+        skipped: data.skipped ?? 0,
       };
       step = 3;
     } catch (err: any) {
@@ -119,6 +120,7 @@
         />
         <label for="csv-input" style="padding:0.625rem 1.5rem;background:var(--accent);color:#fff;border-radius:0.5rem;font-size:0.875rem;font-weight:500;cursor:pointer;">Browse Files</label>
       </div>
+      <p class="muted-sm" style="margin-top:1rem;">Re-importing updates status and dates while keeping your journal notes and strategy. Changed financial totals are rejected because a partial export could omit fills; correct those totals in the trade editor. Liquidation status changes only when the CSV explicitly provides it.</p>
       <div style="margin-top:1rem;padding:0.75rem 1rem;background:var(--surface);border:1px solid var(--border);border-radius:0.5rem;">
         <p class="muted-sm">Expected format: <span style="font-family:'JetBrains Mono',monospace;color:var(--text-primary);">Binance → Orders → Futures → Trade History → Export</span></p>
       </div>
@@ -149,7 +151,7 @@
                   }}
                 />
               </th>
-              {#each ['Date','Coin','Side','Entry','Exit','Qty','PnL'] as col}
+              {#each ['Date','Coin','Side','Entry','Exit','Qty','PnL','Liquidated'] as col}
                 <th style="padding:0.5rem 0.75rem;text-align:left;font-size:0.7rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;">{col}</th>
               {/each}
             </tr>
@@ -174,6 +176,7 @@
                 <td style="padding:0.5rem 0.75rem;font-family:'JetBrains Mono',monospace;font-weight:600;color:{trade.pnl > 0 ? 'var(--win)' : trade.pnl < 0 ? 'var(--loss)' : 'var(--text-muted)'};">
                   {trade.pnl > 0 ? '+' : ''}{trade.pnl.toFixed(4)}
                 </td>
+                <td class="td">{trade.liquidated === undefined ? 'Not specified' : trade.liquidated ? 'Yes' : 'No'}</td>
               </tr>
             {/each}
           </tbody>
@@ -202,7 +205,7 @@
     <div style="background:var(--surface);border:1px solid var(--border);border-radius:0.75rem;padding:3rem;text-align:center;">
       <div style="font-size:2.5rem;margin-bottom:1rem;">✅</div>
       <h2 style="font-family:'JetBrains Mono',monospace;font-size:1.1rem;color:var(--text-primary);margin-bottom:0.5rem;">Import Complete</h2>
-      <p style="color:var(--text-muted);font-size:0.875rem;margin-bottom:0.5rem;">{importResult?.imported} trades imported · {importResult?.skipped} duplicates skipped</p>
+      <p style="color:var(--text-muted);font-size:0.875rem;margin-bottom:0.5rem;">{importResult?.imported} trades imported · {importResult?.updated} updated · {importResult?.skipped} unchanged</p>
       <div style="display:flex;gap:0.75rem;justify-content:center;margin-top:1.5rem;">
         <a href="/trades" style="padding:0.625rem 1.5rem;background:var(--accent);color:#fff;border-radius:0.5rem;text-decoration:none;font-size:0.875rem;font-weight:500;">View Trades</a>
         <button onclick={() => { step = 1; parsedTrades = []; importResult = null; fileName = ''; }} class="btn-ghost">Import Another</button>

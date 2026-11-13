@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { goto, invalidateAll } from '$app/navigation';
+  import { goto } from '$app/navigation';
   import { enhance } from '$app/forms';
   import { page } from '$app/state';
   import { untrack } from 'svelte';
@@ -22,6 +22,7 @@
 
   // Selection mode state
   let selectionMode = $state(false);
+  let selectionPurpose = $state<'liquidation' | 'combine'>('liquidation');
   let selectedSet = $state(new Set<string>());
 
   let sortedTrades = $derived((() => {
@@ -37,21 +38,24 @@
   })());
 
   function toggleSelectionMode() {
+    selectionPurpose = 'liquidation';
     selectionMode = !selectionMode;
-    if (!selectionMode) selectedSet.clear();
+    selectedSet = new Set();
   }
 
   function toggleSelectAll(checked: boolean) {
     if (checked) {
-      sortedTrades.forEach((t: any) => selectedSet.add(t.id));
+      selectedSet = new Set(sortedTrades.map(t => t.id));
     } else {
-      selectedSet.clear();
+      selectedSet = new Set();
     }
   }
 
   function toggleTradeSelect(tradeId: string, checked: boolean) {
-    if (checked) selectedSet.add(tradeId);
-    else selectedSet.delete(tradeId);
+    const next = new Set(selectedSet);
+    if (checked) next.add(tradeId);
+    else next.delete(tradeId);
+    selectedSet = next;
   }
 
   const selectedCount = $derived(selectedSet.size);
@@ -101,10 +105,14 @@
     modalMode = 'quick';
   };
 
-  const submitEnhance = () => async ({ update }: any) => {
-    await update();
-    await invalidateAll();
-    closeModal();
+  let saving = $state(false);
+  const submitEnhance = () => {
+    saving = true;
+    return async ({ result, update }: any) => {
+      saving = false;
+      await update({ reset: false });
+      if (result.type === 'success') closeModal();
+    };
   };
 
   $effect(() => {
@@ -137,6 +145,7 @@
     }
   });
   function openEdit(t: any) {
+    if (t.is_group) { goto(`/trades/${t.id}?edit`); return; }
     editTrade = t;
     tfSel = t.timeframes ?? [];
     addOpen = true;
@@ -151,10 +160,11 @@
   // Summary stats for visible trades
   let totalPnl = $derived(data.trades.reduce((s: number, t: any) => s + (t.pnl ?? 0), 0));
   let wins = $derived(data.trades.filter((t: any) => t.win).length);
-  let winRate = $derived(data.trades.length > 0 ? ((wins / data.trades.length) * 100).toFixed(1) : '0.0');
+  let completedCount = $derived(data.trades.filter((t: any) => !t.is_group || t.status === 'Closed').length);
+  let winRate = $derived(completedCount > 0 ? ((wins / completedCount) * 100).toFixed(1) : '0.0');
 
   function applyFilters() {
-    selectedSet.clear();
+    selectedSet = new Set();
     const params = new URLSearchParams();
     if (coin) params.set('coin', coin);
     if (position !== 'all') params.set('position', position);
@@ -176,7 +186,7 @@
   }
 
   function resetFilters() {
-    selectedSet.clear();
+    selectedSet = new Set();
     coin = '';
     position = 'all';
     result = 'all';
@@ -239,6 +249,7 @@
 <svelte:head><title>Trades — Qulem-Trade</title></svelte:head>
 
 <div style="padding:1.5rem;max-width:100%;">
+  {#if page.url.searchParams.has('notes')}<p style="margin-bottom:1rem;">Combination undone. <a href="/trades/{page.url.searchParams.get('notes')}">View retained shared journal notes</a>.</p>{/if}
   <!-- Header -->
   <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.5rem;">
     <div>
@@ -252,6 +263,7 @@
       </p>
     </div>
     <div style="display:flex;gap:0.5rem;">
+      <button class="btn-ghost" onclick={() => { selectionMode = !(selectionMode && selectionPurpose === 'combine'); selectionPurpose = 'combine'; selectedSet = new Set(); }}>{selectionMode && selectionPurpose === 'combine' ? 'Cancel Selection' : 'Combine Trades'}</button>
       <button
         onclick={toggleSelectionMode}
         style="padding:0.5rem 0.875rem;background:{selectionMode ? 'var(--accent)' : 'transparent'};border:{selectionMode ? 'none' : '1px solid var(--border)'};border-radius:0.5rem;color:{selectionMode ? '#fff' : 'var(--text-muted)'};text-decoration:none;font-size:0.875rem;display:inline-flex;align-items:center;gap:0.375rem;cursor:pointer;"
@@ -307,13 +319,17 @@
         </span>
       </div>
       <div style="display:flex;gap:0.5rem;align-items:center;">
-        <a href="/liquidations/new" style="font-size:0.8rem;color:var(--text-muted);text-decoration:underline;cursor:pointer;">Cancel</a>
+        <button class="btn-ghost" onclick={() => { selectionMode = false; selectedSet = new Set(); }}>Cancel</button>
+        {#if selectionPurpose === 'combine'}
+          <button class="btn-primary" disabled={selectedCount < 2 || mixedFields.coins || mixedFields.positions} onclick={() => goto(`/trades/combine?ids=${encodeURIComponent(Array.from(selectedSet).join(','))}`)}>Next: Review {selectedCount} Trades</button>
+        {:else}
         <a
           href="/liquidations/new?tradeIds={encodeURIComponent(Array.from(selectedSet).join(','))}"
           style="padding:0.5rem 1rem;background:var(--loss);color:#fff;border:none;border-radius:0.5rem;font-size:0.85rem;font-weight:600;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;gap:0.375rem;"
         >
           Create Liquidation →
         </a>
+        {/if}
       </div>
     </div>
   {/if}
@@ -520,6 +536,8 @@
                     <input
                       type="checkbox"
                       checked={selectedSet.has(trade.id)}
+                      aria-label={`Select ${trade.coin} trade ${trade.id}`}
+                      onclick={(e) => e.stopPropagation()}
                       onchange={(e) => toggleTradeSelect(trade.id, (e.target as HTMLInputElement).checked)}
                       style="cursor:pointer;accent-color:var(--accent);"
                     />
@@ -535,6 +553,7 @@
                 >
                 <td style="padding:0.625rem 0.75rem;font-weight:600;color:var(--text-primary);">
                   {trade.coin}
+                  {#if trade.is_group}<span class="muted-xs"> · {trade.close_count} closes · {trade.status}</span>{/if}
                   {#if isIncomplete(trade)}
                     <span
                       style="margin-left:0.25rem;padding:0.1rem 0.375rem;background:color-mix(in srgb,#f59e0b 20%,transparent);color:#f59e0b;border-radius:0.25rem;font-size:0.65rem;font-weight:600;"
@@ -720,6 +739,12 @@
           action={editTrade ? '?/quickUpdate' : '?/add'}
           use:enhance={submitEnhance}
         >
+          <input type="hidden" name="liquidated_present" value="1" />
+          <label style="display:flex;align-items:center;gap:0.5rem;margin-bottom:1rem;">
+            <input type="checkbox" name="liquidated" checked={editTrade?.liquidated ?? false} />
+            Liquidated
+          </label>
+          <p class="muted-sm" style="margin-bottom:1rem;">Uses the trade's negative PnL as the amount lost. Unchecking unlinks the trade; manually entered events remain in Liquidations.</p>
           {#if editTrade}
             <input type="hidden" name="id" value={editTrade.id} />
           {/if}
@@ -743,7 +768,7 @@
               </div>
               <div>
                 <label class="form-label">Time</label>
-                <input type="time" name="time" value={editTrade?.time ?? ''} class="input" />
+                <input type="time" name="time" step="any" value={editTrade?.time ?? ''} class="input" />
               </div>
               <div>
                 <label class="form-label">Entry Price</label>
@@ -845,6 +870,7 @@
                 <input name="closed_reason" value={editTrade?.closed_reason ?? ''} placeholder="Why closed…" class="input" />
               </div>
 
+              <input type="hidden" name="timeframes_present" value="1" />
               <!-- Timeframes -->
               <div class="span-full">
                 <label class="form-label">Timeframes</label>
@@ -883,8 +909,9 @@
             >
             <button
               type="submit"
+              disabled={saving}
               style="padding:0.5rem 1.25rem;background:var(--accent);color:#fff;border:none;border-radius:0.5rem;font-weight:600;font-size:0.875rem;cursor:pointer;"
-              >{editTrade ? 'Save Changes' : '+ Add Trade'}</button
+              >{saving ? 'Saving...' : editTrade ? 'Save Changes' : '+ Add Trade'}</button
             >
           </div>
         </form>

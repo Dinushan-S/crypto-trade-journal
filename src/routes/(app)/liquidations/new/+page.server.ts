@@ -35,17 +35,21 @@ export const load: PageServerLoad = async ({ locals: { convex }, url }) => {
       .query(api.trades.getTradeById, { id: id as any })
       .catch(() => null);
     if (!trade) continue;
-    selectedTradeDocs.push(trade);
-    if (trade.date) dates.add(trade.date);
-    if (trade.coin) coins.add(trade.coin);
-    if (trade.position) positions.add(trade.position);
-    if (trade.strategy) strategies.add(trade.strategy);
-    netPnl += trade.pnl ?? 0;
-    fees += trade.fee ?? 0;
+    const closes = trade.is_group ? trade.partial_closes : [trade];
+    for (const trade of closes) {
+      if (selectedTradeDocs.some(t => t._id === trade._id)) continue;
+      selectedTradeDocs.push(trade);
+      if (trade.date) dates.add(trade.date);
+      if (trade.coin) coins.add(trade.coin);
+      if (trade.position) positions.add(trade.position);
+      if (trade.strategy) strategies.add(trade.strategy);
+      netPnl += trade.pnl ?? 0;
+      fees += trade.fee ?? 0;
+    }
   }
 
   // Sort dates descending — latest date becomes default
-  const sortedDates = [...dates].sort((a, b) => (b < a ? 1 : -1));
+  const sortedDates = [...dates].sort().reverse();
   const latestDate = sortedDates[0] || '';
   const uniqueCoin = coins.size === 1 ? Array.from(coins)[0] : undefined;
   const uniquePosition = positions.size === 1 ? Array.from(positions)[0] : undefined;
@@ -53,7 +57,7 @@ export const load: PageServerLoad = async ({ locals: { convex }, url }) => {
   const amountLost = Math.max(0, -netPnl);
 
   return {
-    tradeIds,
+    tradeIds: selectedTradeDocs.map(t => t._id),
     selectedTradeDocs,
     availableTrades,
     prefill: {
@@ -62,7 +66,7 @@ export const load: PageServerLoad = async ({ locals: { convex }, url }) => {
       position: uniquePosition,
       strategy: uniqueStrategy,
       amount_lost: amountLost,
-      count: tradeIds.length,
+      count: selectedTradeDocs.length,
     },
   };
 };
@@ -84,8 +88,8 @@ export const actions: Actions = {
       .map((t) => t.trim());
 
     if (!date) return fail(400, { error: 'Date is required.' });
-    if (amount_lost === undefined || Number.isNaN(amount_lost)) {
-      return fail(400, { error: 'Amount lost is required.' });
+    if (amount_lost === undefined || !Number.isFinite(amount_lost) || amount_lost <= 0) {
+      return fail(400, { error: 'Amount lost must be a positive number.' });
     }
 
     let id: string;

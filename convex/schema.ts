@@ -7,6 +7,17 @@ export default defineSchema({
 
   trades: defineTable({
     userId: v.string(),
+    is_group: v.optional(v.boolean()),
+    parent_trade_id: v.optional(v.id("trades")),
+    combined_notes_id: v.optional(v.id("trades")),
+    original_quantity: v.optional(v.number()),
+    close_count: v.optional(v.number()),
+    closed_quantity: v.optional(v.number()),
+    remaining_quantity: v.optional(v.number()),
+    net_pnl: v.optional(v.number()),
+    status: v.optional(v.string()),
+    last_close_id: v.optional(v.id("trades")),
+    time_closed: v.optional(v.string()),
     date: v.string(),
     time: v.optional(v.string()),
     day: v.optional(v.string()),
@@ -14,6 +25,8 @@ export default defineSchema({
     position: v.string(),
     entry_price: v.optional(v.number()),
     exit_price: v.optional(v.number()),
+    liquidated: v.optional(v.boolean()),
+    previous_liquidation_id: v.optional(v.id("liquidations")),
     stop_loss: v.optional(v.number()),
     quantity: v.optional(v.number()),
     leverage: v.optional(v.string()),
@@ -38,10 +51,12 @@ export default defineSchema({
     fills: v.optional(v.number()),
     source: v.optional(v.string()),
     created_at: v.optional(v.string()),
+    updated_at: v.optional(v.string()),
   })
     .index("by_user", ["userId"])
     .index("by_userId_and_date", ["userId", "date"])
-    .index("by_userId_and_order_id", ["userId", "order_id"]),
+    .index("by_userId_and_order_id", ["userId", "order_id"])
+    .index("by_userId_and_parent_trade_id", ["userId", "parent_trade_id"]),
 
   ledger: defineTable({
     userId: v.string(),
@@ -79,7 +94,9 @@ export default defineSchema({
     reason: v.optional(v.string()),
     notes: v.optional(v.string()),
     mistake: v.optional(v.string()),
+    auto_from_trade: v.optional(v.boolean()),
     created_at: v.optional(v.string()),
+    updated_at: v.optional(v.string()),
   })
     .index("by_user", ["userId"])
     .index("by_userId_and_date", ["userId", "date"]),

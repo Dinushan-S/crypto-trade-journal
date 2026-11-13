@@ -36,7 +36,7 @@
         <table class="table">
           <thead>
             <tr class="thead-row">
-              {#each ['Date','Coin','Position','Strategy','Amount Lost','Reason','Notes'] as col}
+              {#each ['Date','Coin','Position','Strategy','Amount Lost','Reason','Notes','Actions'] as col}
                 <th style="padding:0.625rem 0.75rem;text-align:left;font-size:0.7rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;">{col}</th>
               {/each}
             </tr>
@@ -63,6 +63,7 @@
                 </td>
                 <td style="padding:0.625rem 0.75rem;color:var(--text-muted);max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{liq.reason ?? '—'}</td>
                 <td style="padding:0.625rem 0.75rem;color:var(--text-muted);max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{liq.notes ?? '—'}</td>
+                <td style="padding:0.625rem 0.75rem;"><a href="/liquidations/{liq.id}?edit" class="link-muted">Edit</a></td>
               </tr>
             {/each}
           </tbody>
@@ -70,7 +71,7 @@
             <tr style="background:var(--bg);border-top:2px solid var(--border);">
               <td colspan="4" style="padding:0.625rem 0.75rem;font-size:0.75rem;color:var(--text-muted);font-weight:600;">{data.total} events</td>
               <td style="padding:0.625rem 0.75rem;font-family:'JetBrains Mono',monospace;font-weight:700;color:var(--loss);">-${data.totalLost.toFixed(2)}</td>
-              <td colspan="2"></td>
+              <td colspan="3"></td>
             </tr>
           </tfoot>
         </table>

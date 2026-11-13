@@ -1,6 +1,7 @@
 <script lang="ts">
-  import { goto, invalidateAll } from '$app/navigation';
+  import { goto } from '$app/navigation';
   import { enhance } from '$app/forms';
+  import { page } from '$app/state';
   import { formatCurrency, formatDate } from '$lib/utils';
 
   let { data, form } = $props();
@@ -9,13 +10,18 @@
   let showDeleteConfirm = $state(false);
 
   const trade = $derived(data.trade as any);
+  const groupLockedFields = ['coin', 'position', 'pnl', 'fee', 'quantity', 'exit_price', 'date_closed', 'time_closed'];
+  const leverageNumber = $derived(/^\d+(\.\d+)?x?$/i.test((trade.leverage ?? '').trim()) ? Number(trade.leverage.trim().replace(/x$/i, '')) : NaN);
+  const initialMargin = $derived(trade.is_group && trade.entry_price > 0 && leverageNumber > 0 ? trade.entry_price * trade.original_quantity / leverageNumber : null);
+  const remainingMargin = $derived(initialMargin != null ? initialMargin * trade.remaining_quantity / trade.original_quantity : null);
+  $effect(() => { if (page.url.searchParams.has('edit')) editing = true; });
 
   $effect(() => {
     if (form?.deleted) goto('/trades');
     if (form?.success) {
       editing = false;
     }
-  });
+  });
   const editFields: [string, string, string][] = [
     ['Coin', 'coin', 'text'],
     ['Position', 'position', 'text'],
@@ -35,6 +41,7 @@
     ['Limit Type', 'limit_type', 'text'],
     ['Duration', 'duration', 'text'],
     ['Date Closed', 'date_closed', 'date'],
+    ['Close Time', 'time_closed', 'time'],
     ['Closed Reason', 'closed_reason', 'text'],
   ];
 
@@ -47,6 +54,7 @@
   const timeframes = ['1m', '5m', '15m', '30m', '1h', '4h', '1D', '1W'];
 
   const detailRows = $derived<[string, string | null | undefined][]>([
+    ['Liquidated', (trade.liquidated ?? !!data.liquidationId) ? 'Yes' : 'No'],
     ['Strategy', trade.strategy],
     ['Timeframes', trade.timeframes?.join(', ')],
     ['Leverage', trade.leverage],
@@ -56,6 +64,7 @@
     ['Fee', trade.fee != null ? `$${trade.fee}` : null],
     ['Duration', trade.duration],
     ['Date Closed', formatDate(trade.date_closed)],
+    ['Close Time', trade.time_closed],
     ['Closed Reason', trade.closed_reason],
     ['Limit Type', trade.limit_type],
     ['Order ID', trade.order_id],
@@ -89,6 +98,9 @@
       </div>
     </div>
     <div style="display:flex;gap:0.5rem;align-items:center;">
+      {#if !trade.is_group && trade.source !== 'combined_notes'}
+        <a href={data.liquidationId ? '/liquidations/' + data.liquidationId + '?edit' : '/liquidations/new?tradeIds=' + encodeURIComponent(trade.id)} class="btn-ghost">{data.liquidationId ? 'Edit Liquidation' : 'Log Liquidation'}</a>
+      {/if}
       <a href="/mistakes/new?trade_id={trade.id}" style="padding:0.5rem 0.875rem;border:1px solid var(--accent);border-radius:0.5rem;background:color-mix(in srgb, var(--accent) 12%, transparent);color:var(--accent);font-size:0.875rem;font-weight:600;text-decoration:none;display:inline-flex;align-items:center;gap:0.375rem;">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 9v4"/><path d="M12 17h.01"/><path d="M3.88 18.88 10.94 4.76a1.2 1.2 0 0 1 2.12 0l7.06 14.12A1.2 1.2 0 0 1 19.06 20.5H4.94a1.2 1.2 0 0 1-1.06-1.62z"/></svg>
         Log Mistake
@@ -96,7 +108,7 @@
       <button onclick={() => editing = !editing} style="padding:0.5rem 0.875rem;border:1px solid var(--border);border-radius:0.5rem;background:transparent;color:var(--text-muted);font-size:0.875rem;cursor:pointer;">
         {editing ? '✕ Cancel' : '✏️ Edit'}
       </button>
-      <button onclick={() => showDeleteConfirm = true} style="padding:0.5rem 0.875rem;border:1px solid var(--loss);border-radius:0.5rem;background:transparent;color:var(--loss);font-size:0.875rem;cursor:pointer;">
+      <button disabled={trade.is_group || !!trade.parent_trade_id} onclick={() => showDeleteConfirm = true} style="padding:0.5rem 0.875rem;border:1px solid var(--loss);border-radius:0.5rem;background:transparent;color:var(--loss);font-size:0.875rem;cursor:pointer;">
         Delete
       </button>
     </div>
@@ -118,7 +130,32 @@
     </div>
   {/if}
 
+  {#if form?.error}
+    <p role="alert" style="color:var(--loss);margin-bottom:1rem;">{form.error}</p>
+  {/if}
+
   <!-- PnL hero -->
+  {#if trade.combined_notes_id}<p style="margin-bottom:1rem;"><a href="/trades/{trade.combined_notes_id}">View shared notes from an earlier combination</a></p>{/if}
+  {#if trade.parent_trade_id}<p style="margin-bottom:1rem;">This is an individual close. <a href="/trades/{trade.parent_trade_id}">View combined trade</a>. Undo Combine before deleting or changing its coin/direction.</p>{/if}
+  {#if trade.source === 'combined_notes'}<p style="margin-bottom:1rem;">Combination undone. These shared journal notes are retained for reference and excluded from trade statistics.</p>{/if}
+  {#if trade.is_group}
+    <section class="card" style="padding:1.25rem;margin-bottom:1rem;">
+      <h2>{trade.status} · {trade.close_count} closes</h2>
+      <p style="margin:0.75rem 0;">Original quantity: {trade.original_quantity} · Closed: {trade.closed_quantity} · Remaining: {trade.remaining_quantity}</p>
+      <p>Recorded fees: {formatCurrency(trade.fee)} · After recorded fees: {formatCurrency(trade.net_pnl)}</p>
+      <p class="muted-sm" style="margin:0.75rem 0;">Estimated initial margin: {initialMargin == null ? 'Unavailable' : formatCurrency(initialMargin)} · Estimated remaining margin: {remainingMargin == null ? 'Unavailable' : formatCurrency(remainingMargin)}</p>
+      <p class="muted-sm">Margin estimates use entry price × quantity ÷ leverage for linear contracts. They exclude funding, fees and exchange margin adjustments. Missing fees are not estimated.</p>
+      <div class="scroll-x" style="margin-top:1rem;">
+        <table class="table partial-history"><thead><tr class="thead-row"><th>Closed date / time</th><th>Quantity</th><th>Exit</th><th>P&amp;L</th><th>Fee</th><th>Liquidated</th><th>Details</th></tr></thead>
+          <tbody>{#each trade.partial_closes as c}<tr>
+            <td>{formatDate(c.date_closed ?? c.date)} {c.time_closed ?? (c.source === 'futures_import' ? c.time : '') ?? ''}</td><td>{c.quantity}</td><td>{c.exit_price ?? 'Unknown'}</td><td>{formatCurrency(c.pnl)}</td><td>{formatCurrency(c.fee)}</td><td>{c.liquidated ? 'Yes' : 'No'}</td><td><a href="/trades/{c._id}">View / Edit</a></td>
+          </tr>{/each}</tbody>
+        </table>
+      </div>
+      <p class="muted-sm" style="margin:0.75rem 0;">Edit each close to update its exchange details or liquidation status. To add another close, choose Combine Trades in the Trade Log, then select this trade and the new close.</p>
+      <details><summary>Undo Combine</summary><p class="muted-sm">Restores the individual rows. Shared notes remain available separately; original notes and links stay on each close.</p><form method="POST" action="?/undoCombine" use:enhance><button class="btn-ghost" type="submit">Restore Individual Trades</button></form></details>
+    </section>
+  {/if}
   <div style="background:var(--surface);border:1px solid var(--border);border-radius:0.75rem;padding:1.25rem;margin-bottom:1rem;display:flex;gap:2rem;flex-wrap:wrap;">
     <div>
       <div class="field-label-tight">PnL</div>
@@ -158,20 +195,37 @@
       saving = true;
       return async ({ update }) => {
         saving = false;
-        await update();
-        await invalidateAll();
+        await update({ reset: false });
       };
     }}>
       <div style="background:var(--surface);border:1px solid var(--border);border-radius:0.75rem;padding:1.5rem;">
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1rem;">
           {#each editFields as [label, name, type]}
+            {#if !trade.is_group || !groupLockedFields.includes(name)}
             <div>
               <label style="display:block;font-size:0.7rem;font-weight:600;color:var(--text-muted);margin-bottom:0.25rem;text-transform:uppercase;letter-spacing:0.05em;">{label}</label>
-              <input {type} {name} value={trade[name] ?? ''} class="input-inline" />
+              <input
+                {type}
+                {name}
+                step={type === 'number' ? (name === 'confidence' ? 1 : 'any') : type === 'time' ? 'any' : undefined}
+                value={trade[name] ?? ''}
+                class="input-inline"
+              />
             </div>
+            {/if}
           {/each}
+          {#if trade.is_group}<label>Original position quantity<input class="input-inline" type="number" name="original_quantity" min={trade.closed_quantity} step="any" value={trade.original_quantity} required /></label>{/if}
         </div>
 
+        {#if !trade.is_group && trade.source !== 'combined_notes'}
+        <input type="hidden" name="liquidated_present" value="1" />
+        <label style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.5rem;">
+          <input type="checkbox" name="liquidated" checked={trade.liquidated ?? !!data.liquidationId} />
+          Liquidated
+        </label>
+        <p class="muted-sm" style="margin-bottom:1rem;">Uses the trade's negative PnL as the amount lost. Unchecking unlinks the trade; manually entered events remain in Liquidations.</p>
+
+        {/if}
         <!-- Timeframes -->
         <div style="margin-bottom:1rem;">
           <div style="font-size:0.7rem;font-weight:600;color:var(--text-muted);margin-bottom:0.5rem;text-transform:uppercase;letter-spacing:0.05em;">Timeframes</div>
@@ -235,3 +289,8 @@
     </div>
   {/if}
 </div>
+
+<style>
+  .partial-history th, .partial-history td { padding:0.625rem 0.75rem;text-align:left;white-space:nowrap; }
+  .partial-history tbody tr { border-bottom:1px solid var(--border); }
+</style>

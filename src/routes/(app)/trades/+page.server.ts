@@ -54,6 +54,7 @@ export const actions: Actions = {
     const pnl = form.get('pnl') ? Number(form.get('pnl')) : undefined;
     const fee = form.get('fee') ? Number(form.get('fee')) : undefined;
     const date_closed = (form.get('date_closed') as string) || undefined;
+    const closed_reason = (form.get('closed_reason') as string) || undefined;
     const duration = (form.get('duration') as string) || undefined;
     const strategy = (form.get('strategy') as string) || undefined;
     const leverage = (form.get('leverage') as string) || undefined;
@@ -83,6 +84,7 @@ export const actions: Actions = {
         pnl,
         fee,
         date_closed,
+        closed_reason,
         duration,
         strategy,
         timeframes: timeframes.length > 0 ? timeframes : undefined,
@@ -98,6 +100,7 @@ export const actions: Actions = {
         loss,
         be,
         source: 'manual',
+        liquidated: form.get('liquidated') === 'on',
       });
       return { success: true };
     } catch (err: any) {
@@ -115,16 +118,19 @@ export const actions: Actions = {
     const textFields = ['coin', 'position', 'date', 'time', 'date_closed', 'duration', 'strategy', 'leverage', 'limit_type', 'reason', 'pre_notes', 'post_notes', 'closed_reason'];
     for (const field of [...numFields, ...textFields]) {
       const val = form.get(field);
-      if (val !== null && String(val).trim() !== '') {
-        updates[field] = numFields.includes(field) ? Number(val) : String(val).trim();
+      if (val !== null) {
+        const value = String(val).trim();
+        updates[field] = value === '' && !['coin', 'position', 'date'].includes(field)
+          ? null : numFields.includes(field) ? Number(value) : value;
       }
     }
+    if (form.has('liquidated_present')) updates.liquidated = form.get('liquidated') === 'on';
     if (updates.coin) updates.coin = updates.coin.toUpperCase();
 
     const tf = form.getAll('timeframes');
-    if (tf.length > 0) updates.timeframes = tf as string[];
+    if (form.has('timeframes_present')) updates.timeframes = tf as string[];
 
-    if (updates.pnl !== undefined) {
+    if (typeof updates.pnl === 'number') {
       updates.win = updates.pnl > 0;
       updates.loss = updates.pnl < 0;
       updates.be = updates.pnl === 0;

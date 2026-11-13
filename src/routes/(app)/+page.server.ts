@@ -1,5 +1,6 @@
 import type { PageServerLoad } from './$types';
 import { api } from '../../../convex/_generated/api';
+import type { FunctionReturnType } from 'convex/server';
 
 export const load: PageServerLoad = async ({ locals: { convex }, cookies }) => {
   const calendarTz = cookies.get('calendarTz') ?? 'local';
@@ -13,8 +14,9 @@ export const load: PageServerLoad = async ({ locals: { convex }, cookies }) => {
   const ledger: any[] = allLedger ?? [];
 
   const totalTrades = trades.length;
+  const completedTrades = trades.filter(t => !t.is_group || t.status === 'Closed');
   const wins = trades.filter((t: any) => t.win).length;
-  const winRate = totalTrades > 0 ? ((wins / totalTrades) * 100) : 0;
+  const winRate = completedTrades.length > 0 ? ((wins / completedTrades.length) * 100) : 0;
   const netPnl = trades.reduce((s: number, t: any) => s + (t.pnl ?? 0), 0);
   const avgPnl = totalTrades > 0 ? netPnl / totalTrades : 0;
 
@@ -47,8 +49,25 @@ export const load: PageServerLoad = async ({ locals: { convex }, cookies }) => {
   }));
 
   // Monthly PnL
+  // Read history in separate bounded transactions; the list query only reads saved summaries.
+  const tradeById = new Map(trades.map(t => [t._id, t]));
+  const closeEvents: any[] = [];
+  let cursor: string | null = null;
+  do {
+    const history: FunctionReturnType<typeof api.trades.getTradeCloseEvents> = await convex.query(api.trades.getTradeCloseEvents, {
+      paginationOpts: { numItems: 500, cursor },
+    });
+    for (const c of history.page) {
+      const trade = tradeById.get(c.parent_trade_id ?? c._id);
+      if (!trade) continue;
+      closeEvents.push({ ...c, _id: trade._id, date: trade.date,
+        completed: !trade.is_group || (trade.status === 'Closed' && c._id === trade.last_close_id),
+        outcome_win: !!trade.win, time: c.time_closed ?? (c.source === 'futures_import' ? c.time : null) });
+    }
+    cursor = history.isDone ? null : history.continueCursor;
+  } while (cursor);
   const monthlyMap: Record<string, number> = {};
-  for (const t of trades) {
+  for (const t of closeEvents) {
     const closeDate = (t.date_closed ?? t.date)?.slice(0, 10);
     if (!closeDate || t.pnl == null) continue;
     const month = closeDate.slice(0, 7);
@@ -73,8 +92,8 @@ export const load: PageServerLoad = async ({ locals: { convex }, cookies }) => {
 
   // Win/Loss/BE counts
   const winCount = trades.filter((t: any) => t.win === true).length;
-  const lossCount = trades.filter((t: any) => t.win === false && t.pnl !== null && t.pnl! < 0).length;
-  const beCount = trades.filter((t: any) => t.pnl === 0).length;
+  const lossCount = completedTrades.filter((t: any) => t.loss).length;
+  const beCount = completedTrades.filter((t: any) => t.be).length;
 
   // Daily stats
   type DayTrade = {
@@ -87,17 +106,19 @@ export const load: PageServerLoad = async ({ locals: { convex }, cookies }) => {
     entry_price: number | null;
     exit_price: number | null;
     pnl: number;
+    completed: boolean;
+    outcome_win: boolean;
   };
   type DayStat = { netPnl: number; tradeCount: number; trades: DayTrade[] };
   const dailyStats: Record<string, DayStat> = {};
 
-  for (const t of trades) {
+  for (const t of closeEvents) {
     // Stored date/time are Colombo (LKR). Always serve raw values; the client converts for the UTC view.
     const day = (t.date_closed ?? t.date)?.slice(0, 10);
     if (!day || t.pnl == null) continue;
     if (!dailyStats[day]) dailyStats[day] = { netPnl: 0, tradeCount: 0, trades: [] };
     dailyStats[day].netPnl += t.pnl;
-    dailyStats[day].tradeCount += 1;
+    if (!dailyStats[day].trades.some(trade => trade.id === t._id)) dailyStats[day].tradeCount += 1;
     dailyStats[day].trades.push({
       id: t._id,
       coin: t.coin ?? '',
@@ -108,6 +129,8 @@ export const load: PageServerLoad = async ({ locals: { convex }, cookies }) => {
       entry_price: t.entry_price ?? null,
       exit_price: t.exit_price ?? null,
       pnl: t.pnl,
+      completed: t.completed,
+      outcome_win: t.outcome_win,
     });
   }
 
