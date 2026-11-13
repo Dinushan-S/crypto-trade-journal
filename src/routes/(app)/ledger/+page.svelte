@@ -1,601 +1,974 @@
 <script lang="ts">
-  import { goto, invalidateAll } from '$app/navigation';
-  import { page } from '$app/state';
-  import { enhance } from '$app/forms';
-  import { formatDate, periodRange, type Period } from '$lib/utils';
+	import { goto, invalidateAll } from '$app/navigation';
+	import { page } from '$app/state';
+	import { enhance } from '$app/forms';
+	import { formatDate, periodRange, type Period } from '$lib/utils';
 
-  let { data, form } = $props();
-  let activeTab = $state<'all' | 'deposits' | 'withdrawals'>('deposits');
+	let { data, form } = $props();
+	let activeTab = $state<'all' | 'deposits' | 'withdrawals'>('deposits');
 
-  type LedgerEntry = typeof data.entries[0];
+	type LedgerEntry = (typeof data.entries)[0];
 
-  // Computed columns
-  function lkrTotalSent(e: LedgerEntry) {
-    return (e.fiat_sent ?? 0) + ((e.usd_fee ?? 0) * (e.usd_rate ?? 0));
-  }
-  function usdReleased(e: LedgerEntry) {
-    return (e.usd_quantity ?? 0) - (e.fee ?? 0.07);
-  }
-  function expectedFiat(e: LedgerEntry) {
-    return usdReleased(e) * (e.usd_rate ?? 0);
-  }
-  function effectiveRate(e: LedgerEntry) {
-    if (!e.usd_received || !e.fiat_sent) return null;
-    return e.fiat_sent / e.usd_received;
-  }
+	// Computed columns
+	function lkrTotalSent(e: LedgerEntry) {
+		return (e.fiat_sent ?? 0) + (e.usd_fee ?? 0) * (e.usd_rate ?? 0);
+	}
+	function usdReleased(e: LedgerEntry) {
+		return (e.usd_quantity ?? 0) - (e.fee ?? 0.07);
+	}
+	function expectedFiat(e: LedgerEntry) {
+		return usdReleased(e) * (e.usd_rate ?? 0);
+	}
+	function effectiveRate(e: LedgerEntry) {
+		if (!e.usd_received || !e.fiat_sent) return null;
+		return e.fiat_sent / e.usd_received;
+	}
 
-  // Date filtering (client-side — the whole ledger is already loaded)
-  let period = $state<Period>('custom');
-  let dateFrom = $state('');
-  let dateTo = $state('');
-  function setPeriod(p: Period) {
-    period = p;
-    if (p === 'custom') return;
-    ({ from: dateFrom, to: dateTo } = periodRange(p));
-  }
+	// Date filtering (client-side — the whole ledger is already loaded)
+	let period = $state<Period>('custom');
+	let dateFrom = $state('');
+	let dateTo = $state('');
+	function setPeriod(p: Period) {
+		period = p;
+		if (p === 'custom') return;
+		({ from: dateFrom, to: dateTo } = periodRange(p));
+	}
 
-  let entries = $derived(
-    data.entries.filter(
-      (e: LedgerEntry) =>
-        (!dateFrom || e.date >= dateFrom) && (!dateTo || e.date <= dateTo)
-    )
-  );
+	let entries = $derived(
+		data.entries.filter(
+			(e: LedgerEntry) => (!dateFrom || e.date >= dateFrom) && (!dateTo || e.date <= dateTo)
+		)
+	);
 
-  let deposits = $derived(entries.filter((e: LedgerEntry) => e.type === 'deposit'));
-  let withdrawals = $derived(entries.filter((e: LedgerEntry) => e.type === 'withdrawal'));
+	let deposits = $derived(entries.filter((e: LedgerEntry) => e.type === 'deposit'));
+	let withdrawals = $derived(entries.filter((e: LedgerEntry) => e.type === 'withdrawal'));
 
-  let visibleEntries = $derived(
-    activeTab === 'deposits' ? deposits :
-    activeTab === 'withdrawals' ? withdrawals :
-    entries
-  );
+	let visibleEntries = $derived(
+		activeTab === 'deposits' ? deposits : activeTab === 'withdrawals' ? withdrawals : entries
+	);
 
-  // P&L Summary stats
-  let totalLkrIn = $derived(deposits.reduce((s: number, e: LedgerEntry) => s + (e.fiat_sent ?? 0), 0));
-  let totalLkrOut = $derived(withdrawals.reduce((s: number, e: LedgerEntry) => s + (e.fiat_amount ?? expectedFiat(e)), 0));
-  let totalUsdDeposited = $derived(deposits.reduce((s: number, e: LedgerEntry) => s + (e.usd_received ?? 0), 0));
-  let totalUsdWithdrawn = $derived(withdrawals.reduce((s: number, e: LedgerEntry) => s + (usdReleased(e)), 0));
-  let netUsd = $derived(totalUsdDeposited - totalUsdWithdrawn);
-  let netLkr = $derived(totalLkrIn - totalLkrOut);
+	// P&L Summary stats
+	let totalLkrIn = $derived(
+		deposits.reduce((s: number, e: LedgerEntry) => s + (e.fiat_sent ?? 0), 0)
+	);
+	let totalLkrOut = $derived(
+		withdrawals.reduce((s: number, e: LedgerEntry) => s + (e.fiat_amount ?? expectedFiat(e)), 0)
+	);
+	let totalUsdDeposited = $derived(
+		deposits.reduce((s: number, e: LedgerEntry) => s + (e.usd_received ?? 0), 0)
+	);
+	let totalUsdWithdrawn = $derived(
+		withdrawals.reduce((s: number, e: LedgerEntry) => s + usdReleased(e), 0)
+	);
+	let netUsd = $derived(totalUsdDeposited - totalUsdWithdrawn);
+	let netLkr = $derived(totalLkrIn - totalLkrOut);
 
-  // Lock tracking UI state
-  let lockInputs = $state<Record<string, string>>({});
-  let releaseOpen = $state<string | null>(null);
-  let releaseInputs = $state<Record<string, Record<string, string>>>({});
+	// Lock tracking UI state
+	let lockInputs = $state<Record<string, string>>({});
+	let releaseOpen = $state<string | null>(null);
+	let releaseInputs = $state<Record<string, Record<string, string>>>({});
 
-  // Pagination
-  const pageSize = 25;
-  let depPage = $state(1);
-  let wdPage = $state(1);
-  $effect(() => { if (depPage > Math.max(1, Math.ceil(deposits.length / pageSize))) depPage = 1; });
-  $effect(() => { if (wdPage > Math.max(1, Math.ceil(withdrawals.length / pageSize))) wdPage = 1; });
+	// Pagination
+	const pageSize = 25;
+	let depPage = $state(1);
+	let wdPage = $state(1);
+	$effect(() => {
+		if (depPage > Math.max(1, Math.ceil(deposits.length / pageSize))) depPage = 1;
+	});
+	$effect(() => {
+		if (wdPage > Math.max(1, Math.ceil(withdrawals.length / pageSize))) wdPage = 1;
+	});
 
-  let pagedDeposits = $derived(deposits.slice((depPage - 1) * pageSize, depPage * pageSize));
-  let pagedWithdrawals = $derived(withdrawals.slice((wdPage - 1) * pageSize, wdPage * pageSize));
+	let pagedDeposits = $derived(deposits.slice((depPage - 1) * pageSize, depPage * pageSize));
+	let pagedWithdrawals = $derived(withdrawals.slice((wdPage - 1) * pageSize, wdPage * pageSize));
 
-  function pageButtons(total: number, page: number) {
-    const count = Math.max(1, Math.ceil(total / pageSize));
-    if (count <= 1) return [];
-    return Array.from({ length: count }, (_, i) => i + 1);
-  }
-  function jumpDep(p: number) { depPage = Math.min(Math.max(1, p), Math.max(1, Math.ceil(deposits.length / pageSize))); }
-  function jumpWd(p: number) { wdPage = Math.min(Math.max(1, p), Math.max(1, Math.ceil(withdrawals.length / pageSize))); }
+	function pageButtons(total: number, page: number) {
+		const count = Math.max(1, Math.ceil(total / pageSize));
+		if (count <= 1) return [];
+		return Array.from({ length: count }, (_, i) => i + 1);
+	}
+	function jumpDep(p: number) {
+		depPage = Math.min(Math.max(1, p), Math.max(1, Math.ceil(deposits.length / pageSize)));
+	}
+	function jumpWd(p: number) {
+		wdPage = Math.min(Math.max(1, p), Math.max(1, Math.ceil(withdrawals.length / pageSize)));
+	}
 
-  $effect(() => {
-    if (form?.error) {
-      alert(form.error);
-    }
-  });
+	$effect(() => {
+		if (form?.error) {
+			alert(form.error);
+		}
+	});
 
-  const inlineForm = () => async ({ update }: any) => {
-    await update();
-    await invalidateAll();
-  };
+	const inlineForm =
+		() =>
+		async ({ update }: any) => {
+			await update();
+			await invalidateAll();
+		};
 
-  // Quick add / quick edit modal
-  let addOpen = $state(false);
-  let editEntry = $state<any | null>(null);
-  let resetOpen = $state(false);
-  const closeModal = () => {
-    addOpen = false;
-    editEntry = null;
-    resetOpen = false;
-  };
+	// Quick add / quick edit modal
+	let addOpen = $state(false);
+	let editEntry = $state<any | null>(null);
+	let resetOpen = $state(false);
 
-  const modalEnhance = () => async ({ update }: any) => {
-    await update();
-    await invalidateAll();
-    closeModal();
-  };
+	const closeModal = () => {
+		addOpen = false;
+		editEntry = null;
+		resetOpen = false;
+	};
 
-  $effect(() => {
-    if (form?.error) alert(form.error);
-  });
+	const modalEnhance =
+		() =>
+		async ({ update }: any) => {
+			await update();
+			await invalidateAll();
+			closeModal();
+		};
 
-  // Escape closes the modal
-  $effect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') closeModal();
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  });
+	$effect(() => {
+		if (form?.error) alert(form.error);
+	});
 
-  function openAdd() {
-    editEntry = null;
-    syncModalType();
-    addOpen = true;
-  }
+	// Escape closes the modal
+	$effect(() => {
+		const onKey = (e: KeyboardEvent) => {
+			if (e.key === 'Escape') closeModal();
+		};
+		window.addEventListener('keydown', onKey);
+		return () => window.removeEventListener('keydown', onKey);
+	});
 
-  // /ledger?add opens the add modal (replaces the old /ledger/new page)
-  $effect(() => {
-    if (page.url.searchParams.has('add')) {
-      openAdd();
-      goto('/ledger', { replaceState: true, noScroll: true, keepFocus: true });
-    }
-  });
-  function openEdit(e: any) {
-    editEntry = e;
-    syncModalType();
-    addOpen = true;
-  }
+	function openAdd() {
+		editEntry = null;
+		syncModalType();
+		addOpen = true;
+	}
 
-  // Live computed previews for the modal
-  let modalType = $state<'deposit' | 'withdrawal'>('deposit');
-  let modalFiatSent = $state<number | null>(null);
-  let modalUsdFee = $state<number>(0);
-  let modalUsdRate = $state<number | null>(null);
-  let modalUsdQuantity = $state<number | null>(null);
-  let modalFee = $state<number>(0.07);
-  let modalUsdReceived = $state<number | null>(null);
+	// /ledger?add opens the add modal (replaces the old /ledger/new page)
+	$effect(() => {
+		if (page.url.searchParams.has('add')) {
+			openAdd();
+			goto('/ledger', { replaceState: true, noScroll: true, keepFocus: true });
+		}
+	});
+	function openEdit(e: any) {
+		editEntry = e;
+		syncModalType();
+		addOpen = true;
+	}
 
-  let modalLkrTotalSent = $derived((modalFiatSent ?? 0) + (modalUsdFee * (modalUsdRate ?? 0)));
-  let modalUsdReleased = $derived((modalUsdQuantity ?? 0) - modalFee);
-  let modalExpectedFiat = $derived(modalUsdReleased * (modalUsdRate ?? 0));
+	// Live computed previews for the modal
+	let modalType = $state<'deposit' | 'withdrawal'>('deposit');
+	let modalFiatSent = $state<number | null>(null);
+	let modalUsdFee = $state<number>(0);
+	let modalUsdRate = $state<number | null>(null);
+	let modalUsdQuantity = $state<number | null>(null);
+	let modalFee = $state<number>(0.07);
+	let modalUsdReceived = $state<number | null>(null);
 
-  function syncModalType() {
-    modalType = editEntry?.type === 'withdrawal' ? 'withdrawal' : 'deposit';
-    modalFiatSent = editEntry?.fiat_sent ?? null;
-    modalUsdFee = editEntry?.usd_fee ?? 0;
-    modalUsdRate = editEntry?.usd_rate ?? null;
-    modalUsdQuantity = editEntry?.usd_quantity ?? null;
-    modalFee = editEntry?.fee ?? 0.07;
-    modalUsdReceived = editEntry?.usd_received ?? null;
-  }
+	let modalLkrTotalSent = $derived((modalFiatSent ?? 0) + modalUsdFee * (modalUsdRate ?? 0));
+	let modalUsdReleased = $derived((modalUsdQuantity ?? 0) - modalFee);
+	let modalExpectedFiat = $derived(modalUsdReleased * (modalUsdRate ?? 0));
+
+	function syncModalType() {
+		modalType = editEntry?.type === 'withdrawal' ? 'withdrawal' : 'deposit';
+		modalFiatSent = editEntry?.fiat_sent ?? null;
+		modalUsdFee = editEntry?.usd_fee ?? 0;
+		modalUsdRate = editEntry?.usd_rate ?? null;
+		modalUsdQuantity = editEntry?.usd_quantity ?? null;
+		modalFee = editEntry?.fee ?? 0.07;
+		modalUsdReceived = editEntry?.usd_received ?? null;
+	}
 </script>
 
 <svelte:head><title>Ledger — Qulem-Trade</title></svelte:head>
 
 <div style="padding:1.5rem;max-width:100%;">
-  <!-- Header -->
-  <div class="page-header">
-    <div>
-      <h1 class="stat-value">P2P Ledger</h1>
-      <p style="color:var(--text-muted);font-size:0.875rem;margin-top:0.125rem;">{entries.length} entries</p>
-    </div>
-    <div style="display:flex;gap:0.5rem;">
-      <a href="/ledger/import" style="padding:0.5rem 0.875rem;border:1px solid var(--border);border-radius:0.5rem;color:var(--text-muted);text-decoration:none;font-size:0.875rem;display:inline-flex;align-items:center;gap:0.375rem;">
-        📥 Import C2C
-      </a>
-      <button onclick={openAdd} style="padding:0.5rem 0.875rem;background:var(--accent);border:none;border-radius:0.5rem;color:#fff;font-size:0.875rem;font-weight:500;cursor:pointer;">
-        + Add Entry
-      </button>
-    </div>
-  </div>
+	<!-- Header -->
+	<div class="page-header">
+		<div>
+			<h1 class="stat-value">P2P Ledger</h1>
+			<p style="color:var(--text-muted);font-size:0.875rem;margin-top:0.125rem;">
+				{entries.length} entries
+			</p>
+		</div>
+		<div style="display:flex;gap:0.5rem;">
+			<a
+				href="/ledger/import"
+				style="padding:0.5rem 0.875rem;border:1px solid var(--border);border-radius:0.5rem;color:var(--text-muted);text-decoration:none;font-size:0.875rem;display:inline-flex;align-items:center;gap:0.375rem;"
+			>
+				📥 Import C2C
+			</a>
+			<button
+				onclick={openAdd}
+				style="padding:0.5rem 0.875rem;background:var(--accent);border:none;border-radius:0.5rem;color:#fff;font-size:0.875rem;font-weight:500;cursor:pointer;"
+			>
+				+ Add Entry
+			</button>
+		</div>
+	</div>
 
-  <!-- Date filter -->
-  <div style="display:flex;flex-wrap:wrap;gap:0.5rem;align-items:center;margin-bottom:1rem;">
-    {#each [['day','Today'],['week','This Week'],['month','This Month'],['custom','Custom']] as [p, label]}
-      <button
-        onclick={() => setPeriod(p as Period)}
-        style="padding:0.375rem 0.625rem;border:1px solid {period === p ? 'var(--accent)' : 'var(--border)'};border-radius:0.375rem;background:{period === p ? 'color-mix(in srgb,var(--accent) 12%,transparent)' : 'var(--bg)'};color:{period === p ? 'var(--accent)' : 'var(--text-muted)'};font-size:0.8rem;cursor:pointer;"
-      >{label}</button>
-    {/each}
-    <input type="date" bind:value={dateFrom} oninput={() => (period = 'custom')}
-      class="input-sm" />
-    <span style="color:var(--text-muted);font-size:0.8rem;">→</span>
-    <input type="date" bind:value={dateTo} oninput={() => (period = 'custom')}
-      class="input-sm" />
-    {#if dateFrom || dateTo}
-      <button onclick={() => { dateFrom = ''; dateTo = ''; period = 'custom'; }}
-        style="padding:0.375rem 0.625rem;border:none;background:transparent;color:var(--text-muted);font-size:0.8rem;cursor:pointer;text-decoration:underline;">Clear</button>
-    {/if}
-  </div>
+	<!-- Date filter -->
+	<div style="display:flex;flex-wrap:wrap;gap:0.5rem;align-items:center;margin-bottom:1rem;">
+		{#each [['day', 'Today'], ['week', 'This Week'], ['month', 'This Month'], ['custom', 'Custom']] as [p, label]}
+			<button
+				onclick={() => setPeriod(p as Period)}
+				style="padding:0.375rem 0.625rem;border:1px solid {period === p
+					? 'var(--accent)'
+					: 'var(--border)'};border-radius:0.375rem;background:{period === p
+					? 'color-mix(in srgb,var(--accent) 12%,transparent)'
+					: 'var(--bg)'};color:{period === p
+					? 'var(--accent)'
+					: 'var(--text-muted)'};font-size:0.8rem;cursor:pointer;">{label}</button
+			>
+		{/each}
+		<input type="date" bind:value={dateFrom} oninput={() => (period = 'custom')} class="input-sm" />
+		<span style="color:var(--text-muted);font-size:0.8rem;">→</span>
+		<input type="date" bind:value={dateTo} oninput={() => (period = 'custom')} class="input-sm" />
+		{#if dateFrom || dateTo}
+			<button
+				onclick={() => {
+					dateFrom = '';
+					dateTo = '';
+					period = 'custom';
+				}}
+				style="padding:0.375rem 0.625rem;border:none;background:transparent;color:var(--text-muted);font-size:0.8rem;cursor:pointer;text-decoration:underline;"
+				>Clear</button
+			>
+		{/if}
+	</div>
 
-  <!-- P&L Summary -->
-  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:0.75rem;margin-bottom:1.5rem;">
-    {#each ([
-      ['Total LKR In', `LKR ${totalLkrIn.toLocaleString('en-US', {maximumFractionDigits:0})}`, 'var(--loss)'],
-      ['Total LKR Out', `LKR ${totalLkrOut.toLocaleString('en-US', {maximumFractionDigits:0})}`, 'var(--win)'],
-      ['Net LKR Contribution', `LKR ${netLkr.toLocaleString('en-US', {maximumFractionDigits:0})}`, netLkr >= 0 ? 'var(--win)' : 'var(--loss)'],
-      ['Total USD Deposited', `$${totalUsdDeposited.toFixed(2)}`, 'var(--loss)'],
-      ['Total USD Withdrawn', `$${totalUsdWithdrawn.toFixed(2)}`, 'var(--win)'],
-      ['Net USD Position', `$${netUsd.toFixed(2)}`, netUsd >= 0 ? 'var(--win)' : 'var(--loss)'],
-    ] satisfies [string, string, string][]) as item}
-      <div style="background:var(--surface);border:1px solid var(--border);border-radius:0.75rem;padding:1rem;">
-        <div style="font-size:0.7rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:0.5rem;">{item[0]}</div>
-        <div style="font-family:'JetBrains Mono',monospace;font-size:1.1rem;font-weight:700;color:{item[2]};">{item[1]}</div>
-      </div>
-    {/each}
-  </div>
+	<!-- P&L Summary -->
+	<div
+		style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:0.75rem;margin-bottom:1.5rem;"
+	>
+		{#each [['Total LKR In', `LKR ${totalLkrIn.toLocaleString('en-US', { maximumFractionDigits: 0 })}`, 'var(--loss)'], ['Total LKR Out', `LKR ${totalLkrOut.toLocaleString('en-US', { maximumFractionDigits: 0 })}`, 'var(--win)'], ['Net LKR Contribution', `LKR ${netLkr.toLocaleString('en-US', { maximumFractionDigits: 0 })}`, netLkr >= 0 ? 'var(--win)' : 'var(--loss)'], ['Total USD Deposited', `$${totalUsdDeposited.toFixed(2)}`, 'var(--loss)'], ['Total USD Withdrawn', `$${totalUsdWithdrawn.toFixed(2)}`, 'var(--win)'], ['Net USD Position', `$${netUsd.toFixed(2)}`, netUsd >= 0 ? 'var(--win)' : 'var(--loss)']] satisfies [string, string, string][] as item}
+			<div
+				style="background:var(--surface);border:1px solid var(--border);border-radius:0.75rem;padding:1rem;"
+			>
+				<div
+					style="font-size:0.7rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:0.5rem;"
+				>
+					{item[0]}
+				</div>
+				<div
+					style="font-family:'JetBrains Mono',monospace;font-size:1.1rem;font-weight:700;color:{item[2]};"
+				>
+					{item[1]}
+				</div>
+			</div>
+		{/each}
+	</div>
 
-  <!-- Tabs -->
-  <div style="display:flex;gap:0;border-bottom:2px solid var(--border);margin-bottom:1rem;">
-    <!-- {#each [['all','All'], ['deposits','Deposits'], ['withdrawals','Withdrawals']] as [tab, label]} -->
-    {#each [['deposits','Deposits'], ['withdrawals','Withdrawals']] as [tab, label]}
-      <button
-        onclick={() => activeTab = tab as 'all' | 'deposits' | 'withdrawals'}
-        style="padding:0.625rem 1rem;border:none;background:transparent;font-size:0.875rem;font-weight:{activeTab === tab ? '600' : '400'};
+	<!-- Tabs -->
+	<div style="display:flex;gap:0;border-bottom:2px solid var(--border);margin-bottom:1rem;">
+		<!-- {#each [['all','All'], ['deposits','Deposits'], ['withdrawals','Withdrawals']] as [tab, label]} -->
+		{#each [['deposits', 'Deposits'], ['withdrawals', 'Withdrawals']] as [tab, label]}
+			<button
+				onclick={() => (activeTab = tab as 'all' | 'deposits' | 'withdrawals')}
+				style="padding:0.625rem 1rem;border:none;background:transparent;font-size:0.875rem;font-weight:{activeTab ===
+				tab
+					? '600'
+					: '400'};
           color:{activeTab === tab ? 'var(--accent)' : 'var(--text-muted)'};
           border-bottom:{activeTab === tab ? '2px solid var(--accent)' : '2px solid transparent'};
-          margin-bottom:-2px;cursor:pointer;transition:all 0.15s;">
-        {label}
-      </button>
-    {/each}
-  </div>
+          margin-bottom:-2px;cursor:pointer;transition:all 0.15s;"
+			>
+				{label}
+			</button>
+		{/each}
+	</div>
 
-    <!-- Table -->
-    <div class="card-flush">
-      {#if visibleEntries.length === 0}
-        <div style="padding:3rem;text-align:center;color:var(--text-muted);">
-          No entries yet. <a href="/ledger/import" style="color:var(--accent);text-decoration:none;">Import C2C CSV</a> or <button onclick={openAdd} style="background:none;border:none;color:var(--accent);text-decoration:underline;font-size:inherit;cursor:pointer;">add manually</button>.
-        </div>
-      {:else}
-        <div class="scroll-x">
-          {#if activeTab === 'all' || activeTab === 'deposits'}
-            <!-- Deposits section / all -->
-            {#if activeTab === 'all' && deposits.length > 0}
-              <div style="padding:0.625rem 0.75rem;background:color-mix(in srgb,var(--win) 8%,transparent);border-bottom:1px solid var(--border);font-size:0.75rem;font-weight:600;color:var(--win);">DEPOSITS</div>
-            {/if}
-            <table class="table">
-              <thead>
-                <tr class="thead-row">
-                  {#each ['Date','LKR Sent','Total LKR','USD Received','Rate','Lock','Released','Remaining','Status',''] as col}
-                    <th style="padding:0.5rem 0.75rem;text-align:left;font-size:0.7rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;white-space:nowrap;">{col}</th>
-                  {/each}
-                </tr>
-              </thead>
-              <tbody>
-                {#each (activeTab === 'all' ? pagedDeposits : visibleEntries.slice((depPage - 1) * pageSize, depPage * pageSize)) as e}
-                  {@const tr = e.tracking}
-                  <tr class="row-divider">
-                    <td style="padding:0.5rem 0.75rem;font-family:'JetBrains Mono',monospace;color:var(--text-muted);white-space:nowrap;">{formatDate(e.date)}</td>
-                    <td style="padding:0.5rem 0.75rem;font-family:'JetBrains Mono',monospace;color:var(--text-primary);">{e.fiat_sent?.toLocaleString('en-US') ?? '—'}</td>
-                    <td style="padding:0.5rem 0.75rem;font-family:'JetBrains Mono',monospace;font-weight:600;color:var(--text-primary);">{lkrTotalSent(e).toLocaleString('en-US', {maximumFractionDigits:2})}</td>
-                    <td style="padding:0.5rem 0.75rem;font-family:'JetBrains Mono',monospace;font-weight:600;color:var(--win);">${(e.usd_received ?? 0).toFixed(2)}</td>
-                    <td class="td-mono">{e.usd_rate?.toFixed(2) ?? '—'}</td>
-                    <td style="padding:0.5rem 0.75rem;font-family:'JetBrains Mono',monospace;font-weight:600;color:var(--text-primary);white-space:nowrap;">
-                      {#if tr?.lockedUsd != null}
-                        ${tr.lockedUsd.toFixed(2)}
-                        {#if tr.lockedLkr != null}<span style="color:var(--text-muted);font-size:0.7rem;"> · LKR {tr.lockedLkr.toLocaleString('en-US', {maximumFractionDigits:0})}</span>{/if}
-                      {:else}
-                        <form method="POST" action="?/lock" use:enhance={inlineForm}>
-                          <input type="hidden" name="depositId" value={e.id} />
-                          <button type="submit" style="padding:0.25rem 0.625rem;border:1px solid var(--accent);border-radius:0.25rem;background:transparent;color:var(--accent);font-size:0.75rem;font-weight:600;cursor:pointer;">Lock</button>
-                        </form>
-                      {/if}
-                    </td>
-                    <td style="padding:0.5rem 0.75rem;font-family:'JetBrains Mono',monospace;color:var(--text-primary);white-space:nowrap;">
-                      {#if tr?.releasedUsd > 0}
-                        ${tr.releasedUsd.toFixed(2)}
-                        {#if tr.releasedLkr > 0}<span style="color:var(--text-muted);font-size:0.7rem;"> · LKR {tr.releasedLkr.toLocaleString('en-US', {maximumFractionDigits:0})}</span>{/if}
-                      {:else}
-                        <span style="color:var(--text-muted);">—</span>
-                      {/if}
-                    </td>
-                    <td style="padding:0.5rem 0.75rem;font-family:'JetBrains Mono',monospace;font-weight:600;color:{tr?.remainingUsd === 0 ? 'var(--win)' : 'var(--text-primary)'};white-space:nowrap;">
-                      {#if tr?.remainingUsd != null}
-                        ${tr.remainingUsd.toFixed(2)}
-                        {#if tr.remainingLkr != null}<span style="color:var(--text-muted);font-size:0.7rem;"> · LKR {tr.remainingLkr.toLocaleString('en-US', {maximumFractionDigits:0})}</span>{/if}
-                      {:else}
-                        <span style="color:var(--text-muted);">—</span>
-                      {/if}
-                    </td>
-                    <td style="padding:0.5rem 0.75rem;white-space:nowrap;">
-                      {#if tr?.fullyWithdrawn}
-                        <span style="font-size:0.7rem;padding:0.1rem 0.375rem;border-radius:0.25rem;background:color-mix(in srgb,var(--win) 15%,transparent);color:var(--win);font-weight:700;">Fully Withdrawn ✓</span>
-                      {:else if tr?.lockedUsd != null}
-                        <span style="font-size:0.7rem;padding:0.1rem 0.375rem;border-radius:0.25rem;background:color-mix(in srgb,var(--accent) 12%,transparent);color:var(--accent);">Tracking</span>
-                      {:else}
-                        <span style="color:var(--text-muted);">—</span>
-                      {/if}
-                    </td>
-                    <td class="td"><button onclick={() => openEdit(e)} style="background:none;border:none;color:var(--accent);font-size:0.8rem;text-decoration:underline;cursor:pointer;">Edit</button></td>
-                  </tr>
-                {/each}
-              </tbody>
-            </table>
-            {#if pageButtons(deposits.length, depPage).length > 0}
-              <div style="display:flex;align-items:center;gap:0.375rem;justify-content:space-between;padding:0.625rem 0.75rem;border-top:1px solid var(--border);flex-wrap:wrap;">
-                <span class="muted-sm">{deposits.length} deposits</span>
-                <div style="display:flex;align-items:center;gap:0.375rem;">
-                  <button onclick={() => jumpDep(depPage - 1)} disabled={depPage <= 1} style="padding:0.25rem 0.625rem;border:1px solid var(--border);border-radius:0.25rem;background:transparent;color:var(--text-muted);font-size:0.8rem;cursor:pointer;opacity:{depPage <= 1 ? 0.4 : 1};">←</button>
-                  {#each pageButtons(deposits.length, depPage) as p}
-                    <button onclick={() => jumpDep(p)} style="padding:0.25rem 0.625rem;border:1px solid {p === depPage ? 'var(--accent)' : 'var(--border)'};border-radius:0.25rem;background:{p === depPage ? 'color-mix(in srgb,var(--accent) 12%,transparent)' : 'transparent'};color:{p === depPage ? 'var(--accent)' : 'var(--text-muted)'};font-size:0.8rem;cursor:pointer;">{p}</button>
-                  {/each}
-                  <button onclick={() => jumpDep(depPage + 1)} disabled={depPage >= Math.ceil(deposits.length / pageSize)} style="padding:0.25rem 0.625rem;border:1px solid var(--border);border-radius:0.25rem;background:transparent;color:var(--text-muted);font-size:0.8rem;cursor:pointer;opacity:{depPage >= Math.ceil(deposits.length / pageSize) ? 0.4 : 1};">→</button>
-                </div>
-              </div>
-            {/if}
-          {/if}
-          {#if activeTab === 'all' || activeTab === 'withdrawals'}
-            {#if activeTab === 'all' && withdrawals.length > 0}
-              <div style="padding:0.625rem 0.75rem;background:color-mix(in srgb,var(--loss) 8%,transparent);border-top:1px solid var(--border);border-bottom:1px solid var(--border);font-size:0.75rem;font-weight:600;color:var(--loss);">WITHDRAWALS</div>
-            {/if}
-            <table class="table">
-              <thead>
-                <tr class="thead-row">
-                  {#each ['Date','USD Qty','Rate','LKR Received','Source','Balance',''] as col}
-                    <th style="padding:0.5rem 0.75rem;text-align:left;font-size:0.7rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;white-space:nowrap;">{col}</th>
-                  {/each}
-                </tr>
-              </thead>
-              <tbody>
-                {#each (activeTab === 'all' ? pagedWithdrawals : visibleEntries.slice((wdPage - 1) * pageSize, wdPage * pageSize)) as e}
-                  {@const tr = e.tracking}
-                  <tr class="row-divider">
-                    <td style="padding:0.5rem 0.75rem;font-family:'JetBrains Mono',monospace;color:var(--text-muted);white-space:nowrap;">{formatDate(e.date)}</td>
-                    <td class="td-mono">${(e.usd_quantity ?? 0).toFixed(2)}</td>
-                    <td class="td-mono">{e.usd_rate?.toFixed(2) ?? '—'}</td>
-                    <td style="padding:0.5rem 0.75rem;font-family:'JetBrains Mono',monospace;font-weight:600;color:var(--text-primary);">{(e.fiat_amount ?? expectedFiat(e)).toLocaleString('en-US', {maximumFractionDigits:0})}</td>
-                    <td class="td"><span style="font-size:0.7rem;padding:0.1rem 0.375rem;border-radius:0.25rem;background:color-mix(in srgb,var(--accent) 12%,transparent);color:var(--accent);">{e.source === 'c2c_import' ? 'Import' : 'Manual'}</span></td>
-                    <td style="padding:0.5rem 0.75rem;font-family:'JetBrains Mono',monospace;font-weight:600;color:{tr?.balanceUsd > 0 ? 'var(--loss)' : 'var(--text-muted)'};white-space:nowrap;">
-                      {#if tr?.balanceUsd > 0}
-                        ${tr.balanceUsd.toFixed(2)}
-                      {:else}
-                        <span style="color:var(--text-muted);">—</span>
-                      {/if}
-                    </td>
-                    <td style="padding:0.5rem 0.75rem;white-space:nowrap;">
-                      <button onclick={() => openEdit(e)} style="background:none;border:none;color:var(--accent);font-size:0.8rem;text-decoration:underline;cursor:pointer;margin-right:0.5rem;">Edit</button>
-                      <button onclick={() => releaseOpen = releaseOpen === e.id ? null : e.id}
-                        style="padding:0.25rem 0.5rem;border:1px solid var(--border);border-radius:0.25rem;background:transparent;color:var(--text-muted);font-size:0.75rem;cursor:pointer;">
-                        {releaseOpen === e.id ? '✕' : 'Release'}
-                      </button>
-                    </td>
-                  </tr>
-                  {#if releaseOpen === e.id}
-                    <tr style="border-bottom:1px solid var(--border);background:color-mix(in srgb,var(--accent) 4%,transparent);">
-                      <td colspan="7" style="padding:0.75rem;">
-                        <form method="POST" action="?/allocate" use:enhance={() => async ({ update }: any) => {
-                          await update();
-                          await invalidateAll();
-                          releaseOpen = null;
-                        }}>
-                          <input type="hidden" name="withdrawalId" value={e.id} />
-                          <div style="display:flex;flex-wrap:wrap;gap:0.75rem;align-items:center;">
-                            <span style="font-size:0.8rem;color:var(--text-muted);font-weight:600;">Release into:</span>
-                            {#each deposits.filter((d) => d.tracking?.remainingUsd != null && d.tracking.remainingUsd > 0) as d}
-                              <label style="display:flex;align-items:center;gap:0.375rem;font-size:0.8rem;color:var(--text-primary);">
-                                <span>{formatDate(d.date)} <span style="color:var(--text-muted);">(${(d.tracking?.remainingUsd ?? 0).toFixed(0)} left)</span></span>
-                                <input type="number" min="0" step="any" placeholder="USD"
-                                  value={releaseInputs[e.id]?.[d.id] ?? ''}
-                                  oninput={(ev) => {
-                                    const v = (ev.currentTarget as HTMLInputElement).value;
-                                    releaseInputs[e.id] = { ...(releaseInputs[e.id] ?? {}), [d.id]: v };
-                                  }}
-                                  style="width:90px;padding:0.25rem 0.375rem;background:var(--bg);border:1px solid var(--border);border-radius:0.25rem;color:var(--text-primary);font-size:0.75rem;" />
-                              </label>
-                            {/each}
-                            <input type="hidden" name="allocations"
-                              value={JSON.stringify(
-                                Object.entries(releaseInputs[e.id] ?? {})
-                                  .filter(([, v]) => Number(v) > 0)
-                                  .map(([depId, v]) => ({ depositId: depId, releasedUsd: Number(v) }))
-                              )} />
-                            <button type="submit" style="padding:0.375rem 0.75rem;background:var(--accent);color:#fff;border:none;border-radius:0.375rem;font-size:0.8rem;font-weight:600;cursor:pointer;">Apply</button>
-                          </div>
-                        </form>
-                      </td>
-                    </tr>
-                  {/if}
-                {/each}
-              </tbody>
-            </table>
-            {#if pageButtons(withdrawals.length, wdPage).length > 0}
-              <div style="display:flex;align-items:center;gap:0.375rem;justify-content:space-between;padding:0.625rem 0.75rem;border-top:1px solid var(--border);flex-wrap:wrap;">
-                <span class="muted-sm">{withdrawals.length} withdrawals</span>
-                <div style="display:flex;align-items:center;gap:0.375rem;">
-                  <button onclick={() => jumpWd(wdPage - 1)} disabled={wdPage <= 1} style="padding:0.25rem 0.625rem;border:1px solid var(--border);border-radius:0.25rem;background:transparent;color:var(--text-muted);font-size:0.8rem;cursor:pointer;opacity:{wdPage <= 1 ? 0.4 : 1};">←</button>
-                  {#each pageButtons(withdrawals.length, wdPage) as p}
-                    <button onclick={() => jumpWd(p)} style="padding:0.25rem 0.625rem;border:1px solid {p === wdPage ? 'var(--accent)' : 'var(--border)'};border-radius:0.25rem;background:{p === wdPage ? 'color-mix(in srgb,var(--accent) 12%,transparent)' : 'transparent'};color:{p === wdPage ? 'var(--accent)' : 'var(--text-muted)'};font-size:0.8rem;cursor:pointer;">{p}</button>
-                  {/each}
-                  <button onclick={() => jumpWd(wdPage + 1)} disabled={wdPage >= Math.ceil(withdrawals.length / pageSize)} style="padding:0.25rem 0.625rem;border:1px solid var(--border);border-radius:0.25rem;background:transparent;color:var(--text-muted);font-size:0.8rem;cursor:pointer;opacity:{wdPage >= Math.ceil(withdrawals.length / pageSize) ? 0.4 : 1};">→</button>
-                </div>
-              </div>
-            {/if}
-          {/if}
-        </div>
-      {/if}
-    </div>
+	<!-- Table -->
+	<div class="card-flush">
+		{#if visibleEntries.length === 0}
+			<div style="padding:3rem;text-align:center;color:var(--text-muted);">
+				No entries yet. <a href="/ledger/import" style="color:var(--accent);text-decoration:none;"
+					>Import C2C CSV</a
+				>
+				or
+				<button
+					onclick={openAdd}
+					style="background:none;border:none;color:var(--accent);text-decoration:underline;font-size:inherit;cursor:pointer;"
+					>add manually</button
+				>.
+			</div>
+		{:else}
+			<div class="scroll-x">
+				{#if activeTab === 'all' || activeTab === 'deposits'}
+					<!-- Deposits section / all -->
+					{#if activeTab === 'all' && deposits.length > 0}
+						<div
+							style="padding:0.625rem 0.75rem;background:color-mix(in srgb,var(--win) 8%,transparent);border-bottom:1px solid var(--border);font-size:0.75rem;font-weight:600;color:var(--win);"
+						>
+							DEPOSITS
+						</div>
+					{/if}
+					<table class="table">
+						<thead>
+							<tr class="thead-row">
+								{#each ['Date', 'LKR Sent', 'Total LKR', 'USD Received', 'Rate', 'Lock', 'Released', 'Remaining', 'Status', ''] as col}
+									<th
+										style="padding:0.5rem 0.75rem;text-align:left;font-size:0.7rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;white-space:nowrap;"
+										>{col}</th
+									>
+								{/each}
+							</tr>
+						</thead>
+						<tbody>
+							{#each activeTab === 'all' ? pagedDeposits : visibleEntries.slice((depPage - 1) * pageSize, depPage * pageSize) as e}
+								{@const tr = e.tracking}
+								<tr class="row-divider">
+									<td
+										style="padding:0.5rem 0.75rem;font-family:'JetBrains Mono',monospace;color:var(--text-muted);white-space:nowrap;"
+										>{formatDate(e.date)}</td
+									>
+									<td
+										style="padding:0.5rem 0.75rem;font-family:'JetBrains Mono',monospace;color:var(--text-primary);"
+										>{e.fiat_sent?.toLocaleString('en-US') ?? '—'}</td
+									>
+									<td
+										style="padding:0.5rem 0.75rem;font-family:'JetBrains Mono',monospace;font-weight:600;color:var(--text-primary);"
+										>{lkrTotalSent(e).toLocaleString('en-US', { maximumFractionDigits: 2 })}</td
+									>
+									<td
+										style="padding:0.5rem 0.75rem;font-family:'JetBrains Mono',monospace;font-weight:600;color:var(--win);"
+										>${(e.usd_received ?? 0).toFixed(2)}</td
+									>
+									<td class="td-mono">{e.usd_rate?.toFixed(2) ?? '—'}</td>
+									<td
+										style="padding:0.5rem 0.75rem;font-family:'JetBrains Mono',monospace;font-weight:600;color:var(--text-primary);white-space:nowrap;"
+									>
+										{#if tr?.lockedUsd != null}
+											${tr.lockedUsd.toFixed(2)}
+											{#if tr.lockedLkr != null}<span
+													style="color:var(--text-muted);font-size:0.7rem;"
+												>
+													· LKR {tr.lockedLkr.toLocaleString('en-US', {
+														maximumFractionDigits: 0
+													})}</span
+												>{/if}
+										{:else}
+											<form method="POST" action="?/lock" use:enhance={inlineForm}>
+												<input type="hidden" name="depositId" value={e.id} />
+												<button
+													type="submit"
+													style="padding:0.25rem 0.625rem;border:1px solid var(--accent);border-radius:0.25rem;background:transparent;color:var(--accent);font-size:0.75rem;font-weight:600;cursor:pointer;"
+													>Lock</button
+												>
+											</form>
+										{/if}
+									</td>
+									<td
+										style="padding:0.5rem 0.75rem;font-family:'JetBrains Mono',monospace;color:var(--text-primary);white-space:nowrap;"
+									>
+										{#if tr?.releasedUsd > 0}
+											${tr.releasedUsd.toFixed(2)}
+											{#if tr.releasedLkr > 0}<span
+													style="color:var(--text-muted);font-size:0.7rem;"
+												>
+													· LKR {tr.releasedLkr.toLocaleString('en-US', {
+														maximumFractionDigits: 0
+													})}</span
+												>{/if}
+										{:else}
+											<span style="color:var(--text-muted);">—</span>
+										{/if}
+									</td>
+									<td
+										style="padding:0.5rem 0.75rem;font-family:'JetBrains Mono',monospace;font-weight:600;color:{tr?.remainingUsd ===
+										0
+											? 'var(--win)'
+											: 'var(--text-primary)'};white-space:nowrap;"
+									>
+										{#if tr?.remainingUsd != null}
+											${tr.remainingUsd.toFixed(2)}
+											{#if tr.remainingLkr != null}<span
+													style="color:var(--text-muted);font-size:0.7rem;"
+												>
+													· LKR {tr.remainingLkr.toLocaleString('en-US', {
+														maximumFractionDigits: 0
+													})}</span
+												>{/if}
+										{:else}
+											<span style="color:var(--text-muted);">—</span>
+										{/if}
+									</td>
+									<td style="padding:0.5rem 0.75rem;white-space:nowrap;">
+										{#if tr?.fullyWithdrawn}
+											<span
+												style="font-size:0.7rem;padding:0.1rem 0.375rem;border-radius:0.25rem;background:color-mix(in srgb,var(--win) 15%,transparent);color:var(--win);font-weight:700;"
+												>Fully Withdrawn ✓</span
+											>
+										{:else if tr?.lockedUsd != null}
+											<span
+												style="font-size:0.7rem;padding:0.1rem 0.375rem;border-radius:0.25rem;background:color-mix(in srgb,var(--accent) 12%,transparent);color:var(--accent);"
+												>Tracking</span
+											>
+										{:else}
+											<span style="color:var(--text-muted);">—</span>
+										{/if}
+									</td>
+									<td class="td"
+										><button
+											onclick={() => openEdit(e)}
+											style="background:none;border:none;color:var(--accent);font-size:0.8rem;text-decoration:underline;cursor:pointer;"
+											>Edit</button
+										></td
+									>
+								</tr>
+							{/each}
+						</tbody>
+					</table>
+					{#if pageButtons(deposits.length, depPage).length > 0}
+						<div
+							style="display:flex;align-items:center;gap:0.375rem;justify-content:space-between;padding:0.625rem 0.75rem;border-top:1px solid var(--border);flex-wrap:wrap;"
+						>
+							<span class="muted-sm">{deposits.length} deposits</span>
+							<div style="display:flex;align-items:center;gap:0.375rem;">
+								<button
+									onclick={() => jumpDep(depPage - 1)}
+									disabled={depPage <= 1}
+									style="padding:0.25rem 0.625rem;border:1px solid var(--border);border-radius:0.25rem;background:transparent;color:var(--text-muted);font-size:0.8rem;cursor:pointer;opacity:{depPage <=
+									1
+										? 0.4
+										: 1};">←</button
+								>
+								{#each pageButtons(deposits.length, depPage) as p}
+									<button
+										onclick={() => jumpDep(p)}
+										style="padding:0.25rem 0.625rem;border:1px solid {p === depPage
+											? 'var(--accent)'
+											: 'var(--border)'};border-radius:0.25rem;background:{p === depPage
+											? 'color-mix(in srgb,var(--accent) 12%,transparent)'
+											: 'transparent'};color:{p === depPage
+											? 'var(--accent)'
+											: 'var(--text-muted)'};font-size:0.8rem;cursor:pointer;">{p}</button
+									>
+								{/each}
+								<button
+									onclick={() => jumpDep(depPage + 1)}
+									disabled={depPage >= Math.ceil(deposits.length / pageSize)}
+									style="padding:0.25rem 0.625rem;border:1px solid var(--border);border-radius:0.25rem;background:transparent;color:var(--text-muted);font-size:0.8rem;cursor:pointer;opacity:{depPage >=
+									Math.ceil(deposits.length / pageSize)
+										? 0.4
+										: 1};">→</button
+								>
+							</div>
+						</div>
+					{/if}
+				{/if}
+				{#if activeTab === 'all' || activeTab === 'withdrawals'}
+					{#if activeTab === 'all' && withdrawals.length > 0}
+						<div
+							style="padding:0.625rem 0.75rem;background:color-mix(in srgb,var(--loss) 8%,transparent);border-top:1px solid var(--border);border-bottom:1px solid var(--border);font-size:0.75rem;font-weight:600;color:var(--loss);"
+						>
+							WITHDRAWALS
+						</div>
+					{/if}
+					<table class="table">
+						<thead>
+							<tr class="thead-row">
+								{#each ['Date', 'USD Qty', 'Rate', 'LKR Received', 'Source', 'Balance', ''] as col}
+									<th
+										style="padding:0.5rem 0.75rem;text-align:left;font-size:0.7rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;white-space:nowrap;"
+										>{col}</th
+									>
+								{/each}
+							</tr>
+						</thead>
+						<tbody>
+							{#each activeTab === 'all' ? pagedWithdrawals : visibleEntries.slice((wdPage - 1) * pageSize, wdPage * pageSize) as e}
+								{@const tr = e.tracking}
+								<tr class="row-divider">
+									<td
+										style="padding:0.5rem 0.75rem;font-family:'JetBrains Mono',monospace;color:var(--text-muted);white-space:nowrap;"
+										>{formatDate(e.date)}</td
+									>
+									<td class="td-mono">${(e.usd_quantity ?? 0).toFixed(2)}</td>
+									<td class="td-mono">{e.usd_rate?.toFixed(2) ?? '—'}</td>
+									<td
+										style="padding:0.5rem 0.75rem;font-family:'JetBrains Mono',monospace;font-weight:600;color:var(--text-primary);"
+										>{(e.fiat_amount ?? expectedFiat(e)).toLocaleString('en-US', {
+											maximumFractionDigits: 0
+										})}</td
+									>
+									<td class="td"
+										><span
+											style="font-size:0.7rem;padding:0.1rem 0.375rem;border-radius:0.25rem;background:color-mix(in srgb,var(--accent) 12%,transparent);color:var(--accent);"
+											>{e.source === 'c2c_import' ? 'Import' : 'Manual'}</span
+										></td
+									>
+									<td
+										style="padding:0.5rem 0.75rem;font-family:'JetBrains Mono',monospace;font-weight:600;color:{tr?.balanceUsd >
+										0
+											? 'var(--loss)'
+											: 'var(--text-muted)'};white-space:nowrap;"
+									>
+										{#if tr?.balanceUsd > 0}
+											${tr.balanceUsd.toFixed(2)}
+										{:else}
+											<span style="color:var(--text-muted);">—</span>
+										{/if}
+									</td>
+									<td style="padding:0.5rem 0.75rem;white-space:nowrap;">
+										<button
+											onclick={() => openEdit(e)}
+											style="background:none;border:none;color:var(--accent);font-size:0.8rem;text-decoration:underline;cursor:pointer;margin-right:0.5rem;"
+											>Edit</button
+										>
+										<button
+											onclick={() => (releaseOpen = releaseOpen === e.id ? null : e.id)}
+											style="padding:0.25rem 0.5rem;border:1px solid var(--border);border-radius:0.25rem;background:transparent;color:var(--text-muted);font-size:0.75rem;cursor:pointer;"
+										>
+											{releaseOpen === e.id ? '✕' : 'Release'}
+										</button>
+									</td>
+								</tr>
+								{#if releaseOpen === e.id}
+									<tr
+										style="border-bottom:1px solid var(--border);background:color-mix(in srgb,var(--accent) 4%,transparent);"
+									>
+										<td colspan="7" style="padding:0.75rem;">
+											<form
+												method="POST"
+												action="?/allocate"
+												use:enhance={() =>
+													async ({ update }: any) => {
+														await update();
+														await invalidateAll();
+														releaseOpen = null;
+													}}
+											>
+												<input type="hidden" name="withdrawalId" value={e.id} />
+												<div style="display:flex;flex-wrap:wrap;gap:0.75rem;align-items:center;">
+													<span style="font-size:0.8rem;color:var(--text-muted);font-weight:600;"
+														>Release into:</span
+													>
+													{#each deposits.filter((d) => d.tracking?.remainingUsd != null && d.tracking.remainingUsd > 0) as d}
+														<label
+															style="display:flex;align-items:center;gap:0.375rem;font-size:0.8rem;color:var(--text-primary);"
+														>
+															<span
+																>{formatDate(d.date)}
+																<span style="color:var(--text-muted);"
+																	>(${(d.tracking?.remainingUsd ?? 0).toFixed(0)} left)</span
+																></span
+															>
+															<input
+																type="number"
+																min="0"
+																step="any"
+																placeholder="USD"
+																value={releaseInputs[e.id]?.[d.id] ?? ''}
+																oninput={(ev) => {
+																	const v = (ev.currentTarget as HTMLInputElement).value;
+																	releaseInputs[e.id] = {
+																		...(releaseInputs[e.id] ?? {}),
+																		[d.id]: v
+																	};
+																}}
+																style="width:90px;padding:0.25rem 0.375rem;background:var(--bg);border:1px solid var(--border);border-radius:0.25rem;color:var(--text-primary);font-size:0.75rem;"
+															/>
+														</label>
+													{/each}
+													<input
+														type="hidden"
+														name="allocations"
+														value={JSON.stringify(
+															Object.entries(releaseInputs[e.id] ?? {})
+																.filter(([, v]) => Number(v) > 0)
+																.map(([depId, v]) => ({ depositId: depId, releasedUsd: Number(v) }))
+														)}
+													/>
+													<button
+														type="submit"
+														style="padding:0.375rem 0.75rem;background:var(--accent);color:#fff;border:none;border-radius:0.375rem;font-size:0.8rem;font-weight:600;cursor:pointer;"
+														>Apply</button
+													>
+												</div>
+											</form>
+										</td>
+									</tr>
+								{/if}
+							{/each}
+						</tbody>
+					</table>
+					{#if pageButtons(withdrawals.length, wdPage).length > 0}
+						<div
+							style="display:flex;align-items:center;gap:0.375rem;justify-content:space-between;padding:0.625rem 0.75rem;border-top:1px solid var(--border);flex-wrap:wrap;"
+						>
+							<span class="muted-sm">{withdrawals.length} withdrawals</span>
+							<div style="display:flex;align-items:center;gap:0.375rem;">
+								<button
+									onclick={() => jumpWd(wdPage - 1)}
+									disabled={wdPage <= 1}
+									style="padding:0.25rem 0.625rem;border:1px solid var(--border);border-radius:0.25rem;background:transparent;color:var(--text-muted);font-size:0.8rem;cursor:pointer;opacity:{wdPage <=
+									1
+										? 0.4
+										: 1};">←</button
+								>
+								{#each pageButtons(withdrawals.length, wdPage) as p}
+									<button
+										onclick={() => jumpWd(p)}
+										style="padding:0.25rem 0.625rem;border:1px solid {p === wdPage
+											? 'var(--accent)'
+											: 'var(--border)'};border-radius:0.25rem;background:{p === wdPage
+											? 'color-mix(in srgb,var(--accent) 12%,transparent)'
+											: 'transparent'};color:{p === wdPage
+											? 'var(--accent)'
+											: 'var(--text-muted)'};font-size:0.8rem;cursor:pointer;">{p}</button
+									>
+								{/each}
+								<button
+									onclick={() => jumpWd(wdPage + 1)}
+									disabled={wdPage >= Math.ceil(withdrawals.length / pageSize)}
+									style="padding:0.25rem 0.625rem;border:1px solid var(--border);border-radius:0.25rem;background:transparent;color:var(--text-muted);font-size:0.8rem;cursor:pointer;opacity:{wdPage >=
+									Math.ceil(withdrawals.length / pageSize)
+										? 0.4
+										: 1};">→</button
+								>
+							</div>
+						</div>
+					{/if}
+				{/if}
+			</div>
+		{/if}
+	</div>
 
-  <!-- Quick Add / Quick Edit Modal -->
-  {#if addOpen}
-    <div
-      style="position:fixed;inset:0;background:rgba(0,0,0,0.6);display:flex;align-items:center;justify-content:center;z-index:50;"
-      onclick={(e) => { if (e.target === e.currentTarget) closeModal(); }}
-    >
-      <div
-        style="background:var(--surface);border:1px solid var(--border);border-radius:0.75rem;padding:1.5rem;width:min(560px,92vw);max-height:90vh;overflow-y:auto;"
-      >
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.25rem;">
-          <h2 style="font-family:'JetBrains Mono',monospace;font-size:1.1rem;font-weight:600;color:var(--text-primary);">
-            {editEntry ? `Edit ${editEntry.type === 'deposit' ? 'Deposit' : 'Withdrawal'}` : 'Add Entry'}
-          </h2>
-          <button onclick={closeModal} style="background:none;border:none;color:var(--text-muted);font-size:1.25rem;cursor:pointer;line-height:1;">✕</button>
-        </div>
+	<!-- Quick Add / Quick Edit Modal -->
+	{#if addOpen}
+		<div
+			style="position:fixed;inset:0;background:rgba(0,0,0,0.6);display:flex;align-items:center;justify-content:center;z-index:50;"
+			onclick={(e) => {
+				if (e.target === e.currentTarget) closeModal();
+			}}
+		>
+			<div
+				style="background:var(--surface);border:1px solid var(--border);border-radius:0.75rem;padding:1.5rem;width:min(560px,92vw);max-height:90vh;overflow-y:auto;"
+			>
+				<div
+					style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.25rem;"
+				>
+					<h2
+						style="font-family:'JetBrains Mono',monospace;font-size:1.1rem;font-weight:600;color:var(--text-primary);"
+					>
+						{editEntry
+							? `Edit ${editEntry.type === 'deposit' ? 'Deposit' : 'Withdrawal'}`
+							: 'Add Entry'}
+					</h2>
+					<button
+						onclick={closeModal}
+						style="background:none;border:none;color:var(--text-muted);font-size:1.25rem;cursor:pointer;line-height:1;"
+						>✕</button
+					>
+				</div>
 
-        <form method="POST" action={editEntry ? '?/quickUpdate' : '?/add'} use:enhance={modalEnhance}>
-          {#if editEntry}
-            <input type="hidden" name="id" value={editEntry.id} />
-          {:else}
-            <input type="hidden" name="type" value={modalType} />
-          {/if}
+				<form
+					method="POST"
+					action={editEntry ? '?/quickUpdate' : '?/add'}
+					use:enhance={modalEnhance}
+				>
+					{#if editEntry}
+						<input type="hidden" name="id" value={editEntry.id} />
+					{:else}
+						<input type="hidden" name="type" value={modalType} />
+					{/if}
 
-          {#if !editEntry}
-            <div style="display:inline-flex;background:var(--surface);border:1px solid var(--border);border-radius:0.5rem;padding:0.25rem;margin-bottom:1.25rem;">
-              {#each (['deposit', 'withdrawal'] as const) as t}
-                <button
-                  type="button"
-                  onclick={() => modalType = t}
-                  style="padding:0.5rem 1.25rem;border-radius:0.375rem;border:none;cursor:pointer;font-size:0.875rem;font-weight:500;transition:all 0.15s;
-                    background:{modalType === t ? (t === 'deposit' ? 'var(--win)' : 'var(--loss)') : 'transparent'};
+					{#if !editEntry}
+						<div
+							style="display:inline-flex;background:var(--surface);border:1px solid var(--border);border-radius:0.5rem;padding:0.25rem;margin-bottom:1.25rem;"
+						>
+							{#each ['deposit', 'withdrawal'] as const as t}
+								<button
+									type="button"
+									onclick={() => (modalType = t)}
+									style="padding:0.5rem 1.25rem;border-radius:0.375rem;border:none;cursor:pointer;font-size:0.875rem;font-weight:500;transition:all 0.15s;
+                    background:{modalType === t
+										? t === 'deposit'
+											? 'var(--win)'
+											: 'var(--loss)'
+										: 'transparent'};
                     color:{modalType === t ? '#fff' : 'var(--text-muted)'};"
-                >
-                  {t === 'deposit' ? '↓ Deposit' : '↑ Withdrawal'}
-                </button>
-              {/each}
-            </div>
-          {/if}
+								>
+									{t === 'deposit' ? '↓ Deposit' : '↑ Withdrawal'}
+								</button>
+							{/each}
+						</div>
+					{/if}
 
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.875rem;">
-            <div>
-              <label class="form-label">Date</label>
-              <input type="date" name="date" value={editEntry?.date ?? new Date().toISOString().split('T')[0]} class="input" required />
-            </div>
-            <div>
-              <label class="form-label">Time</label>
-              <input type="time" name="time" value={editEntry?.time ?? ''} class="input" />
-            </div>
+					<div style="display:grid;grid-template-columns:1fr 1fr;gap:0.875rem;">
+						<div>
+							<label class="form-label">Date</label>
+							<input
+								type="date"
+								name="date"
+								value={editEntry?.date ?? new Date().toISOString().split('T')[0]}
+								class="input"
+								required
+							/>
+						</div>
+						<div>
+							<label class="form-label">Time</label>
+							<input type="time" name="time" value={editEntry?.time ?? ''} class="input" />
+						</div>
 
-            {#if modalType === 'deposit'}
-              <div>
-                <label class="form-label">My Bank</label>
-                <input name="my_bank" value={editEntry?.my_bank ?? ''} placeholder="e.g. BOC" class="input" />
-              </div>
-              <div>
-                <label class="form-label">Recipient (P2P)</label>
-                <input name="recipient_bank" value={editEntry?.recipient_bank ?? ''} placeholder="Counterparty name" class="input" />
-              </div>
-              <div>
-                <label class="form-label">LKR Sent</label>
-                <input type="number" name="fiat_sent" bind:value={modalFiatSent} step="any" placeholder="5000" class="input" />
-              </div>
-              <div>
-                <label class="form-label">USD Fee ($)</label>
-                <input type="number" name="usd_fee" bind:value={modalUsdFee} step="any" placeholder="0" class="input" />
-              </div>
-              <div>
-                <label class="form-label">Rate (LKR/USDT)</label>
-                <input type="number" name="usd_rate" bind:value={modalUsdRate} step="any" placeholder="320" class="input" />
-              </div>
-              <div>
-                <label class="form-label">USD Received</label>
-                <input type="number" name="usd_received" bind:value={modalUsdReceived} step="any" placeholder="15.62" class="input" />
-              </div>
-              <div>
-                <label class="form-label">Total LKR Sent (computed)</label>
-                <div class="computed-field">{modalLkrTotalSent.toLocaleString('en-US', {maximumFractionDigits:2})}</div>
-              </div>
-              <div>
-                <label class="form-label">Effective Rate (computed)</label>
-                <div class="computed-field">{modalUsdReceived && modalFiatSent ? (modalFiatSent / modalUsdReceived).toFixed(2) : '—'}</div>
-              </div>
-            {:else}
-              <div>
-                <label class="form-label">Sender (P2P)</label>
-                <input name="sender_bank" value={editEntry?.sender_bank ?? ''} placeholder="Counterparty name" class="input" />
-              </div>
-              <div>
-                <label class="form-label">Receiver Bank</label>
-                <input name="receiver_bank" value={editEntry?.receiver_bank ?? ''} placeholder="e.g. ComBank" class="input" />
-              </div>
-              <div>
-                <label class="form-label">USD Quantity</label>
-                <input type="number" name="usd_quantity" bind:value={modalUsdQuantity} step="any" placeholder="50" class="input" />
-              </div>
-              <div>
-                <label class="form-label">Fee (USDT)</label>
-                <input type="number" name="fee" bind:value={modalFee} step="any" placeholder="0.07" class="input" />
-              </div>
-              <div>
-                <label class="form-label">Rate (LKR/USDT)</label>
-                <input type="number" name="usd_rate" bind:value={modalUsdRate} step="any" placeholder="320" class="input" />
-              </div>
-              <div>
-                <label class="form-label">Actual LKR Received</label>
-                <input type="number" name="fiat_amount" value={editEntry?.fiat_amount ?? ''} step="any" placeholder="15990" class="input" />
-              </div>
-              <div>
-                <label class="form-label">USD Released (computed)</label>
-                <div class="computed-field">${modalUsdReleased.toFixed(4)}</div>
-              </div>
-              <div>
-                <label class="form-label">Expected LKR (computed)</label>
-                <div class="computed-field">{modalExpectedFiat.toLocaleString('en-US', {maximumFractionDigits:0})}</div>
-              </div>
-            {/if}
+						{#if modalType === 'deposit'}
+							<div>
+								<label class="form-label">My Bank</label>
+								<input
+									name="my_bank"
+									value={editEntry?.my_bank ?? ''}
+									placeholder="e.g. BOC"
+									class="input"
+								/>
+							</div>
+							<div>
+								<label class="form-label">Recipient (P2P)</label>
+								<input
+									name="recipient_bank"
+									value={editEntry?.recipient_bank ?? ''}
+									placeholder="Counterparty name"
+									class="input"
+								/>
+							</div>
+							<div>
+								<label class="form-label">LKR Sent</label>
+								<input
+									type="number"
+									name="fiat_sent"
+									bind:value={modalFiatSent}
+									step="any"
+									placeholder="5000"
+									class="input"
+								/>
+							</div>
+							<div>
+								<label class="form-label">USD Fee ($)</label>
+								<input
+									type="number"
+									name="usd_fee"
+									bind:value={modalUsdFee}
+									step="any"
+									placeholder="0"
+									class="input"
+								/>
+							</div>
+							<div>
+								<label class="form-label">Rate (LKR/USDT)</label>
+								<input
+									type="number"
+									name="usd_rate"
+									bind:value={modalUsdRate}
+									step="any"
+									placeholder="320"
+									class="input"
+								/>
+							</div>
+							<div>
+								<label class="form-label">USD Received</label>
+								<input
+									type="number"
+									name="usd_received"
+									bind:value={modalUsdReceived}
+									step="any"
+									placeholder="15.62"
+									class="input"
+								/>
+							</div>
+							<div>
+								<label class="form-label">Total LKR Sent (computed)</label>
+								<div class="computed-field">
+									{modalLkrTotalSent.toLocaleString('en-US', { maximumFractionDigits: 2 })}
+								</div>
+							</div>
+							<div>
+								<label class="form-label">Effective Rate (computed)</label>
+								<div class="computed-field">
+									{modalUsdReceived && modalFiatSent
+										? (modalFiatSent / modalUsdReceived).toFixed(2)
+										: '—'}
+								</div>
+							</div>
+						{:else}
+							<div>
+								<label class="form-label">Sender (P2P)</label>
+								<input
+									name="sender_bank"
+									value={editEntry?.sender_bank ?? ''}
+									placeholder="Counterparty name"
+									class="input"
+								/>
+							</div>
+							<div>
+								<label class="form-label">Receiver Bank</label>
+								<input
+									name="receiver_bank"
+									value={editEntry?.receiver_bank ?? ''}
+									placeholder="e.g. ComBank"
+									class="input"
+								/>
+							</div>
+							<div>
+								<label class="form-label">USD Quantity</label>
+								<input
+									type="number"
+									name="usd_quantity"
+									bind:value={modalUsdQuantity}
+									step="any"
+									placeholder="50"
+									class="input"
+								/>
+							</div>
+							<div>
+								<label class="form-label">Fee (USDT)</label>
+								<input
+									type="number"
+									name="fee"
+									bind:value={modalFee}
+									step="any"
+									placeholder="0.07"
+									class="input"
+								/>
+							</div>
+							<div>
+								<label class="form-label">Rate (LKR/USDT)</label>
+								<input
+									type="number"
+									name="usd_rate"
+									bind:value={modalUsdRate}
+									step="any"
+									placeholder="320"
+									class="input"
+								/>
+							</div>
+							<div>
+								<label class="form-label">Actual LKR Received</label>
+								<input
+									type="number"
+									name="fiat_amount"
+									value={editEntry?.fiat_amount ?? ''}
+									step="any"
+									placeholder="15990"
+									class="input"
+								/>
+							</div>
+							<div>
+								<label class="form-label">USD Released (computed)</label>
+								<div class="computed-field">${modalUsdReleased.toFixed(4)}</div>
+							</div>
+							<div>
+								<label class="form-label">Expected LKR (computed)</label>
+								<div class="computed-field">
+									{modalExpectedFiat.toLocaleString('en-US', { maximumFractionDigits: 0 })}
+								</div>
+							</div>
+						{/if}
 
-            <div class="span-full">
-              <label class="form-label">Notes</label>
-              <textarea name="notes" rows="2" class="input" style="resize:vertical;font-family:inherit;">{editEntry?.notes ?? ''}</textarea>
-            </div>
+						<div class="span-full">
+							<label class="form-label">Notes</label>
+							<textarea
+								name="notes"
+								rows="2"
+								class="input"
+								style="resize:vertical;font-family:inherit;">{editEntry?.notes ?? ''}</textarea
+							>
+						</div>
 
-            {#if editEntry}
-              <div>
-                <label class="form-label">Order Number</label>
-                <input type="text" name="order_number" value={editEntry?.order_number ?? ''} class="input" placeholder="Optional" />
-              </div>
-              <div>
-                <label class="form-label">Counterparty</label>
-                <input type="text" name="counterparty" value={editEntry?.counterparty ?? ''} class="input" placeholder="Optional" />
-              </div>
-            {/if}
-          </div>
+						{#if editEntry}
+							<div>
+								<label class="form-label">Order Number</label>
+								<input
+									type="text"
+									name="order_number"
+									value={editEntry?.order_number ?? ''}
+									class="input"
+									placeholder="Optional"
+								/>
+							</div>
+							<div>
+								<label class="form-label">Counterparty</label>
+								<input
+									type="text"
+									name="counterparty"
+									value={editEntry?.counterparty ?? ''}
+									class="input"
+									placeholder="Optional"
+								/>
+							</div>
+						{/if}
+					</div>
 
-          <div style="margin-top:1.25rem;padding-top:1.25rem;border-top:1px solid var(--border);display:flex;gap:0.75rem;justify-content:flex-end;align-items:center;">
-            {#if editEntry && editEntry.type === 'withdrawal' && (editEntry.tracking?.balanceUsd ?? 0) > 0}
-              <button
-                type="button"
-                onclick={() => resetOpen = true}
-                style="padding:0.5rem 1rem;border:1px solid var(--loss);border-radius:0.5rem;background:transparent;color:var(--loss);font-size:0.875rem;cursor:pointer;"
-                >Reset Releases</button
-              >
-            {:else if editEntry && editEntry.type === 'deposit' && editEntry.tracking?.lockedUsd != null}
-              <button
-                type="button"
-                onclick={() => resetOpen = true}
-                style="padding:0.5rem 1rem;border:1px solid var(--loss);border-radius:0.5rem;background:transparent;color:var(--loss);font-size:0.875rem;cursor:pointer;"
-                >Reset Lock</button
-              >
-            {/if}
-            <button
-              type="button"
-              onclick={closeModal}
-              style="padding:0.5rem 1rem;border:1px solid var(--border);border-radius:0.5rem;background:transparent;color:var(--text-muted);font-size:0.875rem;cursor:pointer;"
-              >Cancel</button
-            >
-            <button
-              type="submit"
-              style="padding:0.5rem 1.25rem;background:var(--accent);color:#fff;border:none;border-radius:0.5rem;font-weight:600;font-size:0.875rem;cursor:pointer;"
-              >{editEntry ? 'Save Changes' : '+ Add Entry'}</button
-            >
-          </div>
-        </form>
+					<div
+						style="margin-top:1.25rem;padding-top:1.25rem;border-top:1px solid var(--border);display:flex;gap:0.75rem;justify-content:flex-end;align-items:center;"
+					>
+						{#if editEntry && editEntry.type === 'withdrawal' && (editEntry.tracking?.balanceUsd ?? 0) > 0}
+							<button
+								type="button"
+								onclick={() => (resetOpen = true)}
+								style="padding:0.5rem 1rem;border:1px solid var(--loss);border-radius:0.5rem;background:transparent;color:var(--loss);font-size:0.875rem;cursor:pointer;"
+								>Reset Releases</button
+							>
+						{:else if editEntry && editEntry.type === 'deposit' && editEntry.tracking?.lockedUsd != null}
+							<button
+								type="button"
+								onclick={() => (resetOpen = true)}
+								style="padding:0.5rem 1rem;border:1px solid var(--loss);border-radius:0.5rem;background:transparent;color:var(--loss);font-size:0.875rem;cursor:pointer;"
+								>Reset Lock</button
+							>
+						{/if}
+						<button
+							type="button"
+							onclick={closeModal}
+							style="padding:0.5rem 1rem;border:1px solid var(--border);border-radius:0.5rem;background:transparent;color:var(--text-muted);font-size:0.875rem;cursor:pointer;"
+							>Cancel</button
+						>
+						<button
+							type="submit"
+							style="padding:0.5rem 1.25rem;background:var(--accent);color:#fff;border:none;border-radius:0.5rem;font-weight:600;font-size:0.875rem;cursor:pointer;"
+							>{editEntry ? 'Save Changes' : '+ Add Entry'}</button
+						>
+					</div>
+				</form>
 
-        {#if resetOpen}
-          <form method="POST" action="?/reset" use:enhance={() => async ({ update }: any) => {
-            await update();
-            await invalidateAll();
-            resetOpen = false;
-            closeModal();
-          }}>
-            <input type="hidden" name="id" value={editEntry.id} />
-            <input type="hidden" name="type" value={editEntry.type} />
-            <div style="margin-top:1rem;padding-top:1rem;border-top:1px solid var(--border);">
-              <p style="font-size:0.875rem;color:var(--text-muted);margin-bottom:0.75rem;">
-                {editEntry.type === 'withdrawal'
-                  ? 'Reset releases on this withdrawal? This unlinks all allocations and frees the deposits back up.'
-                  : 'Reset the lock on this deposit? This will remove the tracking lock.'}
-              </p>
-              <div style="display:flex;gap:0.5rem;justify-content:flex-end;">
-                <button type="button" onclick={() => resetOpen = false} style="padding:0.4rem 0.875rem;border:1px solid var(--border);border-radius:0.375rem;background:transparent;color:var(--text-muted);font-size:0.85rem;cursor:pointer;">Cancel</button>
-                <button type="submit" style="padding:0.4rem 0.875rem;background:var(--loss);color:#fff;border:none;border-radius:0.375rem;font-size:0.85rem;font-weight:600;cursor:pointer;">Reset</button>
-              </div>
-            </div>
-          </form>
-        {/if}
-      </div>
-    </div>
-  {/if}
+				{#if resetOpen}
+					<form
+						method="POST"
+						action="?/reset"
+						use:enhance={() =>
+							async ({ update }: any) => {
+								await update();
+								await invalidateAll();
+								resetOpen = false;
+								closeModal();
+							}}
+					>
+						<input type="hidden" name="id" value={editEntry.id} />
+						<input type="hidden" name="type" value={editEntry.type} />
+						<div style="margin-top:1rem;padding-top:1rem;border-top:1px solid var(--border);">
+							<p style="font-size:0.875rem;color:var(--text-muted);margin-bottom:0.75rem;">
+								{editEntry.type === 'withdrawal'
+									? 'Reset releases on this withdrawal? This unlinks all allocations and frees the deposits back up.'
+									: 'Reset the lock on this deposit? This will remove the tracking lock.'}
+							</p>
+							<div style="display:flex;gap:0.5rem;justify-content:flex-end;">
+								<button
+									type="button"
+									onclick={() => (resetOpen = false)}
+									style="padding:0.4rem 0.875rem;border:1px solid var(--border);border-radius:0.375rem;background:transparent;color:var(--text-muted);font-size:0.85rem;cursor:pointer;"
+									>Cancel</button
+								>
+								<button
+									type="submit"
+									style="padding:0.4rem 0.875rem;background:var(--loss);color:#fff;border:none;border-radius:0.375rem;font-size:0.85rem;font-weight:600;cursor:pointer;"
+									>Reset</button
+								>
+							</div>
+						</div>
+					</form>
+				{/if}
+			</div>
+		</div>
+	{/if}
 </div>

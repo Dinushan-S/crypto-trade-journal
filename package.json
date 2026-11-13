@@ -1,5 +1,6 @@
 {
 	"name": "trade-journal",
+	"description": "Crypto futures trading journal — Binance import, P2P ledger, liquidation and session analytics. SvelteKit + Convex.",
 	"private": true,
 	"version": "0.0.1",
 	"type": "module",
@@ -11,7 +12,8 @@
 		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
 		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
 		"lint": "prettier --check . && eslint .",
-		"format": "prettier --write ."
+		"format": "prettier --write .",
+		"test": "vitest run"
 	},
 	"devDependencies": {
 		"@edge-runtime/vm": "^5.0.0",

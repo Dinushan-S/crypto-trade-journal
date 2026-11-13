@@ -27,7 +27,11 @@ csv/
 "PLAN (1).md"
 .agents
 .claude
+CLAUDE.md
+AGENTS.md
+skills-lock.json
 
 # Migration scratch
 .import/
-.commandcode/settings.json
+.commandcode/
+data/
