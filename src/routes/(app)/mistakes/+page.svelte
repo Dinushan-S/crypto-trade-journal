@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { resolve } from '$app/paths';
 	import { formatDate } from '$lib/utils';
 
 	let { data } = $props();
@@ -36,7 +37,7 @@
 	}
 
 	let filteredMistakes = $derived(
-		data.mistakes.filter((m: any) => {
+		data.mistakes.filter((m) => {
 			const matchesCategory = selectedCategory === 'All' || m.category === selectedCategory;
 			const q = searchQuery.toLowerCase().trim();
 			const matchesSearch =
@@ -66,7 +67,7 @@
 			</p>
 		</div>
 		<a
-			href="/mistakes/new"
+			href={resolve('/mistakes/new')}
 			style="padding:0.625rem 1.25rem;background:var(--accent);border:none;border-radius:0.5rem;color:#fff;text-decoration:none;font-size:0.875rem;font-weight:600;display:inline-flex;align-items:center;gap:0.5rem;"
 		>
 			<svg
@@ -167,7 +168,7 @@
 				bind:value={selectedCategory}
 				style="padding:0.625rem 0.875rem;background:var(--surface);border:1px solid var(--border);border-radius:0.5rem;color:var(--text-primary);font-size:0.875rem;cursor:pointer;"
 			>
-				{#each categories as cat}
+				{#each categories as cat (cat)}
 					<option value={cat}>{cat}</option>
 				{/each}
 			</select>
@@ -188,7 +189,7 @@
 			</p>
 			{#if data.mistakes.length === 0}
 				<a
-					href="/mistakes/new"
+					href={resolve('/mistakes/new')}
 					style="display:inline-block;margin-top:1rem;padding:0.5rem 1rem;background:var(--accent);color:#fff;border-radius:0.5rem;text-decoration:none;font-size:0.875rem;font-weight:600;"
 				>
 					Log Your First Mistake
@@ -197,7 +198,7 @@
 		</div>
 	{:else}
 		<div style="display:flex;flex-direction:column;gap:1.25rem;">
-			{#each filteredMistakes as mistake}
+			{#each filteredMistakes as mistake (mistake.id)}
 				{@const sevStyle = getSeverityColor(mistake.severity)}
 				<div
 					style="background:var(--surface);border:1px solid var(--border);border-radius:0.75rem;padding:1.25rem;display:flex;flex-direction:column;gap:1rem;"
@@ -239,7 +240,7 @@
 						<div style="display:flex;align-items:center;gap:0.75rem;">
 							{#if mistake.trade_id}
 								<a
-									href="/trades/{mistake.trade_id}"
+									href={resolve('/(app)/trades/[id]', { id: mistake.trade_id })}
 									style="font-size:0.8125rem;color:var(--accent);text-decoration:none;display:inline-flex;align-items:center;gap:0.25rem;"
 								>
 									<svg
@@ -259,7 +260,7 @@
 							{/if}
 
 							<a
-								href="/mistakes/{mistake.id}"
+								href={resolve('/(app)/mistakes/[id]', { id: mistake.id })}
 								style="font-size:0.8125rem;color:var(--text-muted);text-decoration:none;padding:0.25rem 0.5rem;border-radius:0.25rem;border:1px solid var(--border);"
 							>
 								Edit

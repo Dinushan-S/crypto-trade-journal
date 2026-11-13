@@ -1,13 +1,14 @@
 import { fail, redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 import { api } from '../../../../../convex/_generated/api';
+import type { Doc, Id } from '../../../../../convex/_generated/dataModel';
 
 export const load: PageServerLoad = async ({ locals: { convex }, url }) => {
 	const tradeIdsStr = url.searchParams.get('tradeIds') ?? '';
 	const tradeIds = tradeIdsStr.length > 0 ? tradeIdsStr.split(',').filter(Boolean) : [];
 
 	// Trades the user can link (not already linked to another liquidation)
-	const availableTrades: any[] = await convex
+	const availableTrades = await convex
 		.query(api.liquidations.getAvailableTrades, {})
 		.catch(() => []);
 
@@ -22,20 +23,19 @@ export const load: PageServerLoad = async ({ locals: { convex }, url }) => {
 	}
 
 	// Fetch selected trades and compute prefilled values
-	let dates = new Set<string>();
-	let coins = new Set<string>();
-	let positions = new Set<string>();
-	let strategies = new Set<string>();
+	const dates = new Set<string>();
+	const coins = new Set<string>();
+	const positions = new Set<string>();
+	const strategies = new Set<string>();
 	let netPnl = 0;
-	let fees = 0;
-	const selectedTradeDocs: any[] = [];
+	const selectedTradeDocs: Doc<'trades'>[] = [];
 
 	for (const id of tradeIds) {
-		const trade: any = await convex
-			.query(api.trades.getTradeById, { id: id as any })
+		const trade = await convex
+			.query(api.trades.getTradeById, { id: id as Id<'trades'> })
 			.catch(() => null);
 		if (!trade) continue;
-		const closes = trade.is_group ? trade.partial_closes : [trade];
+		const closes = trade.is_group && 'partial_closes' in trade ? trade.partial_closes : [trade];
 		for (const trade of closes) {
 			if (selectedTradeDocs.some((t) => t._id === trade._id)) continue;
 			selectedTradeDocs.push(trade);
@@ -44,7 +44,6 @@ export const load: PageServerLoad = async ({ locals: { convex }, url }) => {
 			if (trade.position) positions.add(trade.position);
 			if (trade.strategy) strategies.add(trade.strategy);
 			netPnl += trade.pnl ?? 0;
-			fees += trade.fee ?? 0;
 		}
 	}
 
@@ -106,7 +105,7 @@ export const actions: Actions = {
 					reason,
 					mistake,
 					notes,
-					tradeIds: tradeIds as any[]
+					tradeIds: tradeIds as Id<'trades'>[]
 				});
 			} else {
 				id = await convex.mutation(api.liquidations.createLiquidation, {
@@ -120,8 +119,10 @@ export const actions: Actions = {
 					notes
 				});
 			}
-		} catch (err: any) {
-			return fail(500, { error: err.message || 'Failed to save liquidation.' });
+		} catch (err) {
+			return fail(500, {
+				error: (err instanceof Error && err.message) || 'Failed to save liquidation.'
+			});
 		}
 
 		redirect(303, `/liquidations/${id}`);

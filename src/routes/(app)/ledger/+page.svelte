@@ -2,9 +2,12 @@
 	import { goto, invalidateAll } from '$app/navigation';
 	import { page } from '$app/state';
 	import { enhance } from '$app/forms';
+	import { resolve } from '$app/paths';
 	import { formatDate, periodRange, type Period } from '$lib/utils';
+	import type { ActionData, PageData } from './$types';
+	import type { SubmitFunction } from '@sveltejs/kit';
 
-	let { data, form } = $props();
+	let { data, form }: { data: PageData; form: ActionData } = $props();
 	let activeTab = $state<'all' | 'deposits' | 'withdrawals'>('deposits');
 
 	type LedgerEntry = (typeof data.entries)[0];
@@ -18,10 +21,6 @@
 	}
 	function expectedFiat(e: LedgerEntry) {
 		return usdReleased(e) * (e.usd_rate ?? 0);
-	}
-	function effectiveRate(e: LedgerEntry) {
-		if (!e.usd_received || !e.fiat_sent) return null;
-		return e.fiat_sent / e.usd_received;
 	}
 
 	// Date filtering (client-side — the whole ledger is already loaded)
@@ -64,7 +63,6 @@
 	let netLkr = $derived(totalLkrIn - totalLkrOut);
 
 	// Lock tracking UI state
-	let lockInputs = $state<Record<string, string>>({});
 	let releaseOpen = $state<string | null>(null);
 	let releaseInputs = $state<Record<string, Record<string, string>>>({});
 
@@ -82,7 +80,7 @@
 	let pagedDeposits = $derived(deposits.slice((depPage - 1) * pageSize, depPage * pageSize));
 	let pagedWithdrawals = $derived(withdrawals.slice((wdPage - 1) * pageSize, wdPage * pageSize));
 
-	function pageButtons(total: number, page: number) {
+	function pageButtons(total: number) {
 		const count = Math.max(1, Math.ceil(total / pageSize));
 		if (count <= 1) return [];
 		return Array.from({ length: count }, (_, i) => i + 1);
@@ -100,16 +98,16 @@
 		}
 	});
 
-	const inlineForm =
+	const inlineForm: SubmitFunction =
 		() =>
-		async ({ update }: any) => {
+		async ({ update }) => {
 			await update();
 			await invalidateAll();
 		};
 
 	// Quick add / quick edit modal
 	let addOpen = $state(false);
-	let editEntry = $state<any | null>(null);
+	let editEntry = $state<LedgerEntry | null>(null);
 	let resetOpen = $state(false);
 
 	const closeModal = () => {
@@ -118,9 +116,9 @@
 		resetOpen = false;
 	};
 
-	const modalEnhance =
+	const modalEnhance: SubmitFunction =
 		() =>
-		async ({ update }: any) => {
+		async ({ update }) => {
 			await update();
 			await invalidateAll();
 			closeModal();
@@ -149,10 +147,10 @@
 	$effect(() => {
 		if (page.url.searchParams.has('add')) {
 			openAdd();
-			goto('/ledger', { replaceState: true, noScroll: true, keepFocus: true });
+			goto(resolve('/ledger'), { replaceState: true, noScroll: true, keepFocus: true });
 		}
 	});
-	function openEdit(e: any) {
+	function openEdit(e: LedgerEntry) {
 		editEntry = e;
 		syncModalType();
 		addOpen = true;
@@ -195,7 +193,7 @@
 		</div>
 		<div style="display:flex;gap:0.5rem;">
 			<a
-				href="/ledger/import"
+				href={resolve('/ledger/import')}
 				style="padding:0.5rem 0.875rem;border:1px solid var(--border);border-radius:0.5rem;color:var(--text-muted);text-decoration:none;font-size:0.875rem;display:inline-flex;align-items:center;gap:0.375rem;"
 			>
 				📥 Import C2C
@@ -211,7 +209,7 @@
 
 	<!-- Date filter -->
 	<div style="display:flex;flex-wrap:wrap;gap:0.5rem;align-items:center;margin-bottom:1rem;">
-		{#each [['day', 'Today'], ['week', 'This Week'], ['month', 'This Month'], ['custom', 'Custom']] as [p, label]}
+		{#each [['day', 'Today'], ['week', 'This Week'], ['month', 'This Month'], ['custom', 'Custom']] as [p, label] (p)}
 			<button
 				onclick={() => setPeriod(p as Period)}
 				style="padding:0.375rem 0.625rem;border:1px solid {period === p
@@ -243,7 +241,7 @@
 	<div
 		style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:0.75rem;margin-bottom:1.5rem;"
 	>
-		{#each [['Total LKR In', `LKR ${totalLkrIn.toLocaleString('en-US', { maximumFractionDigits: 0 })}`, 'var(--loss)'], ['Total LKR Out', `LKR ${totalLkrOut.toLocaleString('en-US', { maximumFractionDigits: 0 })}`, 'var(--win)'], ['Net LKR Contribution', `LKR ${netLkr.toLocaleString('en-US', { maximumFractionDigits: 0 })}`, netLkr >= 0 ? 'var(--win)' : 'var(--loss)'], ['Total USD Deposited', `$${totalUsdDeposited.toFixed(2)}`, 'var(--loss)'], ['Total USD Withdrawn', `$${totalUsdWithdrawn.toFixed(2)}`, 'var(--win)'], ['Net USD Position', `$${netUsd.toFixed(2)}`, netUsd >= 0 ? 'var(--win)' : 'var(--loss)']] satisfies [string, string, string][] as item}
+		{#each [['Total LKR In', `LKR ${totalLkrIn.toLocaleString('en-US', { maximumFractionDigits: 0 })}`, 'var(--loss)'], ['Total LKR Out', `LKR ${totalLkrOut.toLocaleString('en-US', { maximumFractionDigits: 0 })}`, 'var(--win)'], ['Net LKR Contribution', `LKR ${netLkr.toLocaleString('en-US', { maximumFractionDigits: 0 })}`, netLkr >= 0 ? 'var(--win)' : 'var(--loss)'], ['Total USD Deposited', `$${totalUsdDeposited.toFixed(2)}`, 'var(--loss)'], ['Total USD Withdrawn', `$${totalUsdWithdrawn.toFixed(2)}`, 'var(--win)'], ['Net USD Position', `$${netUsd.toFixed(2)}`, netUsd >= 0 ? 'var(--win)' : 'var(--loss)']] satisfies [string, string, string][] as item (item[0])}
 			<div
 				style="background:var(--surface);border:1px solid var(--border);border-radius:0.75rem;padding:1rem;"
 			>
@@ -264,7 +262,7 @@
 	<!-- Tabs -->
 	<div style="display:flex;gap:0;border-bottom:2px solid var(--border);margin-bottom:1rem;">
 		<!-- {#each [['all','All'], ['deposits','Deposits'], ['withdrawals','Withdrawals']] as [tab, label]} -->
-		{#each [['deposits', 'Deposits'], ['withdrawals', 'Withdrawals']] as [tab, label]}
+		{#each [['deposits', 'Deposits'], ['withdrawals', 'Withdrawals']] as [tab, label] (tab)}
 			<button
 				onclick={() => (activeTab = tab as 'all' | 'deposits' | 'withdrawals')}
 				style="padding:0.625rem 1rem;border:none;background:transparent;font-size:0.875rem;font-weight:{activeTab ===
@@ -284,8 +282,9 @@
 	<div class="card-flush">
 		{#if visibleEntries.length === 0}
 			<div style="padding:3rem;text-align:center;color:var(--text-muted);">
-				No entries yet. <a href="/ledger/import" style="color:var(--accent);text-decoration:none;"
-					>Import C2C CSV</a
+				No entries yet. <a
+					href={resolve('/ledger/import')}
+					style="color:var(--accent);text-decoration:none;">Import C2C CSV</a
 				>
 				or
 				<button
@@ -308,7 +307,7 @@
 					<table class="table">
 						<thead>
 							<tr class="thead-row">
-								{#each ['Date', 'LKR Sent', 'Total LKR', 'USD Received', 'Rate', 'Lock', 'Released', 'Remaining', 'Status', ''] as col}
+								{#each ['Date', 'LKR Sent', 'Total LKR', 'USD Received', 'Rate', 'Lock', 'Released', 'Remaining', 'Status', ''] as col (col)}
 									<th
 										style="padding:0.5rem 0.75rem;text-align:left;font-size:0.7rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;white-space:nowrap;"
 										>{col}</th
@@ -317,7 +316,7 @@
 							</tr>
 						</thead>
 						<tbody>
-							{#each activeTab === 'all' ? pagedDeposits : visibleEntries.slice((depPage - 1) * pageSize, depPage * pageSize) as e}
+							{#each activeTab === 'all' ? pagedDeposits : visibleEntries.slice((depPage - 1) * pageSize, depPage * pageSize) as e (e.id)}
 								{@const tr = e.tracking}
 								<tr class="row-divider">
 									<td
@@ -421,7 +420,7 @@
 							{/each}
 						</tbody>
 					</table>
-					{#if pageButtons(deposits.length, depPage).length > 0}
+					{#if pageButtons(deposits.length).length > 0}
 						<div
 							style="display:flex;align-items:center;gap:0.375rem;justify-content:space-between;padding:0.625rem 0.75rem;border-top:1px solid var(--border);flex-wrap:wrap;"
 						>
@@ -435,7 +434,7 @@
 										? 0.4
 										: 1};">←</button
 								>
-								{#each pageButtons(deposits.length, depPage) as p}
+								{#each pageButtons(deposits.length) as p (p)}
 									<button
 										onclick={() => jumpDep(p)}
 										style="padding:0.25rem 0.625rem;border:1px solid {p === depPage
@@ -470,7 +469,7 @@
 					<table class="table">
 						<thead>
 							<tr class="thead-row">
-								{#each ['Date', 'USD Qty', 'Rate', 'LKR Received', 'Source', 'Balance', ''] as col}
+								{#each ['Date', 'USD Qty', 'Rate', 'LKR Received', 'Source', 'Balance', ''] as col (col)}
 									<th
 										style="padding:0.5rem 0.75rem;text-align:left;font-size:0.7rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;white-space:nowrap;"
 										>{col}</th
@@ -479,7 +478,7 @@
 							</tr>
 						</thead>
 						<tbody>
-							{#each activeTab === 'all' ? pagedWithdrawals : visibleEntries.slice((wdPage - 1) * pageSize, wdPage * pageSize) as e}
+							{#each activeTab === 'all' ? pagedWithdrawals : visibleEntries.slice((wdPage - 1) * pageSize, wdPage * pageSize) as e (e.id)}
 								{@const tr = e.tracking}
 								<tr class="row-divider">
 									<td
@@ -535,7 +534,7 @@
 												method="POST"
 												action="?/allocate"
 												use:enhance={() =>
-													async ({ update }: any) => {
+													async ({ update }) => {
 														await update();
 														await invalidateAll();
 														releaseOpen = null;
@@ -546,7 +545,7 @@
 													<span style="font-size:0.8rem;color:var(--text-muted);font-weight:600;"
 														>Release into:</span
 													>
-													{#each deposits.filter((d) => d.tracking?.remainingUsd != null && d.tracking.remainingUsd > 0) as d}
+													{#each deposits.filter((d) => d.tracking?.remainingUsd != null && d.tracking.remainingUsd > 0) as d (d.id)}
 														<label
 															style="display:flex;align-items:center;gap:0.375rem;font-size:0.8rem;color:var(--text-primary);"
 														>
@@ -595,7 +594,7 @@
 							{/each}
 						</tbody>
 					</table>
-					{#if pageButtons(withdrawals.length, wdPage).length > 0}
+					{#if pageButtons(withdrawals.length).length > 0}
 						<div
 							style="display:flex;align-items:center;gap:0.375rem;justify-content:space-between;padding:0.625rem 0.75rem;border-top:1px solid var(--border);flex-wrap:wrap;"
 						>
@@ -609,7 +608,7 @@
 										? 0.4
 										: 1};">←</button
 								>
-								{#each pageButtons(withdrawals.length, wdPage) as p}
+								{#each pageButtons(withdrawals.length) as p (p)}
 									<button
 										onclick={() => jumpWd(p)}
 										style="padding:0.25rem 0.625rem;border:1px solid {p === wdPage
@@ -641,6 +640,7 @@
 	{#if addOpen}
 		<div
 			style="position:fixed;inset:0;background:rgba(0,0,0,0.6);display:flex;align-items:center;justify-content:center;z-index:50;"
+			role="presentation"
 			onclick={(e) => {
 				if (e.target === e.currentTarget) closeModal();
 			}}
@@ -680,7 +680,7 @@
 						<div
 							style="display:inline-flex;background:var(--surface);border:1px solid var(--border);border-radius:0.5rem;padding:0.25rem;margin-bottom:1.25rem;"
 						>
-							{#each ['deposit', 'withdrawal'] as const as t}
+							{#each ['deposit', 'withdrawal'] as const as t (t)}
 								<button
 									type="button"
 									onclick={() => (modalType = t)}
@@ -700,9 +700,10 @@
 
 					<div style="display:grid;grid-template-columns:1fr 1fr;gap:0.875rem;">
 						<div>
-							<label class="form-label">Date</label>
+							<label class="form-label" for="ledger-date">Date</label>
 							<input
 								type="date"
+								id="ledger-date"
 								name="date"
 								value={editEntry?.date ?? new Date().toISOString().split('T')[0]}
 								class="input"
@@ -710,14 +711,21 @@
 							/>
 						</div>
 						<div>
-							<label class="form-label">Time</label>
-							<input type="time" name="time" value={editEntry?.time ?? ''} class="input" />
+							<label class="form-label" for="ledger-time">Time</label>
+							<input
+								type="time"
+								id="ledger-time"
+								name="time"
+								value={editEntry?.time ?? ''}
+								class="input"
+							/>
 						</div>
 
 						{#if modalType === 'deposit'}
 							<div>
-								<label class="form-label">My Bank</label>
+								<label class="form-label" for="ledger-my_bank">My Bank</label>
 								<input
+									id="ledger-my_bank"
 									name="my_bank"
 									value={editEntry?.my_bank ?? ''}
 									placeholder="e.g. BOC"
@@ -725,8 +733,9 @@
 								/>
 							</div>
 							<div>
-								<label class="form-label">Recipient (P2P)</label>
+								<label class="form-label" for="ledger-recipient_bank">Recipient (P2P)</label>
 								<input
+									id="ledger-recipient_bank"
 									name="recipient_bank"
 									value={editEntry?.recipient_bank ?? ''}
 									placeholder="Counterparty name"
@@ -734,9 +743,10 @@
 								/>
 							</div>
 							<div>
-								<label class="form-label">LKR Sent</label>
+								<label class="form-label" for="ledger-fiat_sent">LKR Sent</label>
 								<input
 									type="number"
+									id="ledger-fiat_sent"
 									name="fiat_sent"
 									bind:value={modalFiatSent}
 									step="any"
@@ -745,9 +755,10 @@
 								/>
 							</div>
 							<div>
-								<label class="form-label">USD Fee ($)</label>
+								<label class="form-label" for="ledger-usd_fee">USD Fee ($)</label>
 								<input
 									type="number"
+									id="ledger-usd_fee"
 									name="usd_fee"
 									bind:value={modalUsdFee}
 									step="any"
@@ -756,9 +767,10 @@
 								/>
 							</div>
 							<div>
-								<label class="form-label">Rate (LKR/USDT)</label>
+								<label class="form-label" for="ledger-usd_rate">Rate (LKR/USDT)</label>
 								<input
 									type="number"
+									id="ledger-usd_rate"
 									name="usd_rate"
 									bind:value={modalUsdRate}
 									step="any"
@@ -767,9 +779,10 @@
 								/>
 							</div>
 							<div>
-								<label class="form-label">USD Received</label>
+								<label class="form-label" for="ledger-usd_received">USD Received</label>
 								<input
 									type="number"
+									id="ledger-usd_received"
 									name="usd_received"
 									bind:value={modalUsdReceived}
 									step="any"
@@ -778,13 +791,13 @@
 								/>
 							</div>
 							<div>
-								<label class="form-label">Total LKR Sent (computed)</label>
+								<div class="form-label">Total LKR Sent (computed)</div>
 								<div class="computed-field">
 									{modalLkrTotalSent.toLocaleString('en-US', { maximumFractionDigits: 2 })}
 								</div>
 							</div>
 							<div>
-								<label class="form-label">Effective Rate (computed)</label>
+								<div class="form-label">Effective Rate (computed)</div>
 								<div class="computed-field">
 									{modalUsdReceived && modalFiatSent
 										? (modalFiatSent / modalUsdReceived).toFixed(2)
@@ -793,8 +806,9 @@
 							</div>
 						{:else}
 							<div>
-								<label class="form-label">Sender (P2P)</label>
+								<label class="form-label" for="ledger-sender_bank">Sender (P2P)</label>
 								<input
+									id="ledger-sender_bank"
 									name="sender_bank"
 									value={editEntry?.sender_bank ?? ''}
 									placeholder="Counterparty name"
@@ -802,8 +816,9 @@
 								/>
 							</div>
 							<div>
-								<label class="form-label">Receiver Bank</label>
+								<label class="form-label" for="ledger-receiver_bank">Receiver Bank</label>
 								<input
+									id="ledger-receiver_bank"
 									name="receiver_bank"
 									value={editEntry?.receiver_bank ?? ''}
 									placeholder="e.g. ComBank"
@@ -811,9 +826,10 @@
 								/>
 							</div>
 							<div>
-								<label class="form-label">USD Quantity</label>
+								<label class="form-label" for="ledger-usd_quantity">USD Quantity</label>
 								<input
 									type="number"
+									id="ledger-usd_quantity"
 									name="usd_quantity"
 									bind:value={modalUsdQuantity}
 									step="any"
@@ -822,9 +838,10 @@
 								/>
 							</div>
 							<div>
-								<label class="form-label">Fee (USDT)</label>
+								<label class="form-label" for="ledger-fee">Fee (USDT)</label>
 								<input
 									type="number"
+									id="ledger-fee"
 									name="fee"
 									bind:value={modalFee}
 									step="any"
@@ -833,9 +850,10 @@
 								/>
 							</div>
 							<div>
-								<label class="form-label">Rate (LKR/USDT)</label>
+								<label class="form-label" for="ledger-usd_rate">Rate (LKR/USDT)</label>
 								<input
 									type="number"
+									id="ledger-usd_rate"
 									name="usd_rate"
 									bind:value={modalUsdRate}
 									step="any"
@@ -844,9 +862,10 @@
 								/>
 							</div>
 							<div>
-								<label class="form-label">Actual LKR Received</label>
+								<label class="form-label" for="ledger-fiat_amount">Actual LKR Received</label>
 								<input
 									type="number"
+									id="ledger-fiat_amount"
 									name="fiat_amount"
 									value={editEntry?.fiat_amount ?? ''}
 									step="any"
@@ -855,11 +874,11 @@
 								/>
 							</div>
 							<div>
-								<label class="form-label">USD Released (computed)</label>
+								<div class="form-label">USD Released (computed)</div>
 								<div class="computed-field">${modalUsdReleased.toFixed(4)}</div>
 							</div>
 							<div>
-								<label class="form-label">Expected LKR (computed)</label>
+								<div class="form-label">Expected LKR (computed)</div>
 								<div class="computed-field">
 									{modalExpectedFiat.toLocaleString('en-US', { maximumFractionDigits: 0 })}
 								</div>
@@ -867,8 +886,9 @@
 						{/if}
 
 						<div class="span-full">
-							<label class="form-label">Notes</label>
+							<label class="form-label" for="ledger-notes">Notes</label>
 							<textarea
+								id="ledger-notes"
 								name="notes"
 								rows="2"
 								class="input"
@@ -878,9 +898,10 @@
 
 						{#if editEntry}
 							<div>
-								<label class="form-label">Order Number</label>
+								<label class="form-label" for="ledger-order_number">Order Number</label>
 								<input
 									type="text"
+									id="ledger-order_number"
 									name="order_number"
 									value={editEntry?.order_number ?? ''}
 									class="input"
@@ -888,9 +909,10 @@
 								/>
 							</div>
 							<div>
-								<label class="form-label">Counterparty</label>
+								<label class="form-label" for="ledger-counterparty">Counterparty</label>
 								<input
 									type="text"
+									id="ledger-counterparty"
 									name="counterparty"
 									value={editEntry?.counterparty ?? ''}
 									class="input"
@@ -932,12 +954,12 @@
 					</div>
 				</form>
 
-				{#if resetOpen}
+				{#if resetOpen && editEntry}
 					<form
 						method="POST"
 						action="?/reset"
 						use:enhance={() =>
-							async ({ update }: any) => {
+							async ({ update }) => {
 								await update();
 								await invalidateAll();
 								resetOpen = false;

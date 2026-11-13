@@ -1,6 +1,7 @@
 import type { PageServerLoad } from './$types';
 import { api } from '../../../convex/_generated/api';
 import type { FunctionReturnType } from 'convex/server';
+import type { Doc } from '../../../convex/_generated/dataModel';
 
 export const load: PageServerLoad = async ({ locals: { convex }, cookies }) => {
 	const calendarTz = cookies.get('calendarTz') ?? 'local';
@@ -10,25 +11,25 @@ export const load: PageServerLoad = async ({ locals: { convex }, cookies }) => {
 		convex.query(api.ledger.getLedger, {}).catch(() => [])
 	]);
 
-	const trades: any[] = allTrades ?? [];
-	const ledger: any[] = allLedger ?? [];
+	const trades = allTrades ?? [];
+	const ledger = allLedger ?? [];
 
 	const totalTrades = trades.length;
 	const completedTrades = trades.filter((t) => !t.is_group || t.status === 'Closed');
-	const wins = trades.filter((t: any) => t.win).length;
+	const wins = trades.filter((t) => t.win).length;
 	const winRate = completedTrades.length > 0 ? (wins / completedTrades.length) * 100 : 0;
-	const netPnl = trades.reduce((s: number, t: any) => s + (t.pnl ?? 0), 0);
+	const netPnl = trades.reduce((s, t) => s + (t.pnl ?? 0), 0);
 	const avgPnl = totalTrades > 0 ? netPnl / totalTrades : 0;
 
-	const deposits = ledger.filter((l: any) => l.type === 'deposit');
-	const withdrawals = ledger.filter((l: any) => l.type === 'withdrawal');
-	const totalDeposited = deposits.reduce((s: number, l: any) => s + (l.usd_received ?? 0), 0);
-	const totalWithdrawn = withdrawals.reduce((s: number, l: any) => s + (l.usd_quantity ?? 0), 0);
-	const totalLkrIn = deposits.reduce((s: number, l: any) => s + (l.fiat_sent ?? 0), 0);
-	const totalLkrOut = withdrawals.reduce((s: number, l: any) => s + (l.fiat_amount ?? 0), 0);
+	const deposits = ledger.filter((l) => l.type === 'deposit');
+	const withdrawals = ledger.filter((l) => l.type === 'withdrawal');
+	const totalDeposited = deposits.reduce((s, l) => s + (l.usd_received ?? 0), 0);
+	const totalWithdrawn = withdrawals.reduce((s, l) => s + (l.usd_quantity ?? 0), 0);
+	const totalLkrIn = deposits.reduce((s, l) => s + (l.fiat_sent ?? 0), 0);
+	const totalLkrOut = withdrawals.reduce((s, l) => s + (l.fiat_amount ?? 0), 0);
 	const netContributionLkr = totalLkrIn - totalLkrOut;
 
-	const recentTrades = trades.slice(0, 5).map((t: any) => ({
+	const recentTrades = trades.slice(0, 5).map((t) => ({
 		id: t._id,
 		coin: t.coin,
 		position: t.position,
@@ -39,7 +40,7 @@ export const load: PageServerLoad = async ({ locals: { convex }, cookies }) => {
 		be: t.be
 	}));
 
-	const recentLedger = ledger.slice(0, 3).map((l: any) => ({
+	const recentLedger = ledger.slice(0, 3).map((l) => ({
 		id: l._id,
 		type: l.type,
 		date: l.date,
@@ -51,7 +52,12 @@ export const load: PageServerLoad = async ({ locals: { convex }, cookies }) => {
 	// Monthly PnL
 	// Read history in separate bounded transactions; the list query only reads saved summaries.
 	const tradeById = new Map(trades.map((t) => [t._id, t]));
-	const closeEvents: any[] = [];
+	type CloseEvent = Omit<Doc<'trades'>, 'time'> & {
+		completed: boolean;
+		outcome_win: boolean;
+		time: string | null | undefined;
+	};
+	const closeEvents: CloseEvent[] = [];
 	let cursor: string | null = null;
 	do {
 		const history: FunctionReturnType<typeof api.trades.getTradeCloseEvents> = await convex.query(
@@ -99,9 +105,9 @@ export const load: PageServerLoad = async ({ locals: { convex }, cookies }) => {
 		.slice(0, 10);
 
 	// Win/Loss/BE counts
-	const winCount = trades.filter((t: any) => t.win === true).length;
-	const lossCount = completedTrades.filter((t: any) => t.loss).length;
-	const beCount = completedTrades.filter((t: any) => t.be).length;
+	const winCount = trades.filter((t) => t.win === true).length;
+	const lossCount = completedTrades.filter((t) => t.loss).length;
+	const beCount = completedTrades.filter((t) => t.be).length;
 
 	// Daily stats
 	type DayTrade = {

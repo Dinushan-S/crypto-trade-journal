@@ -1,5 +1,8 @@
 import type { PageServerLoad } from './$types';
 import { api } from '../../../../convex/_generated/api';
+import type { Doc, Id } from '../../../../convex/_generated/dataModel';
+
+type SessionEntry = Doc<'sessions'> & { id: Id<'sessions'> };
 
 function parseTimeToMinutes(time?: string | null): number | null {
 	if (!time) return null;
@@ -33,7 +36,10 @@ function deriveMarketSessions(
 
 export const load: PageServerLoad = async ({ locals: { convex }, url, cookies }) => {
 	const sessions = await convex.query(api.sessions.getSessions, {}).catch(() => []);
-	const grouped: Record<string, { date: string; pre?: any; tcl?: any; post?: any }> = {};
+	const grouped: Record<
+		string,
+		{ date: string; pre?: SessionEntry; tcl?: SessionEntry; post?: SessionEntry }
+	> = {};
 	for (const s of sessions) {
 		if (!grouped[s.date]) grouped[s.date] = { date: s.date };
 		grouped[s.date][s.session_type as 'pre' | 'tcl' | 'post'] = { ...s, id: s._id };
@@ -60,28 +66,26 @@ export const load: PageServerLoad = async ({ locals: { convex }, url, cookies })
 
 	let myCfg = { start: '04:30', end: '12:30' };
 	try {
-		const settings: any = await convex
-			.query(api.userSettings.getUserSettings, {} as any)
-			.catch(() => null);
+		const settings = await convex.query(api.userSettings.getUserSettings, {}).catch(() => null);
 		if (settings?.my_session_start && settings?.my_session_end)
 			myCfg = { start: settings.my_session_start, end: settings.my_session_end };
-	} catch {}
-
-	const allTrades = await convex.query(api.trades.getTrades, {}).catch(() => []);
-	let filtered: any[] = allTrades.map((t: any) => ({ ...t, id: t._id }));
-
-	if (result === 'win') filtered = filtered.filter((t: any) => t.win === true);
-	if (result === 'loss') filtered = filtered.filter((t: any) => t.loss === true);
-	if (result === 'be') filtered = filtered.filter((t: any) => t.be === true);
-	if (sessionsFilter.length > 0) {
-		const set = new Set(sessionsFilter);
-		filtered = filtered.filter((t: any) =>
-			deriveMarketSessions(t.time, myCfg).some((s) => set.has(s))
-		);
+	} catch {
+		// Settings are optional; keep the default session window.
 	}
 
-	const computeStats = (arr: any[]) => {
-		const by: Record<string, any[]> = {};
+	const allTrades = await convex.query(api.trades.getTrades, {}).catch(() => []);
+	let filtered = allTrades.map((t) => ({ ...t, id: t._id }));
+
+	if (result === 'win') filtered = filtered.filter((t) => t.win === true);
+	if (result === 'loss') filtered = filtered.filter((t) => t.loss === true);
+	if (result === 'be') filtered = filtered.filter((t) => t.be === true);
+	if (sessionsFilter.length > 0) {
+		const set = new Set(sessionsFilter);
+		filtered = filtered.filter((t) => deriveMarketSessions(t.time, myCfg).some((s) => set.has(s)));
+	}
+
+	const computeStats = (arr: Doc<'trades'>[]) => {
+		const by: Record<string, Doc<'trades'>[]> = {};
 		for (const t of arr)
 			for (const s of deriveMarketSessions(t.time, myCfg)) (by[s] ??= []).push(t);
 		const order = ['asian', 'london', 'ny', 'overnight', 'my', 'unscheduled'] as const;
@@ -90,9 +94,9 @@ export const load: PageServerLoad = async ({ locals: { convex }, url, cookies })
 			const wins = list.filter((t) => t.win).length;
 			const completed = list.filter((t) => !t.is_group || t.status === 'Closed');
 			const netPnl = list.reduce((s, t) => s + (t.pnl ?? 0), 0);
-			const grossWin = list.filter((t) => (t.pnl ?? 0) > 0).reduce((s, t) => s + t.pnl, 0);
+			const grossWin = list.filter((t) => (t.pnl ?? 0) > 0).reduce((s, t) => s + (t.pnl ?? 0), 0);
 			const grossLoss = Math.abs(
-				list.filter((t) => (t.pnl ?? 0) < 0).reduce((s, t) => s + t.pnl, 0)
+				list.filter((t) => (t.pnl ?? 0) < 0).reduce((s, t) => s + (t.pnl ?? 0), 0)
 			);
 			return {
 				session,
@@ -129,7 +133,7 @@ export const load: PageServerLoad = async ({ locals: { convex }, url, cookies })
 	})();
 
 	const sessionCounts = computeStats(
-		allTrades.filter((t: any) => {
+		allTrades.filter((t) => {
 			if (result === 'win' && t.win !== true) return false;
 			if (result === 'loss' && t.loss !== true) return false;
 			if (result === 'be' && t.be !== true) return false;

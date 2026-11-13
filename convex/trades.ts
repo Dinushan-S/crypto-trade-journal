@@ -476,6 +476,7 @@ export const combineTrades = mutation({
 			throw new Error('Original quantity must be at least the total closed quantity.');
 		if (!/^\d{4}-\d{2}-\d{2}$/.test(args.date) || closes.some((c) => c.date_closed! < args.date))
 			throw new Error('Entry date must be valid and no later than the closes.');
+		// eslint-disable-next-line @typescript-eslint/no-unused-vars -- strip non-field args from the patch
 		const { ids: _ids, primaryId: _primaryId, ...details } = args;
 		const now = new Date().toISOString();
 		const id =

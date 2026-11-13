@@ -1,15 +1,22 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
+	import { resolve } from '$app/paths';
 	import { enhance } from '$app/forms';
 	import { page } from '$app/state';
 	import { formatCurrency, formatDate } from '$lib/utils';
+	import type { PageData, PageProps } from './$types';
 
-	let { data, form } = $props();
+	type Trade = PageData['trade'];
+	// Group trades carry extra summary fields; flatten the union so the template can read
+	// them behind its `is_group` checks.
+	type GroupTrade = Extract<Trade, { partial_closes: unknown }>;
+
+	let { data, form }: PageProps = $props();
 	let editing = $state(false);
 	let saving = $state(false);
 	let showDeleteConfirm = $state(false);
 
-	const trade = $derived(data.trade as any);
+	const trade = $derived(data.trade as Trade & Partial<GroupTrade>);
 	const groupLockedFields = [
 		'coin',
 		'position',
@@ -22,17 +29,17 @@
 	];
 	const leverageNumber = $derived(
 		/^\d+(\.\d+)?x?$/i.test((trade.leverage ?? '').trim())
-			? Number(trade.leverage.trim().replace(/x$/i, ''))
+			? Number((trade.leverage ?? '').trim().replace(/x$/i, ''))
 			: NaN
 	);
 	const initialMargin = $derived(
-		trade.is_group && trade.entry_price > 0 && leverageNumber > 0
-			? (trade.entry_price * trade.original_quantity) / leverageNumber
+		trade.is_group && trade.entry_price != null && trade.entry_price > 0 && leverageNumber > 0
+			? (trade.entry_price * trade.original_quantity!) / leverageNumber
 			: null
 	);
 	const remainingMargin = $derived(
 		initialMargin != null
-			? (initialMargin * trade.remaining_quantity) / trade.original_quantity
+			? (initialMargin * trade.remaining_quantity!) / trade.original_quantity!
 			: null
 	);
 	$effect(() => {
@@ -40,12 +47,12 @@
 	});
 
 	$effect(() => {
-		if (form?.deleted) goto('/trades');
+		if (form?.deleted) goto(resolve('/trades'));
 		if (form?.success) {
 			editing = false;
 		}
 	});
-	const editFields: [string, string, string][] = [
+	const editFields = [
 		['Coin', 'coin', 'text'],
 		['Position', 'position', 'text'],
 		['Date', 'date', 'date'],
@@ -66,17 +73,17 @@
 		['Date Closed', 'date_closed', 'date'],
 		['Close Time', 'time_closed', 'time'],
 		['Closed Reason', 'closed_reason', 'text']
-	];
+	] as const;
 
-	const textareaFields: [string, string][] = [
+	const textareaFields = [
 		['Reason', 'reason'],
 		['Pre Notes', 'pre_notes'],
 		['Post Notes', 'post_notes']
-	];
+	] as const;
 
 	const timeframes = ['1m', '5m', '15m', '30m', '1h', '4h', '1D', '1W'];
 
-	const detailRows = $derived<[string, string | null | undefined][]>([
+	const detailRows = $derived<[string, string | number | null | undefined][]>([
 		['Liquidated', (trade.liquidated ?? !!data.liquidationId) ? 'Yes' : 'No'],
 		['Strategy', trade.strategy],
 		['Timeframes', trade.timeframes?.join(', ')],
@@ -100,7 +107,7 @@
 	<!-- Header -->
 	<div class="page-header">
 		<div style="display:flex;align-items:center;gap:1rem;">
-			<a href="/trades" class="link-muted">← Trades</a>
+			<a href={resolve('/trades')} class="link-muted">← Trades</a>
 			<div>
 				<div style="display:flex;align-items:center;gap:0.75rem;">
 					<h1 class="stat-value-lg">{trade.coin}</h1>
@@ -141,13 +148,13 @@
 			{#if !trade.is_group && trade.source !== 'combined_notes'}
 				<a
 					href={data.liquidationId
-						? '/liquidations/' + data.liquidationId + '?edit'
-						: '/liquidations/new?tradeIds=' + encodeURIComponent(trade.id)}
+						? resolve('/(app)/liquidations/[id]?edit', { id: data.liquidationId })
+						: resolve(`/liquidations/new?tradeIds=${encodeURIComponent(trade.id)}`)}
 					class="btn-ghost">{data.liquidationId ? 'Edit Liquidation' : 'Log Liquidation'}</a
 				>
 			{/if}
 			<a
-				href="/mistakes/new?trade_id={trade.id}"
+				href={resolve(`/mistakes/new?trade_id=${trade.id}`)}
 				style="padding:0.5rem 0.875rem;border:1px solid var(--accent);border-radius:0.5rem;background:color-mix(in srgb, var(--accent) 12%, transparent);color:var(--accent);font-size:0.875rem;font-weight:600;text-decoration:none;display:inline-flex;align-items:center;gap:0.375rem;"
 			>
 				<svg
@@ -219,10 +226,13 @@
 
 	<!-- PnL hero -->
 	{#if trade.combined_notes_id}<p style="margin-bottom:1rem;">
-			<a href="/trades/{trade.combined_notes_id}">View shared notes from an earlier combination</a>
+			<a href={resolve('/(app)/trades/[id]', { id: trade.combined_notes_id })}
+				>View shared notes from an earlier combination</a
+			>
 		</p>{/if}
 	{#if trade.parent_trade_id}<p style="margin-bottom:1rem;">
-			This is an individual close. <a href="/trades/{trade.parent_trade_id}">View combined trade</a
+			This is an individual close. <a
+				href={resolve('/(app)/trades/[id]', { id: trade.parent_trade_id })}>View combined trade</a
 			>. Undo Combine before deleting or changing its coin/direction.
 		</p>{/if}
 	{#if trade.source === 'combined_notes'}<p style="margin-bottom:1rem;">
@@ -260,14 +270,14 @@
 						></thead
 					>
 					<tbody
-						>{#each trade.partial_closes as c}<tr>
+						>{#each trade.partial_closes ?? [] as c (c._id)}<tr>
 								<td
 									>{formatDate(c.date_closed ?? c.date)}
 									{c.time_closed ?? (c.source === 'futures_import' ? c.time : '') ?? ''}</td
 								><td>{c.quantity}</td><td>{c.exit_price ?? 'Unknown'}</td><td
 									>{formatCurrency(c.pnl)}</td
 								><td>{formatCurrency(c.fee)}</td><td>{c.liquidated ? 'Yes' : 'No'}</td><td
-									><a href="/trades/{c._id}">View / Edit</a></td
+									><a href={resolve('/(app)/trades/[id]', { id: c._id })}>View / Edit</a></td
 								>
 							</tr>{/each}</tbody
 					>
@@ -364,14 +374,16 @@
 				style="background:var(--surface);border:1px solid var(--border);border-radius:0.75rem;padding:1.5rem;"
 			>
 				<div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1rem;">
-					{#each editFields as [label, name, type]}
+					{#each editFields as [label, name, type] (name)}
 						{#if !trade.is_group || !groupLockedFields.includes(name)}
 							<div>
 								<label
+									for="edit-{name}"
 									style="display:block;font-size:0.7rem;font-weight:600;color:var(--text-muted);margin-bottom:0.25rem;text-transform:uppercase;letter-spacing:0.05em;"
 									>{label}</label
 								>
 								<input
+									id="edit-{name}"
 									{type}
 									{name}
 									step={type === 'number'
@@ -423,7 +435,7 @@
 						Timeframes
 					</div>
 					<div style="display:flex;flex-wrap:wrap;gap:0.375rem;">
-						{#each timeframes as tf}
+						{#each timeframes as tf (tf)}
 							{@const active = (trade.timeframes ?? []).includes(tf)}
 							<label
 								style="padding:0.25rem 0.625rem;border-radius:0.375rem;border:1px solid {active
@@ -448,13 +460,14 @@
 				</div>
 
 				<!-- Textareas -->
-				{#each textareaFields as [label, name]}
+				{#each textareaFields as [label, name] (name)}
 					<div style="margin-bottom:1rem;">
 						<label
+							for="edit-{name}"
 							style="display:block;font-size:0.7rem;font-weight:600;color:var(--text-muted);margin-bottom:0.25rem;text-transform:uppercase;letter-spacing:0.05em;"
 							>{label}</label
 						>
-						<textarea {name} rows="3" class="input-inline" style="resize:vertical;"
+						<textarea id="edit-{name}" {name} rows="3" class="input-inline" style="resize:vertical;"
 							>{trade[name] ?? ''}</textarea
 						>
 					</div>
@@ -480,7 +493,7 @@
 			style="background:var(--surface);border:1px solid var(--border);border-radius:0.75rem;padding:1.5rem;"
 		>
 			<div style="display:grid;grid-template-columns:1fr 1fr;gap:1.5rem;">
-				{#each detailRows as [label, val]}
+				{#each detailRows as [label, val] (label)}
 					<div>
 						<div class="field-label-tight">{label}</div>
 						<div

@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
+	import { resolve } from '$app/paths';
 	import { untrack } from 'svelte';
 	import { formatCurrency, formatDate } from '$lib/utils';
 	import {
@@ -10,57 +11,45 @@
 		type MarketSession,
 		type ViewTz
 	} from '$lib/utils/sessions';
+	import type { PageData } from './$types';
 
-	let { data } = $props();
+	let { data }: { data: PageData } = $props();
 
-	function dotColor(session: any) {
+	function dotColor(session: unknown) {
 		return session ? 'var(--win)' : 'var(--border)';
 	}
 	const today = new Date().toISOString().split('T')[0];
 
-	let sessionRaw = $state(untrack(() => (data as any).filters?.session ?? ''));
-	let result = $state(untrack(() => (data as any).filters?.result ?? 'all'));
-	let viewTz = $state<ViewTz>(untrack(() => (data as any).viewTz ?? 'utc'));
+	let sessionRaw = $state(untrack(() => data.filters.session));
+	let result = $state(untrack(() => data.filters.result));
+	let viewTz = $state<ViewTz>(untrack(() => data.viewTz));
 	let selectedSessions = $state<string[]>(
 		untrack(() => (sessionRaw ? sessionRaw.split(',').filter(Boolean) : []))
 	);
-	let mySessionCfg = $state(
-		untrack(() => (data as any).mySession ?? { start: '04:30', end: '12:30' })
+	let mySessionCfg = $state(untrack(() => data.mySession));
+	let countsMap: Record<string, number> = $derived(
+		Object.fromEntries(data.sessionCounts.map((s) => [s.session, s.count]))
 	);
-	let countsMap = $derived(
-		Object.fromEntries(((data as any).sessionCounts ?? []).map((s: any) => [s.session, s.count]))
-	);
-	let hbMax = $derived(
-		Math.max(1, ...(((data as any).hourlyBuckets ?? []) as any[]).map((x: any) => x.count))
-	);
+	let hbMax = $derived(Math.max(1, ...data.hourlyBuckets.map((x) => x.count)));
 
 	function toggleSession(s: string) {
-		let next: string[];
-		if (s === 'all') next = [];
-		else {
-			const set = new Set(selectedSessions);
-			if (set.has(s)) set.delete(s);
-			else set.add(s);
-			next = Array.from(set);
-		}
-		selectedSessions = next;
-		const params = new URLSearchParams();
-		if (next.length > 0) params.set('session', next.join(','));
-		if (result !== 'all') params.set('result', result);
-		if (viewTz !== 'utc') params.set('tz', viewTz);
-		const q = params.toString();
-		goto(q ? `/sessions?${q}` : '/sessions');
+		if (s === 'all') selectedSessions = [];
+		else if (selectedSessions.includes(s))
+			selectedSessions = selectedSessions.filter((x) => x !== s);
+		else selectedSessions = [...selectedSessions, s];
+		applyFilters();
 	}
 	function applyFilters() {
-		const params = new URLSearchParams();
-		if (selectedSessions.length > 0) params.set('session', selectedSessions.join(','));
-		if (result !== 'all') params.set('result', result);
-		if (viewTz !== 'utc') params.set('tz', viewTz);
-		const q = params.toString();
-		goto(q ? `/sessions?${q}` : '/sessions');
+		const params: [string, string][] = [];
+		if (selectedSessions.length > 0) params.push(['session', selectedSessions.join(',')]);
+		if (result !== 'all') params.push(['result', result]);
+		if (viewTz !== 'utc') params.push(['tz', viewTz]);
+		const q = new URLSearchParams(params).toString();
+		// eslint-disable-next-line svelte/no-navigation-without-resolve -- resolve() covers the path; the query string is appended
+		goto(q ? `${resolve('/sessions')}?${q}` : resolve('/sessions'));
 	}
 	$effect(() => {
-		const raw = (data as any).filters?.session ?? '';
+		const raw = data.filters.session;
 		const parsed = raw ? raw.split(',').filter(Boolean) : [];
 		if (parsed.join(',') !== selectedSessions.join(',')) selectedSessions = parsed;
 	});
@@ -68,10 +57,11 @@
 		selectedSessions = [];
 		result = 'all';
 		viewTz = 'utc';
-		goto('/sessions');
+		goto(resolve('/sessions'));
 	}
-	const resultLabel = (t: any) => (t.win ? 'Win' : t.loss ? 'Loss' : t.be ? 'BE' : '—');
-	const resultColor = (t: any) =>
+	type Outcome = { win?: boolean; loss?: boolean; be?: boolean };
+	const resultLabel = (t: Outcome) => (t.win ? 'Win' : t.loss ? 'Loss' : t.be ? 'BE' : '—');
+	const resultColor = (t: Outcome) =>
 		t.win ? 'var(--win)' : t.loss ? 'var(--loss)' : 'var(--text-muted)';
 	function pnlColor(pnl: number | null | undefined) {
 		if (pnl == null) return 'var(--text-muted)';
@@ -92,7 +82,7 @@
 			</p>
 		</div>
 		<a
-			href="/sessions/{today}"
+			href={resolve('/(app)/sessions/[date]', { date: today })}
 			style="padding:0.5rem 0.875rem;background:var(--accent);border-radius:0.5rem;color:#fff;text-decoration:none;font-size:0.875rem;font-weight:500;"
 		>
 			+ Today's Session
@@ -111,9 +101,7 @@
 			>
 				Trades by Session
 			</h2>
-			<span class="muted-xs"
-				>{(data as any).totalTrades ?? 0} filtered · {(data as any).allTradesCount ?? 0} total</span
-			>
+			<span class="muted-xs">{data.totalTrades} filtered · {data.allTradesCount} total</span>
 		</div>
 
 		<div style="display:flex;flex-wrap:wrap;gap:0.375rem;align-items:center;margin-bottom:0.75rem;">
@@ -131,7 +119,7 @@
 					: 'var(--surface)'};color:{selectedSessions.length === 0 ? '#fff' : 'var(--text-muted)'};"
 				>All</button
 			>
-			{#each [['asian', 'Asian'], ['london', 'London'], ['ny', 'NY'], ['overnight', 'Overnight'], ['my', 'My Session'], ['unscheduled', 'Unscheduled']] as [key, label]}
+			{#each [['asian', 'Asian'], ['london', 'London'], ['ny', 'NY'], ['overnight', 'Overnight'], ['my', 'My Session'], ['unscheduled', 'Unscheduled']] as [key, label] (key)}
 				{@const active = selectedSessions.includes(key)}
 				<button
 					onclick={() => toggleSession(key)}
@@ -152,8 +140,8 @@
 			style="display:flex;flex-wrap:wrap;gap:0.75rem;align-items:flex-end;margin-bottom:0.75rem;"
 		>
 			<div>
-				<label class="field-label">Result</label>
-				<select bind:value={result} onchange={applyFilters} class="input-sm">
+				<label class="field-label" for="sessions-result">Result</label>
+				<select id="sessions-result" bind:value={result} onchange={applyFilters} class="input-sm">
 					<option value="all">All</option>
 					<option value="win">Win</option>
 					<option value="loss">Loss</option>
@@ -161,8 +149,8 @@
 				</select>
 			</div>
 			<div>
-				<label class="field-label">View TZ</label>
-				<select bind:value={viewTz} onchange={applyFilters} class="input-sm">
+				<label class="field-label" for="sessions-view-tz">View TZ</label>
+				<select id="sessions-view-tz" bind:value={viewTz} onchange={applyFilters} class="input-sm">
 					<option value="utc">UTC (global-correct)</option>
 					<option value="colombo">Colombo (+05:30)</option>
 				</select>
@@ -179,16 +167,17 @@
 			>
 			<span style="font-size:0.7rem;color:var(--text-muted);margin-left:0.25rem;"
 				>My Session {mySessionCfg.start}–{mySessionCfg.end} UTC ·
-				<a href="/settings" style="color:var(--accent);text-decoration:none;">edit in Settings</a
+				<a href={resolve('/settings')} style="color:var(--accent);text-decoration:none;"
+					>edit in Settings</a
 				></span
 			>
 		</div>
 
-		{#if (data as any).sessionStats}
+		{#if data.sessionStats}
 			<div
 				style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:0.625rem;margin-bottom:0.875rem;"
 			>
-				{#each (data as any).sessionStats as s}
+				{#each data.sessionStats as s (s.session)}
 					{@const isFiltered =
 						selectedSessions.length === 0 || selectedSessions.includes(s.session)}
 					<div
@@ -207,7 +196,7 @@
 								s.session as MarketSession
 							)};text-transform:uppercase;letter-spacing:0.04em;"
 						>
-							{(SESSION_LABELS as any)[s.session] ?? s.session}
+							{SESSION_LABELS[s.session] ?? s.session}
 						</div>
 						<div style="font-size:0.75rem;color:var(--text-muted);margin-top:0.2rem;">
 							{s.count} trades · {s.winRate.toFixed(1)}% WR
@@ -239,7 +228,7 @@
 					Hourly buckets (UTC) — filtered trades only
 				</div>
 				<div style="display:flex;gap:2px;align-items:flex-end;height:72px;">
-					{#each (data as any).hourlyBuckets as b}
+					{#each data.hourlyBuckets as b (b.hour)}
 						{@const hbH = b.count ? (b.count / hbMax) * 64 : 4}
 						{@const hbWr = b.count ? b.wins / b.count : 0}
 						<div
@@ -281,16 +270,16 @@
 					</tr>
 				</thead>
 				<tbody>
-					{#if (data as any).trades?.length === 0}
+					{#if data.trades.length === 0}
 						<tr
 							><td colspan="7" style="padding:2rem;text-align:center;color:var(--text-muted);"
 								>No trades match this session filter.</td
 							></tr
 						>
 					{:else}
-						{#each (data as any).trades ?? [] as trade}
+						{#each data.trades as trade (trade.id)}
 							<tr
-								onclick={() => goto(`/trades/${trade.id}`)}
+								onclick={() => goto(resolve('/(app)/trades/[id]', { id: trade.id }))}
 								style="border-bottom:1px solid var(--border);cursor:pointer;"
 							>
 								<td
@@ -302,7 +291,7 @@
 									>{formatSessionTime(trade.time, viewTz)}</td
 								>
 								<td style="padding:0.625rem 0.75rem;white-space:nowrap;">
-									{#each deriveMarketSessions(trade.time, mySessionCfg) as s}
+									{#each deriveMarketSessions(trade.time, mySessionCfg) as s (s)}
 										<span
 											style="display:inline-block;padding:0.1rem 0.35rem;border-radius:0.25rem;font-size:0.65rem;font-weight:700;margin-right:0.2rem;background:color-mix(in srgb, {sessionBadgeColor(
 												s as MarketSession
@@ -310,7 +299,7 @@
 												s as MarketSession
 											)};border:1px solid color-mix(in srgb, {sessionBadgeColor(
 												s as MarketSession
-											)} 30%, transparent);">{(SESSION_LABELS as any)[s] ?? s}</span
+											)} 30%, transparent);">{SESSION_LABELS[s] ?? s}</span
 										>
 									{/each}
 								</td>
@@ -344,11 +333,11 @@
 				</tbody>
 			</table>
 		</div>
-		{#if (data as any).totalTrades > 200}
+		{#if data.totalTrades > 200}
 			<div
 				style="padding:0.6rem 0.75rem;border-top:1px solid var(--border);font-size:0.75rem;color:var(--text-muted);"
 			>
-				Showing 200 of {(data as any).totalTrades} — narrow filter to see more.
+				Showing 200 of {data.totalTrades} — narrow filter to see more.
 			</div>
 		{/if}
 	</div>
@@ -368,16 +357,16 @@
 				No sessions logged yet.
 			</p>
 			<a
-				href="/sessions/{today}"
+				href={resolve('/(app)/sessions/[date]', { date: today })}
 				style="padding:0.625rem 1.25rem;background:var(--accent);color:#fff;border-radius:0.5rem;text-decoration:none;font-size:0.875rem;font-weight:500;"
 				>Start Today's Session</a
 			>
 		</div>
 	{:else}
 		<div style="display:flex;flex-direction:column;gap:0.5rem;">
-			{#each data.sessions as day}
+			{#each data.sessions as day (day.date)}
 				<a
-					href="/sessions/{day.date}"
+					href={resolve('/(app)/sessions/[date]', { date: day.date })}
 					style="display:flex;align-items:center;justify-content:space-between;padding:0.875rem 1rem;background:var(--surface);border:1px solid var(--border);border-radius:0.75rem;text-decoration:none;transition:border-color 0.15s;"
 					onmouseenter={(e) =>
 						((e.currentTarget as HTMLElement).style.borderColor = 'var(--accent)')}
@@ -397,7 +386,7 @@
 						{/if}
 					</div>
 					<div style="display:flex;gap:1rem;align-items:center;">
-						{#each [['pre', '👨‍💻 Pre'], ['tcl', '☁️ TCL'], ['post', '🧠 Post']] as [type, label]}
+						{#each [['pre', '👨‍💻 Pre'], ['tcl', '☁️ TCL'], ['post', '🧠 Post']] as [type, label] (type)}
 							<div style="display:flex;flex-direction:column;align-items:center;gap:0.25rem;">
 								<div
 									style="width:10px;height:10px;border-radius:50%;background:{dotColor(

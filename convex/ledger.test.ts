@@ -2,6 +2,7 @@
 import { convexTest } from 'convex-test';
 import { expect, test } from 'vitest';
 import { api } from './_generated/api';
+import type { Id } from './_generated/dataModel';
 import schema from './schema';
 
 const modules = import.meta.glob('./**/*.ts');
@@ -10,6 +11,8 @@ function makeT() {
 	const t = convexTest(schema, modules);
 	return t.withIdentity({ subject: 'user-123', tokenIdentifier: 'token-123' });
 }
+
+type T = ReturnType<typeof makeT>;
 
 type Entry = {
 	type: string;
@@ -24,7 +27,7 @@ type Entry = {
 	source?: string;
 };
 
-async function addDeposit(t: any, over: Partial<Entry> = {}) {
+async function addDeposit(t: T, over: Partial<Entry> = {}) {
 	const id = await t.mutation(api.ledger.createLedgerEntry, {
 		type: 'deposit',
 		date: '2026-01-01',
@@ -38,7 +41,7 @@ async function addDeposit(t: any, over: Partial<Entry> = {}) {
 	return id;
 }
 
-async function addWithdrawal(t: any, over: Partial<Entry> = {}) {
+async function addWithdrawal(t: T, over: Partial<Entry> = {}) {
 	const id = await t.mutation(api.ledger.createLedgerEntry, {
 		type: 'withdrawal',
 		date: '2026-01-02',
@@ -52,14 +55,14 @@ async function addWithdrawal(t: any, over: Partial<Entry> = {}) {
 	return id;
 }
 
-async function lock(t: any, depositId: string) {
+async function lock(t: T, depositId: Id<'ledger'>) {
 	await t.mutation(api.ledger.createLedgerLock, { depositId });
 }
 
 async function allocate(
-	t: any,
-	withdrawalId: string,
-	allocations: { depositId: string; releasedUsd: number }[]
+	t: T,
+	withdrawalId: Id<'ledger'>,
+	allocations: { depositId: Id<'ledger'>; releasedUsd: number }[]
 ) {
 	await t.mutation(api.ledger.allocateRelease, { withdrawalId, allocations });
 }
@@ -71,8 +74,8 @@ test('tracking query returns entries with empty tracking state when no locks exi
 	const d = await addDeposit(t);
 	const w = await addWithdrawal(t);
 	const entries = await t.query(api.ledger.getLedgerWithTracking);
-	const dep = entries.find((e: any) => e._id === d)!;
-	const wd = entries.find((e: any) => e._id === w)!;
+	const dep = entries.find((e) => e._id === d)!;
+	const wd = entries.find((e) => e._id === w)!;
 	expect(dep.tracking).toMatchObject({
 		lockedUsd: null,
 		releasedUsd: 0,
@@ -87,8 +90,8 @@ test('tracking query with no locks: deposit remaining null, withdrawal balance f
 	const d = await addDeposit(t, { usd_received: 5000 });
 	const w = await addWithdrawal(t, { usd_quantity: 2000, fee: 0 });
 	const entries = await t.query(api.ledger.getLedgerWithTracking);
-	const dep = entries.find((e: any) => e._id === d)!;
-	const wd = entries.find((e: any) => e._id === w)!;
+	const dep = entries.find((e) => e._id === d)!;
+	const wd = entries.find((e) => e._id === w)!;
 	expect(dep.tracking.remainingUsd).toBeNull();
 	expect(wd.tracking.balanceUsd).toBeCloseTo(2000, 2);
 });
@@ -100,7 +103,7 @@ test('lock a deposit: locks FULL usd_received, LKR derived from rate', async () 
 	const d = await addDeposit(t, { usd_received: 5000, usd_rate: 320 });
 	await lock(t, d);
 	const entries = await t.query(api.ledger.getLedgerWithTracking);
-	const dep = entries.find((e: any) => e._id === d)!;
+	const dep = entries.find((e) => e._id === d)!;
 	expect(dep.tracking).toMatchObject({
 		lockedUsd: 5000,
 		lockedLkr: 1600000,
@@ -116,7 +119,7 @@ test('lock always uses full usd_received (no partial lock amount)', async () => 
 	const d = await addDeposit(t, { usd_received: 5000 });
 	await lock(t, d);
 	const entries = await t.query(api.ledger.getLedgerWithTracking);
-	const dep = entries.find((e: any) => e._id === d)!;
+	const dep = entries.find((e) => e._id === d)!;
 	expect(dep.tracking.lockedUsd).toBe(5000);
 });
 
@@ -129,7 +132,7 @@ test('re-locking an existing lock keeps full amount, not reduced by released', a
 	// re-lock → stays at full 5000 (release is partial, not lock)
 	await lock(t, d);
 	const entries = await t.query(api.ledger.getLedgerWithTracking);
-	const dep = entries.find((e: any) => e._id === d)!;
+	const dep = entries.find((e) => e._id === d)!;
 	expect(dep.tracking.lockedUsd).toBe(5000);
 	expect(dep.tracking.releasedUsd).toBe(2000);
 	expect(dep.tracking.remainingUsd).toBe(3000);
@@ -141,7 +144,7 @@ test('shrinking a deposit clamps its lock (full new amount)', async () => {
 	await lock(t, d);
 	await t.mutation(api.ledger.updateLedgerEntry, { id: d, usd_received: 3000 });
 	const entries = await t.query(api.ledger.getLedgerWithTracking);
-	const dep = entries.find((e: any) => e._id === d)!;
+	const dep = entries.find((e) => e._id === d)!;
 	expect(dep.tracking.lockedUsd).toBe(3000);
 });
 
@@ -154,14 +157,14 @@ test('partial release: lock 5000, release 2000 → remaining 3000', async () => 
 	await lock(t, d);
 	await allocate(t, w, [{ depositId: d, releasedUsd: 2000 }]);
 	const entries = await t.query(api.ledger.getLedgerWithTracking);
-	const dep = entries.find((e: any) => e._id === d)!;
+	const dep = entries.find((e) => e._id === d)!;
 	expect(dep.tracking).toMatchObject({
 		lockedUsd: 5000,
 		releasedUsd: 2000,
 		remainingUsd: 3000,
 		fullyWithdrawn: false
 	});
-	const wd = entries.find((e: any) => e._id === w)!;
+	const wd = entries.find((e) => e._id === w)!;
 	expect(wd.tracking.balanceUsd).toBe(0); // released 2000 of 2000 → balance 0
 });
 
@@ -181,15 +184,15 @@ test('many-to-many: one withdrawal releases two deposits, many withdrawals relea
 	// w2 releases d1 (1500)
 	await allocate(t, w2, [{ depositId: d1, releasedUsd: 1500 }]);
 	const entries = await t.query(api.ledger.getLedgerWithTracking);
-	const dep1 = entries.find((e: any) => e._id === d1)!;
-	const dep2 = entries.find((e: any) => e._id === d2)!;
+	const dep1 = entries.find((e) => e._id === d1)!;
+	const dep2 = entries.find((e) => e._id === d2)!;
 	expect(dep1.tracking.releasedUsd).toBe(3500);
 	expect(dep1.tracking.remainingUsd).toBe(1500);
 	expect(dep2.tracking.releasedUsd).toBe(500);
 	expect(dep2.tracking.remainingUsd).toBe(2500);
 	// w1 balance: 2499.93 - 2500 → 0; w2 balance: 1499.93 - 1500 → 0
-	const wd1 = entries.find((e: any) => e._id === w1)!;
-	const wd2 = entries.find((e: any) => e._id === w2)!;
+	const wd1 = entries.find((e) => e._id === w1)!;
+	const wd2 = entries.find((e) => e._id === w2)!;
 	expect(wd1.tracking.balanceUsd).toBe(0);
 	expect(wd2.tracking.balanceUsd).toBe(0);
 });
@@ -204,8 +207,8 @@ test('allocation capped at deposit remaining; excess stays on withdrawal balance
 	// second withdrawal tries 3000 but only 2000 remaining → capped to 2000, 1000 stays on balance
 	await allocate(t, w2, [{ depositId: d, releasedUsd: 3000 }]);
 	const entries = await t.query(api.ledger.getLedgerWithTracking);
-	const dep = entries.find((e: any) => e._id === d)!;
-	const wd2 = entries.find((e: any) => e._id === w2)!;
+	const dep = entries.find((e) => e._id === d)!;
+	const wd2 = entries.find((e) => e._id === w2)!;
 	expect(dep.tracking.releasedUsd).toBe(5000);
 	expect(dep.tracking.remainingUsd).toBe(0);
 	expect(wd2.tracking.balanceUsd).toBeCloseTo(1000, 2); // 3000 released - 2000 allocated (capped)
@@ -218,7 +221,7 @@ test('fully-withdrawn deposit flagged, excluded from picker (no remaining)', asy
 	await lock(t, d);
 	await allocate(t, w, [{ depositId: d, releasedUsd: 5000 }]);
 	const entries = await t.query(api.ledger.getLedgerWithTracking);
-	const dep = entries.find((e: any) => e._id === d)!;
+	const dep = entries.find((e) => e._id === d)!;
 	expect(dep.tracking.fullyWithdrawn).toBe(true);
 	expect(dep.tracking.remainingUsd).toBe(0);
 });
@@ -235,8 +238,8 @@ test('LKR released splits proportionally; last allocation absorbs remainder', as
 		{ depositId: d2, releasedUsd: 500 }
 	]);
 	const entries = await t.query(api.ledger.getLedgerWithTracking);
-	const dep1 = entries.find((e: any) => e._id === d1)!;
-	const dep2 = entries.find((e: any) => e._id === d2)!;
+	const dep1 = entries.find((e) => e._id === d1)!;
+	const dep2 = entries.find((e) => e._id === d2)!;
 	// LKR shares: d1 2000/2500 * 800000 = 640000; d2 absorbs remainder 160000
 	expect(dep1.tracking.releasedLkr).toBeCloseTo(640000, 0);
 	expect(dep2.tracking.releasedLkr).toBeCloseTo(160000, 0);
@@ -261,8 +264,8 @@ test('rebalance allocations: shift amount between deposits', async () => {
 		]
 	});
 	const entries = await t.query(api.ledger.getLedgerWithTracking);
-	const dep1 = entries.find((e: any) => e._id === d1)!;
-	const dep2 = entries.find((e: any) => e._id === d2)!;
+	const dep1 = entries.find((e) => e._id === d1)!;
+	const dep2 = entries.find((e) => e._id === d2)!;
 	expect(dep1.tracking.releasedUsd).toBe(1500);
 	expect(dep2.tracking.releasedUsd).toBe(1000);
 });
@@ -281,8 +284,8 @@ test('editing withdrawal usd_quantity scales allocations proportionally', async 
 	// double the quantity → allocations double
 	await t.mutation(api.ledger.updateLedgerEntry, { id: w, usd_quantity: 5000 });
 	const entries = await t.query(api.ledger.getLedgerWithTracking);
-	const dep1 = entries.find((e: any) => e._id === d1)!;
-	const dep2 = entries.find((e: any) => e._id === d2)!;
+	const dep1 = entries.find((e) => e._id === d1)!;
+	const dep2 = entries.find((e) => e._id === d2)!;
 	expect(dep1.tracking.releasedUsd).toBe(4000);
 	expect(dep2.tracking.releasedUsd).toBe(1000);
 });
@@ -301,8 +304,8 @@ test('editing withdrawal quantity keeps LKR split proportional to fiat_amount', 
 	// double quantity (fiat_amount unchanged) → USD allocations double, LKR total stays 800000 split 4:1
 	await t.mutation(api.ledger.updateLedgerEntry, { id: w, usd_quantity: 5000 });
 	const entries = await t.query(api.ledger.getLedgerWithTracking);
-	const dep1 = entries.find((e: any) => e._id === d1)!;
-	const dep2 = entries.find((e: any) => e._id === d2)!;
+	const dep1 = entries.find((e) => e._id === d1)!;
+	const dep2 = entries.find((e) => e._id === d2)!;
 	expect(dep1.tracking.releasedLkr).toBeCloseTo(640000, 0);
 	expect(dep2.tracking.releasedLkr).toBeCloseTo(160000, 0);
 	expect((dep1.tracking.releasedLkr ?? 0) + (dep2.tracking.releasedLkr ?? 0)).toBeCloseTo(
@@ -320,7 +323,7 @@ test('shrinking a deposit below its released amount clamps lock to released, not
 	// shrink deposit to 1000 (< released 3000) → lock must clamp to released 3000, remaining 0
 	await t.mutation(api.ledger.updateLedgerEntry, { id: d, usd_received: 1000 });
 	const entries = await t.query(api.ledger.getLedgerWithTracking);
-	const dep = entries.find((e: any) => e._id === d)!;
+	const dep = entries.find((e) => e._id === d)!;
 	expect(dep.tracking.lockedUsd).toBe(3000);
 	expect(dep.tracking.releasedUsd).toBe(3000);
 	expect(dep.tracking.remainingUsd).toBe(0);
@@ -334,7 +337,7 @@ test('deleting a withdrawal frees its allocations back into remaining', async ()
 	await allocate(t, w, [{ depositId: d, releasedUsd: 2000 }]);
 	await t.mutation(api.ledger.deleteLedgerEntry, { id: w });
 	const entries = await t.query(api.ledger.getLedgerWithTracking);
-	const dep = entries.find((e: any) => e._id === d)!;
+	const dep = entries.find((e) => e._id === d)!;
 	expect(dep.tracking.releasedUsd).toBe(0);
 	expect(dep.tracking.remainingUsd).toBe(5000);
 });
@@ -356,7 +359,7 @@ test('deleting a deposit with a lock but no releases still works (lock removed)'
 	await lock(t, d);
 	await t.mutation(api.ledger.deleteLedgerEntry, { id: d });
 	const entries = await t.query(api.ledger.getLedgerWithTracking);
-	expect(entries.find((e: any) => e._id === d)).toBeUndefined();
+	expect(entries.find((e) => e._id === d)).toBeUndefined();
 });
 
 test('reset lock removes tracking; blocked once release history exists', async () => {
@@ -365,7 +368,7 @@ test('reset lock removes tracking; blocked once release history exists', async (
 	await lock(t, d);
 	await t.mutation(api.ledger.removeLedgerLock, { depositId: d });
 	let entries = await t.query(api.ledger.getLedgerWithTracking);
-	expect(entries.find((e: any) => e._id === d)!.tracking.lockedUsd).toBeNull();
+	expect(entries.find((e) => e._id === d)!.tracking.lockedUsd).toBeNull();
 
 	// re-lock + release → deposit reset is blocked
 	const w = await addWithdrawal(t, { usd_quantity: 2000 });
@@ -373,7 +376,7 @@ test('reset lock removes tracking; blocked once release history exists', async (
 	await allocate(t, w, [{ depositId: d, releasedUsd: 2000 }]);
 	await expect(t.mutation(api.ledger.removeLedgerLock, { depositId: d })).rejects.toThrow();
 	entries = await t.query(api.ledger.getLedgerWithTracking);
-	expect(entries.find((e: any) => e._id === d)!.tracking.lockedUsd).toBe(5000);
+	expect(entries.find((e) => e._id === d)!.tracking.lockedUsd).toBe(5000);
 });
 
 test('reset withdrawal releases frees the deposit remaining back up', async () => {
@@ -385,8 +388,8 @@ test('reset withdrawal releases frees the deposit remaining back up', async () =
 	// reset the withdrawal → allocations removed, deposit back to full remaining
 	await t.mutation(api.ledger.removeWithdrawalAllocations, { withdrawalId: w });
 	const entries = await t.query(api.ledger.getLedgerWithTracking);
-	const dep = entries.find((e: any) => e._id === d)!;
-	const wd = entries.find((e: any) => e._id === w)!;
+	const dep = entries.find((e) => e._id === d)!;
+	const wd = entries.find((e) => e._id === w)!;
 	expect(dep.tracking.releasedUsd).toBe(0);
 	expect(dep.tracking.remainingUsd).toBe(5000);
 	expect(dep.tracking.fullyWithdrawn).toBe(false);

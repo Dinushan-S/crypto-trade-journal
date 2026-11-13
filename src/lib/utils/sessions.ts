@@ -79,7 +79,9 @@ export function sessionBadgeColor(s: MarketSession): string {
 	return 'var(--text-muted)';
 }
 
-export function hourlyBuckets(trades: any[]) {
+export function hourlyBuckets(
+	trades: Array<{ time?: string | null; win?: boolean | null; pnl?: number | null }>
+) {
 	const buckets: Array<{ hour: number; count: number; wins: number; netPnl: number }> = Array.from(
 		{ length: 24 },
 		(_, hour) => ({ hour, count: 0, wins: 0, netPnl: 0 })

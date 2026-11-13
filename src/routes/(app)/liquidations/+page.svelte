@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { resolve } from '$app/paths';
 	import { formatDate } from '$lib/utils';
 	let { data } = $props();
 </script>
@@ -15,7 +16,7 @@
 			</p>
 		</div>
 		<a
-			href="/liquidations/new"
+			href={resolve('/liquidations/new')}
 			style="padding:0.5rem 0.875rem;background:var(--loss);border:none;border-radius:0.5rem;color:#fff;text-decoration:none;font-size:0.875rem;font-weight:500;"
 		>
 			+ Add Liquidation
@@ -42,7 +43,7 @@
 		{#if data.liquidations.length === 0}
 			<div style="padding:3rem;text-align:center;color:var(--text-muted);">
 				No liquidations recorded. <a
-					href="/liquidations/new"
+					href={resolve('/liquidations/new')}
 					style="color:var(--accent);text-decoration:none;">Add one</a
 				>.
 			</div>
@@ -51,7 +52,7 @@
 				<table class="table">
 					<thead>
 						<tr class="thead-row">
-							{#each ['Date', 'Coin', 'Position', 'Strategy', 'Amount Lost', 'Reason', 'Notes', 'Actions'] as col}
+							{#each ['Date', 'Coin', 'Position', 'Strategy', 'Amount Lost', 'Reason', 'Notes', 'Actions'] as col (col)}
 								<th
 									style="padding:0.625rem 0.75rem;text-align:left;font-size:0.7rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;"
 									>{col}</th
@@ -60,7 +61,7 @@
 						</tr>
 					</thead>
 					<tbody>
-						{#each data.liquidations as liq}
+						{#each data.liquidations as liq (liq.id)}
 							<tr class="row-divider">
 								<td
 									style="padding:0.625rem 0.75rem;font-family:'JetBrains Mono',monospace;color:var(--text-muted);white-space:nowrap;"
@@ -101,7 +102,10 @@
 									>{liq.notes ?? '—'}</td
 								>
 								<td style="padding:0.625rem 0.75rem;"
-									><a href="/liquidations/{liq.id}?edit" class="link-muted">Edit</a></td
+									><a
+										href={resolve('/(app)/liquidations/[id]?edit', { id: liq.id })}
+										class="link-muted">Edit</a
+									></td
 								>
 							</tr>
 						{/each}

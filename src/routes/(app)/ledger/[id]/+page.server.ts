@@ -9,7 +9,7 @@ export const load: PageServerLoad = async ({ locals: { convex }, params }) => {
 		.catch(() => null);
 	if (!entry) error(404, 'Entry not found');
 	const tracking = await convex.query(api.ledger.getLedgerWithTracking, {}).catch(() => []);
-	const tracked = (tracking as any[]).find((e: any) => e._id === entry._id);
+	const tracked = tracking.find((e) => e._id === entry._id);
 	const allocations =
 		entry.type === 'withdrawal'
 			? await convex
@@ -18,14 +18,15 @@ export const load: PageServerLoad = async ({ locals: { convex }, params }) => {
 			: [];
 	const availableDeposits =
 		entry.type === 'withdrawal'
-			? (tracking as any[])
+			? tracking
 					.filter(
-						(e: any) =>
+						(e) =>
 							e.type === 'deposit' &&
-							e.tracking?.remainingUsd != null &&
+							'remainingUsd' in e.tracking &&
+							e.tracking.remainingUsd != null &&
 							e.tracking.remainingUsd > 0
 					)
-					.map((e: any) => ({ id: e._id, date: e.date, remainingUsd: e.tracking.remainingUsd }))
+					.map((e) => ({ id: e._id, date: e.date, remainingUsd: e.tracking.remainingUsd }))
 			: [];
 	return {
 		entry: { ...entry, id: entry._id },
@@ -38,7 +39,7 @@ export const load: PageServerLoad = async ({ locals: { convex }, params }) => {
 export const actions: Actions = {
 	update: async ({ locals: { convex }, params, request }) => {
 		const form = await request.formData();
-		const updates: Record<string, any> = {};
+		const updates: Record<string, string | number | undefined> = {};
 
 		const fields = [
 			'type',
@@ -79,7 +80,7 @@ export const actions: Actions = {
 						: Number(val)
 					: val === ''
 						? undefined
-						: val;
+						: String(val);
 			}
 		}
 
@@ -89,8 +90,8 @@ export const actions: Actions = {
 				...updates
 			});
 			return { success: true };
-		} catch (err: any) {
-			return { success: false, error: err.message };
+		} catch (err) {
+			return { success: false, error: err instanceof Error ? err.message : String(err) };
 		}
 	},
 
@@ -98,8 +99,8 @@ export const actions: Actions = {
 		try {
 			await convex.mutation(api.ledger.deleteLedgerEntry, { id: params.id as Id<'ledger'> });
 			return { deleted: true };
-		} catch (err: any) {
-			return { deleted: false, error: err.message };
+		} catch (err) {
+			return { deleted: false, error: err instanceof Error ? err.message : String(err) };
 		}
 	},
 
@@ -109,8 +110,8 @@ export const actions: Actions = {
 				depositId: params.id as Id<'ledger'>
 			});
 			return { success: true };
-		} catch (err: any) {
-			return { success: false, error: err.message };
+		} catch (err) {
+			return { success: false, error: err instanceof Error ? err.message : String(err) };
 		}
 	},
 
@@ -128,8 +129,8 @@ export const actions: Actions = {
 				});
 			}
 			return { success: true };
-		} catch (err: any) {
-			return { success: false, error: err.message };
+		} catch (err) {
+			return { success: false, error: err instanceof Error ? err.message : String(err) };
 		}
 	},
 
@@ -148,8 +149,8 @@ export const actions: Actions = {
 				}))
 			});
 			return { success: true };
-		} catch (err: any) {
-			return { success: false, error: err.message };
+		} catch (err) {
+			return { success: false, error: err instanceof Error ? err.message : String(err) };
 		}
 	}
 };

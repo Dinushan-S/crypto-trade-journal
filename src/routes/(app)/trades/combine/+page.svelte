@@ -1,9 +1,11 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
+	import { resolve } from '$app/paths';
 	import { untrack } from 'svelte';
 	import { formatCurrency } from '$lib/utils';
 	import type { Doc } from '../../../../../convex/_generated/dataModel';
-	let { data, form } = $props();
+	import type { PageProps } from './$types';
+	let { data, form }: PageProps = $props();
 	let primaryId = $state(
 		untrack(() => data.trades.find((t) => t.is_group)?._id ?? data.trades[0]._id)
 	);
@@ -42,7 +44,7 @@
 <div class="page">
 	<div class="page-header">
 		<h1 class="stat-value">Review &amp; Combine Trades</h1>
-		<a href="/trades" class="btn-ghost">Back to Trades</a>
+		<a href={resolve('/trades')} class="btn-ghost">Back to Trades</a>
 	</div>
 	<p class="muted-sm" style="margin-bottom:1rem;">
 		Confirm these closes belong to the same position. Original records, notes and liquidation links
@@ -60,9 +62,12 @@
 				></thead
 			>
 			<tbody
-				>{#each closes as c}<tr>
+				>{#each closes as c (c._id)}<tr>
 						<td
-							><a href="/trades/{c._id}" target="_blank" rel="noreferrer">{c.coin} {c.position}</a
+							><a
+								href={resolve('/(app)/trades/[id]', { id: c._id })}
+								target="_blank"
+								rel="noreferrer">{c.coin} {c.position}</a
 							><br /><small>{c.order_id ?? 'Manual'}</small></td
 						>
 						<td
@@ -107,11 +112,11 @@
 			};
 		}}
 	>
-		{#each data.trades as t}<input type="hidden" name="ids" value={t._id} />{/each}
+		{#each data.trades as t (t._id)}<input type="hidden" name="ids" value={t._id} />{/each}
 		<div class="card" style="padding:1.25rem;">
 			<label class="form-label" for="primary">Copy shared details from</label>
 			<select id="primary" name="primaryId" bind:value={primaryId} class="input">
-				{#each data.trades as t}<option value={t._id}
+				{#each data.trades as t (t._id)}<option value={t._id}
 						>{t.coin} · {t.date} · {t.order_id ?? (t.is_group ? 'Combined trade' : 'Manual')} · {t.strategy ??
 							'No strategy'}</option
 					>{/each}
@@ -174,7 +179,7 @@
 				<label>Strategy<input class="input" name="strategy" value={primary.strategy ?? ''} /></label
 				>
 			</div>
-			{#each [['reason', 'Reason / setup'], ['pre_notes', 'Pre notes'], ['post_notes', 'Post notes']] as [key, label]}
+			{#each [['reason', 'Reason / setup'], ['pre_notes', 'Pre notes'], ['post_notes', 'Post notes']] as [key, label] (key)}
 				<label class="form-label" for={key}>{label}</label><textarea
 					id={key}
 					class="input"

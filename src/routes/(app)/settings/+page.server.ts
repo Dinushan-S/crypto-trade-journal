@@ -5,17 +5,13 @@ import { api } from '../../../../convex/_generated/api';
 export const load: PageServerLoad = async ({ locals, cookies }) => {
 	const calendarTz = (cookies.get('calendarTz') ?? 'local') as 'local' | 'utc';
 	let mySession: { start: string; end: string; tz: string } | null = null;
-	try {
-		const s: any = await locals.convex
-			.query(api.userSettings.getUserSettings, {} as any)
-			.catch(() => null);
-		if (s)
-			mySession = {
-				start: s.my_session_start ?? '04:30',
-				end: s.my_session_end ?? '12:30',
-				tz: s.view_tz ?? 'utc'
-			};
-	} catch {}
+	const s = await locals.convex.query(api.userSettings.getUserSettings, {}).catch(() => null);
+	if (s)
+		mySession = {
+			start: s.my_session_start ?? '04:30',
+			end: s.my_session_end ?? '12:30',
+			tz: s.view_tz ?? 'utc'
+		};
 	return { user: locals.user, calendarTz, mySession };
 };
 
@@ -64,9 +60,9 @@ export const actions: Actions = {
 				my_session_start: start,
 				my_session_end: end,
 				view_tz
-			} as any);
-		} catch (e: any) {
-			return fail(400, { error: e?.message ?? 'Save failed.' });
+			});
+		} catch (e) {
+			return fail(400, { error: e instanceof Error ? e.message : 'Save failed.' });
 		}
 		return { mySessionSaved: true };
 	}

@@ -1,11 +1,15 @@
 <script lang="ts">
+	import { untrack } from 'svelte';
 	import { enhance } from '$app/forms';
 	import type { ActionData } from './$types';
 
 	let { form }: { form: ActionData } = $props();
 
-	let mode = $state<'login' | 'signup'>(form?.flow === 'signUp' ? 'signup' : 'login');
-	let email = $state(form?.email ?? '');
+	// Seeded once from the last action result.
+	let mode = $state<'login' | 'signup'>(
+		untrack(() => (form?.flow === 'signUp' ? 'signup' : 'login'))
+	);
+	let email = $state(untrack(() => form?.email ?? ''));
 	let password = $state('');
 	let loading = $state(false);
 </script>
@@ -59,7 +63,7 @@
 			<div
 				style="display:flex;gap:0.375rem;margin-bottom:1.5rem;background:var(--bg);border-radius:0.5rem;padding:0.25rem;"
 			>
-				{#each [['login', 'Sign In'], ['signup', 'Sign Up']] as [key, label]}
+				{#each [['login', 'Sign In'], ['signup', 'Sign Up']] as [key, label] (key)}
 					<button
 						type="button"
 						onclick={() => (mode = key as 'login' | 'signup')}

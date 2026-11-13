@@ -1,5 +1,8 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
+	import { resolve } from '$app/paths';
+	import { SvelteMap, SvelteSet } from 'svelte/reactivity';
+	import type { Doc } from '../../../../../convex/_generated/dataModel';
 
 	let { data, form } = $props();
 
@@ -21,11 +24,11 @@
 	// Trade picker state (works in both linked and standalone modes)
 	let search = $state('');
 	let pickerOpen = $state(false);
-	let selectedTradeIds = $state(new Set<string>(data.tradeIds ?? []));
+	const selectedTradeIds = new SvelteSet<string>(data.tradeIds ?? []);
 
 	// All trades the user can pick from: pre-selected (from Trade Log) + available (not yet linked)
 	const allPickerTrades = $derived.by(() => {
-		const byId = new Map<string, any>();
+		const byId = new SvelteMap<string, Doc<'trades'>>();
 		for (const t of data.selectedTradeDocs ?? []) byId.set(t._id, t);
 		for (const t of data.availableTrades ?? []) byId.set(t._id, t);
 		return [...byId.values()];
@@ -33,7 +36,7 @@
 
 	const availableTrades = $derived(
 		allPickerTrades.filter(
-			(t: any) =>
+			(t) =>
 				!selectedTradeIds.has(t._id) &&
 				(search === '' ||
 					`${t.date} ${t.coin ?? ''} ${t.position ?? ''} ${t.strategy ?? ''}`
@@ -42,20 +45,18 @@
 		)
 	);
 
-	const selectedTrades = $derived(allPickerTrades.filter((t: any) => selectedTradeIds.has(t._id)));
+	const selectedTrades = $derived(allPickerTrades.filter((t) => selectedTradeIds.has(t._id)));
 
 	// Derived net PnL of selected trades → auto-fill amount lost when not manually set
 	let manualAmount = $state(false);
-	const selectedNetPnl = $derived(
-		selectedTrades.reduce((s: number, t: any) => s + (t.pnl ?? 0), 0)
-	);
+	const selectedNetPnl = $derived(selectedTrades.reduce((s, t) => s + (t.pnl ?? 0), 0));
 
 	function toggleTrade(id: string) {
 		if (selectedTradeIds.has(id)) selectedTradeIds.delete(id);
 		else selectedTradeIds.add(id);
 		// Re-derive amount lost from selection unless user typed a custom value
 		if (!manualAmount) {
-			const net = selectedTrades.reduce((s: number, t: any) => s + (t.pnl ?? 0), 0);
+			const net = selectedTrades.reduce((s, t) => s + (t.pnl ?? 0), 0);
 			amount_lost = Math.max(0, -net) || null;
 		}
 	}
@@ -69,7 +70,7 @@
 
 <div style="padding:1.5rem;max-width:600px;">
 	<div style="display:flex;align-items:center;gap:1rem;margin-bottom:1.5rem;">
-		<a href="/liquidations" class="link-muted">← Liquidations</a>
+		<a href={resolve('/liquidations')} class="link-muted">← Liquidations</a>
 		<h1 class="stat-value">Log Liquidation</h1>
 	</div>
 
@@ -98,7 +99,9 @@
 					>{initial!.count} trade{initial!.count > 1 ? 's' : ''} linked</span
 				>
 			</div>
-			<a href="/trades" style="font-size:0.8rem;color:var(--accent);text-decoration:underline;"
+			<a
+				href={resolve('/trades')}
+				style="font-size:0.8rem;color:var(--accent);text-decoration:underline;"
 				>View in Trade Log →</a
 			>
 		</div>
@@ -130,9 +133,10 @@
 		>
 			<!-- Trade picker -->
 			<div style="margin-bottom:1.25rem;">
-				<label class="form-label">Link Trades (Optional)</label>
+				<label class="form-label" for="liq-trade-search">Link Trades (Optional)</label>
 				<div style="position:relative;">
 					<input
+						id="liq-trade-search"
 						type="text"
 						bind:value={search}
 						onfocus={() => (pickerOpen = true)}
@@ -150,7 +154,7 @@
 										: 'No trades found. Add trades in the Trade Log first.'}
 								</div>
 							{:else}
-								{#each availableTrades as t}
+								{#each availableTrades as t (t._id)}
 									<button
 										type="button"
 										onclick={() => {
@@ -166,10 +170,10 @@
 										<span style="font-weight:600;">{t.coin ?? '—'}</span>
 										<span class="muted-xs">{t.position ?? ''}</span>
 										<span
-											style="font-family:'JetBrains Mono',monospace;font-size:0.75rem;color:{t.pnl >
-											0
+											style="font-family:'JetBrains Mono',monospace;font-size:0.75rem;color:{(t.pnl ??
+												0) > 0
 												? 'var(--win)'
-												: t.pnl < 0
+												: (t.pnl ?? 0) < 0
 													? 'var(--loss)'
 													: 'var(--text-muted)'};"
 										>
@@ -184,7 +188,7 @@
 
 				{#if selectedTrades.length > 0}
 					<div style="display:flex;flex-wrap:wrap;gap:0.375rem;margin-top:0.5rem;">
-						{#each selectedTrades as t}
+						{#each selectedTrades as t (t._id)}
 							<span
 								style="display:inline-flex;align-items:center;gap:0.375rem;padding:0.25rem 0.5rem;border:1px solid color-mix(in srgb,var(--accent) 40%,transparent);border-radius:0.375rem;background:color-mix(in srgb,var(--accent) 8%,transparent);font-size:0.75rem;color:var(--text-primary);"
 							>
@@ -211,17 +215,17 @@
 
 			<div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;">
 				<div>
-					<label class="form-label">Date</label>
-					<input type="date" name="date" bind:value={date} class="input" required />
+					<label class="form-label" for="liq-date">Date</label>
+					<input id="liq-date" type="date" name="date" bind:value={date} class="input" required />
 				</div>
 				<div>
-					<label class="form-label">Coin</label>
-					<input name="coin" bind:value={coin} placeholder="BTC" class="input" />
+					<label class="form-label" for="liq-coin">Coin</label>
+					<input id="liq-coin" name="coin" bind:value={coin} placeholder="BTC" class="input" />
 				</div>
 				<div>
-					<label class="form-label">Position</label>
-					<div style="display:flex;gap:0.5rem;">
-						{#each ['Long', 'Short', ''] as const as p}
+					<span class="form-label" id="liq-position-label">Position</span>
+					<div role="group" aria-labelledby="liq-position-label" style="display:flex;gap:0.5rem;">
+						{#each ['Long', 'Short', ''] as const as p (p)}
 							<button
 								type="button"
 								onclick={() => (position = p)}
@@ -250,8 +254,9 @@
 					</div>
 				</div>
 				<div>
-					<label class="form-label">Amount Lost ($)</label>
+					<label class="form-label" for="liq-amount">Amount Lost ($)</label>
 					<input
+						id="liq-amount"
 						type="number"
 						name="amount_lost"
 						bind:value={amount_lost}
@@ -264,12 +269,19 @@
 					/>
 				</div>
 				<div>
-					<label class="form-label">Strategy</label>
-					<input name="strategy" bind:value={strategy} placeholder="e.g. Breakout" class="input" />
+					<label class="form-label" for="liq-strategy">Strategy</label>
+					<input
+						id="liq-strategy"
+						name="strategy"
+						bind:value={strategy}
+						placeholder="e.g. Breakout"
+						class="input"
+					/>
 				</div>
 				<div>
-					<label class="form-label">Reason</label>
+					<label class="form-label" for="liq-reason">Reason</label>
 					<input
+						id="liq-reason"
 						name="reason"
 						bind:value={reason}
 						placeholder="e.g. No stop loss, overleveraged"
@@ -277,8 +289,9 @@
 					/>
 				</div>
 				<div class="span-full">
-					<label class="form-label">Mistake</label>
+					<label class="form-label" for="liq-mistake">Mistake</label>
 					<input
+						id="liq-mistake"
 						name="mistake"
 						bind:value={mistake}
 						placeholder="What went wrong?"
@@ -287,8 +300,9 @@
 					/>
 				</div>
 				<div class="span-full">
-					<label class="form-label">Notes</label>
+					<label class="form-label" for="liq-notes">Notes</label>
 					<textarea
+						id="liq-notes"
 						name="notes"
 						bind:value={notes}
 						rows="3"
@@ -312,7 +326,7 @@
 					{loading ? 'Saving…' : 'Log Liquidation'}
 				</button>
 				<a
-					href="/liquidations"
+					href={resolve('/liquidations')}
 					style="padding:0.625rem 1rem;border:1px solid var(--border);border-radius:0.5rem;background:transparent;color:var(--text-muted);font-size:0.875rem;text-decoration:none;display:inline-flex;align-items:center;"
 					>Cancel</a
 				>

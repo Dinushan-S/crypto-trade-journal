@@ -195,7 +195,13 @@ test('dashboard counts a single trade while attributing realized profit to each 
 	const result = (await load({
 		locals: { convex: { query: t.query } },
 		cookies: { get: () => 'local' }
-	} as never)) as any;
+	} as never)) as {
+		stats: unknown;
+		chartData: {
+			monthlyPnl: unknown;
+			dailyStats: Record<string, { trades: { id: string }[] }>;
+		};
+	};
 	expect(result.stats).toMatchObject({ totalTrades: 1, netPnl: 15, winRate: 100 });
 	expect(result.chartData.monthlyPnl).toMatchObject([
 		{ month: '2026-10', monthly: 20 },

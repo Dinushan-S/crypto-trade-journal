@@ -2,6 +2,9 @@ import { error, fail, redirect } from '@sveltejs/kit';
 import type { PageServerLoad, Actions } from './$types';
 import { api } from '../../../../../convex/_generated/api';
 import type { Id } from '../../../../../convex/_generated/dataModel';
+import type { FunctionArgs } from 'convex/server';
+
+type TradeUpdates = Omit<FunctionArgs<typeof api.trades.updateTrade>, 'id'>;
 
 export const load: PageServerLoad = async ({ locals: { convex }, params }) => {
 	const trade = await convex
@@ -25,7 +28,7 @@ export const actions: Actions = {
 	},
 	update: async ({ locals: { convex }, params, request }) => {
 		const form = await request.formData();
-		const updates: Record<string, any> = {};
+		const updates: Record<string, unknown> = {};
 		if (form.has('original_quantity'))
 			updates.original_quantity = Number(form.get('original_quantity'));
 
@@ -92,10 +95,16 @@ export const actions: Actions = {
 		}
 
 		try {
-			await convex.mutation(api.trades.updateTrade, { id: params.id as Id<'trades'>, ...updates });
+			// Field values are validated by the Convex mutation's argument validators.
+			await convex.mutation(api.trades.updateTrade, {
+				id: params.id as Id<'trades'>,
+				...(updates as TradeUpdates)
+			});
 			return { success: true };
-		} catch (err: any) {
-			return fail(400, { error: err.message || 'Failed to update trade.' });
+		} catch (err) {
+			return fail(400, {
+				error: (err instanceof Error && err.message) || 'Failed to update trade.'
+			});
 		}
 	},
 
@@ -103,8 +112,8 @@ export const actions: Actions = {
 		try {
 			await convex.mutation(api.trades.deleteTrade, { id: params.id as Id<'trades'> });
 			return { deleted: true };
-		} catch (err: any) {
-			return { deleted: false, error: err.message };
+		} catch (err) {
+			return { deleted: false, error: err instanceof Error ? err.message : undefined };
 		}
 	}
 };

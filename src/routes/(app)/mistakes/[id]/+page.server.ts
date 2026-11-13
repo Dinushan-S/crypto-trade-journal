@@ -6,18 +6,18 @@ import type { Id } from '../../../../../convex/_generated/dataModel';
 export const load: PageServerLoad = async ({ params, locals: { convex } }) => {
 	const { id } = params;
 
-	const mistake: any = await convex
+	const mistake = await convex
 		.query(api.mistakes.getMistakeById, { id: id as Id<'mistakes'> })
 		.catch(() => null);
 	if (!mistake) {
 		throw error(404, 'Mistake entry not found');
 	}
 
-	const trades: any[] = await convex.query(api.trades.getTrades, {}).catch(() => []);
+	const trades = await convex.query(api.trades.getTrades, {}).catch(() => []);
 
 	return {
 		mistake: { ...mistake, id: mistake._id },
-		trades: trades.slice(0, 50).map((t: any) => ({ ...t, id: t._id }))
+		trades: trades.slice(0, 50).map((t) => ({ ...t, id: t._id }))
 	};
 };
 
@@ -52,8 +52,10 @@ export const actions: Actions = {
 				category,
 				severity
 			});
-		} catch (err: any) {
-			return fail(500, { error: err.message });
+		} catch (err) {
+			return fail(500, {
+				error: err instanceof Error ? err.message : 'Failed to save mistake.'
+			});
 		}
 
 		redirect(303, '/mistakes');

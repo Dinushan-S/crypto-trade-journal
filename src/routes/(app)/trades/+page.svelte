@@ -1,11 +1,16 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
+	import { resolve } from '$app/paths';
 	import { enhance } from '$app/forms';
 	import { page } from '$app/state';
 	import { untrack } from 'svelte';
+	import type { SubmitFunction } from '@sveltejs/kit';
 	import { formatCurrency, formatDate, periodRange, type Period } from '$lib/utils';
+	import type { PageData, PageProps } from './$types';
 
-	let { data, form } = $props();
+	type Trade = PageData['trades'][number];
+
+	let { data, form }: PageProps = $props();
 
 	// Local filter state (mirrors URL params — seeded once from server data)
 	let coin = $state(untrack(() => data.filters.coin));
@@ -54,21 +59,16 @@
 	}
 
 	function toggleTradeSelect(tradeId: string, checked: boolean) {
-		const next = new Set(selectedSet);
-		if (checked) next.add(tradeId);
-		else next.delete(tradeId);
-		selectedSet = next;
+		selectedSet = checked
+			? new Set([...selectedSet, tradeId])
+			: new Set([...selectedSet].filter((id) => id !== tradeId));
 	}
 
 	const selectedCount = $derived(selectedSet.size);
 
-	const selectedTrades = $derived(data.trades.filter((t: any) => selectedSet.has(t.id)));
+	const selectedTrades = $derived(data.trades.filter((t) => selectedSet.has(t.id)));
 
-	const selectedNetPnl = $derived(
-		selectedTrades.reduce((s: number, t: any) => s + (t.pnl ?? 0), 0)
-	);
-
-	const selectedFees = $derived(selectedTrades.reduce((s: number, t: any) => s + (t.fee ?? 0), 0));
+	const selectedNetPnl = $derived(selectedTrades.reduce((s, t) => s + (t.pnl ?? 0), 0));
 
 	const allSelected = $derived(
 		selectedTrades.length > 0 && selectedSet.size === sortedTrades.length
@@ -77,24 +77,18 @@
 	const selectedAmountLost = $derived(Math.max(0, -selectedNetPnl));
 
 	const mixedFields = $derived({
-		coins: new Set(selectedTrades.map((t: any) => t.coin)).size > 1 ? true : false,
-		positions: new Set(selectedTrades.map((t: any) => t.position)).size > 1 ? true : false,
-		strategies: selectedTrades.every((t: any) => t.strategy)
-			? new Set(selectedTrades.map((t: any) => t.strategy)).size > 1
+		coins: new Set(selectedTrades.map((t) => t.coin)).size > 1 ? true : false,
+		positions: new Set(selectedTrades.map((t) => t.position)).size > 1 ? true : false,
+		strategies: selectedTrades.every((t) => t.strategy)
+			? new Set(selectedTrades.map((t) => t.strategy)).size > 1
 				? true
 				: false
 			: false
 	});
 
-	function createLiquidation() {
-		if (selectedSet.size === 0) return;
-		const tradeIds = Array.from(selectedSet).join(',');
-		goto(`/liquidations/new?tradeIds=${encodeURIComponent(tradeIds)}`);
-	}
-
 	// Quick add / quick edit modal
 	let addOpen = $state(false);
-	let editTrade = $state<any | null>(null);
+	let editTrade = $state<Trade | null>(null);
 	let modalMode = $state<'quick' | 'full'>('quick');
 
 	const tfOptions = ['1m', '5m', '15m', '30m', '1h', '4h', '1D', '1W'];
@@ -106,9 +100,9 @@
 	};
 
 	let saving = $state(false);
-	const submitEnhance = () => {
+	const submitEnhance: SubmitFunction = () => {
 		saving = true;
-		return async ({ result, update }: any) => {
+		return async ({ result, update }) => {
 			saving = false;
 			await update({ reset: false });
 			if (result.type === 'success') closeModal();
@@ -141,12 +135,12 @@
 	$effect(() => {
 		if (page.url.searchParams.has('add')) {
 			openAdd();
-			goto('/trades', { replaceState: true, noScroll: true, keepFocus: true });
+			goto(resolve('/trades'), { replaceState: true, noScroll: true, keepFocus: true });
 		}
 	});
-	function openEdit(t: any) {
+	function openEdit(t: Trade) {
 		if (t.is_group) {
-			goto(`/trades/${t.id}?edit`);
+			goto(resolve('/(app)/trades/[id]?edit', { id: t.id }));
 			return;
 		}
 		editTrade = t;
@@ -161,24 +155,27 @@
 	}
 
 	// Summary stats for visible trades
-	let totalPnl = $derived(data.trades.reduce((s: number, t: any) => s + (t.pnl ?? 0), 0));
-	let wins = $derived(data.trades.filter((t: any) => t.win).length);
+	let totalPnl = $derived(data.trades.reduce((s, t) => s + (t.pnl ?? 0), 0));
+	let wins = $derived(data.trades.filter((t) => t.win).length);
 	let completedCount = $derived(
-		data.trades.filter((t: any) => !t.is_group || t.status === 'Closed').length
+		data.trades.filter((t) => !t.is_group || t.status === 'Closed').length
 	);
 	let winRate = $derived(completedCount > 0 ? ((wins / completedCount) * 100).toFixed(1) : '0.0');
 
 	function applyFilters() {
 		selectedSet = new Set();
-		const params = new URLSearchParams();
-		if (coin) params.set('coin', coin);
-		if (position !== 'all') params.set('position', position);
-		if (result !== 'all') params.set('result', result);
-		if (strategy) params.set('strategy', strategy);
-		if (source !== 'all') params.set('source', source);
-		if (dateFrom) params.set('dateFrom', dateFrom);
-		if (dateTo) params.set('dateTo', dateTo);
-		goto(`/trades?${params.toString()}`);
+		const params = new URLSearchParams(
+			Object.entries({
+				coin,
+				position: position !== 'all' ? position : '',
+				result: result !== 'all' ? result : '',
+				strategy,
+				source: source !== 'all' ? source : '',
+				dateFrom,
+				dateTo
+			}).filter(([, value]) => value)
+		);
+		goto(resolve(`/trades?${params.toString()}`));
 	}
 
 	// Quick date period presets — 'custom' just leaves the From/To inputs alone
@@ -200,7 +197,7 @@
 		dateFrom = '';
 		dateTo = '';
 		period = 'custom';
-		goto('/trades');
+		goto(resolve('/trades'));
 	}
 
 	function toggleSort(col: string) {
@@ -216,12 +213,12 @@
 		return sortAsc ? '↑' : '↓';
 	}
 
-	function isIncomplete(trade: any) {
+	function isIncomplete(trade: Trade) {
 		return trade.source === 'futures_import' && (!trade.strategy || !trade.reason);
 	}
 
-	const resultLabel = (t: any) => (t.win ? 'Win' : t.loss ? 'Loss' : t.be ? 'BE' : '—');
-	const resultColor = (t: any) =>
+	const resultLabel = (t: Trade) => (t.win ? 'Win' : t.loss ? 'Loss' : t.be ? 'BE' : '—');
+	const resultColor = (t: Trade) =>
 		t.win ? 'var(--win)' : t.loss ? 'var(--loss)' : 'var(--text-muted)';
 
 	function pnlColor(pnl: number | null | undefined): string {
@@ -254,8 +251,9 @@
 <svelte:head><title>Trades — Qulem-Trade</title></svelte:head>
 
 <div style="padding:1.5rem;max-width:100%;">
-	{#if page.url.searchParams.has('notes')}<p style="margin-bottom:1rem;">
-			Combination undone. <a href="/trades/{page.url.searchParams.get('notes')}"
+	{#if page.url.searchParams.get('notes')}<p style="margin-bottom:1rem;">
+			Combination undone. <a
+				href={resolve('/(app)/trades/[id]', { id: page.url.searchParams.get('notes') ?? '' })}
 				>View retained shared journal notes</a
 			>.
 		</p>{/if}
@@ -292,7 +290,7 @@
 				📋 Create Liquidation
 			</button>
 			<a
-				href="/trades/import"
+				href={resolve('/trades/import')}
 				style="padding:0.5rem 0.875rem;border:1px solid var(--border);border-radius:0.5rem;color:var(--text-muted);text-decoration:none;font-size:0.875rem;background:transparent;display:inline-flex;align-items:center;gap:0.375rem;"
 			>
 				<svg
@@ -364,12 +362,15 @@
 						class="btn-primary"
 						disabled={selectedCount < 2 || mixedFields.coins || mixedFields.positions}
 						onclick={() =>
-							goto(`/trades/combine?ids=${encodeURIComponent(Array.from(selectedSet).join(','))}`)}
-						>Next: Review {selectedCount} Trades</button
+							goto(
+								resolve(
+									`/trades/combine?ids=${encodeURIComponent(Array.from(selectedSet).join(','))}`
+								)
+							)}>Next: Review {selectedCount} Trades</button
 					>
 				{:else}
 					<a
-						href="/liquidations/new?tradeIds={encodeURIComponent(
+						href="{resolve('/liquidations/new')}?tradeIds={encodeURIComponent(
 							Array.from(selectedSet).join(',')
 						)}"
 						style="padding:0.5rem 1rem;background:var(--loss);color:#fff;border:none;border-radius:0.5rem;font-size:0.85rem;font-weight:600;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;gap:0.375rem;"
@@ -386,7 +387,7 @@
 		style="background:var(--surface);border:1px solid var(--border);border-radius:0.75rem;padding:1rem;margin-bottom:1rem;display:flex;flex-wrap:wrap;gap:0.75rem;align-items:flex-end;"
 	>
 		<div style="display:flex;gap:0.25rem;align-self:flex-end;">
-			{#each [['day', 'Today'], ['week', 'This Week'], ['month', 'This Month'], ['custom', 'Custom']] as [p, label]}
+			{#each [['day', 'Today'], ['week', 'This Week'], ['month', 'This Month'], ['custom', 'Custom']] as [p, label] (p)}
 				<button
 					onclick={() => setPeriod(p as Period)}
 					style="padding:0.375rem 0.625rem;border:1px solid {period === p
@@ -400,8 +401,9 @@
 			{/each}
 		</div>
 		<div>
-			<label class="field-label">From</label>
+			<label class="field-label" for="filter-dateFrom">From</label>
 			<input
+				id="filter-dateFrom"
 				type="date"
 				bind:value={dateFrom}
 				oninput={() => (period = 'custom')}
@@ -409,8 +411,9 @@
 			/>
 		</div>
 		<div>
-			<label class="field-label">To</label>
+			<label class="field-label" for="filter-dateTo">To</label>
 			<input
+				id="filter-dateTo"
 				type="date"
 				bind:value={dateTo}
 				oninput={() => (period = 'custom')}
@@ -418,8 +421,9 @@
 			/>
 		</div>
 		<div>
-			<label class="field-label">Coin</label>
+			<label class="field-label" for="filter-coin">Coin</label>
 			<input
+				id="filter-coin"
 				type="text"
 				bind:value={coin}
 				placeholder="BTC, ETH…"
@@ -427,16 +431,16 @@
 			/>
 		</div>
 		<div>
-			<label class="field-label">Position</label>
-			<select bind:value={position} class="input-sm">
+			<label class="field-label" for="filter-position">Position</label>
+			<select id="filter-position" bind:value={position} class="input-sm">
 				<option value="all">All</option>
 				<option value="Long">Long</option>
 				<option value="Short">Short</option>
 			</select>
 		</div>
 		<div>
-			<label class="field-label">Result</label>
-			<select bind:value={result} class="input-sm">
+			<label class="field-label" for="filter-result">Result</label>
+			<select id="filter-result" bind:value={result} class="input-sm">
 				<option value="all">All</option>
 				<option value="win">Win</option>
 				<option value="loss">Loss</option>
@@ -444,8 +448,9 @@
 			</select>
 		</div>
 		<div>
-			<label class="field-label">Strategy</label>
+			<label class="field-label" for="filter-strategy">Strategy</label>
 			<input
+				id="filter-strategy"
 				type="text"
 				bind:value={strategy}
 				placeholder="Search…"
@@ -453,8 +458,8 @@
 			/>
 		</div>
 		<div>
-			<label class="field-label">Source</label>
-			<select bind:value={source} class="input-sm">
+			<label class="field-label" for="filter-source">Source</label>
+			<select id="filter-source" bind:value={source} class="input-sm">
 				<option value="all">All</option>
 				<option value="manual">Manual</option>
 				<option value="imported">Imported</option>
@@ -492,7 +497,7 @@
 								/>
 							</th>
 						{/if}
-						{#each columns as [label, col]}
+						{#each columns as [label, col] (label)}
 							<th
 								onclick={() => col && toggleSort(col)}
 								style="padding:0.625rem 0.75rem;text-align:left;font-size:0.7rem;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;white-space:nowrap;cursor:{col
@@ -522,16 +527,18 @@
 									>Add your first trade</button
 								>
 								or
-								<a href="/trades/import" style="color:var(--accent);text-decoration:none;"
-									>import CSV</a
+								<a
+									href={resolve('/trades/import')}
+									style="color:var(--accent);text-decoration:none;">import CSV</a
 								>.
 							</td>
 						</tr>
 					{:else}
-						{#each sortedTrades as trade, i}
+						{#each sortedTrades as trade, i (trade.id)}
 							<tr
 								class:selection-mode-row={selectionMode}
-								onclick={() => !selectionMode && goto(`/trades/${trade.id}`)}
+								onclick={() =>
+									!selectionMode && goto(resolve('/(app)/trades/[id]', { id: trade.id }))}
 								style="border-bottom:1px solid var(--border);transition:background 0.1s;{selectionMode
 									? 'cursor:default'
 									: 'cursor:pointer'}"
@@ -722,14 +729,20 @@
 				<div style="display:flex;gap:0.5rem;">
 					{#if data.page > 1}
 						<a
-							href="/trades?{new URLSearchParams({ ...data.filters, page: String(data.page - 1) })}"
+							href="{resolve('/trades')}?{new URLSearchParams({
+								...data.filters,
+								page: String(data.page - 1)
+							})}"
 							style="padding:0.375rem 0.75rem;border:1px solid var(--border);border-radius:0.375rem;color:var(--text-muted);text-decoration:none;font-size:0.8rem;"
 							>← Prev</a
 						>
 					{/if}
 					{#if data.page * 50 < data.total}
 						<a
-							href="/trades?{new URLSearchParams({ ...data.filters, page: String(data.page + 1) })}"
+							href="{resolve('/trades')}?{new URLSearchParams({
+								...data.filters,
+								page: String(data.page + 1)
+							})}"
 							style="padding:0.375rem 0.75rem;border:1px solid var(--border);border-radius:0.375rem;color:var(--text-muted);text-decoration:none;font-size:0.8rem;"
 							>Next →</a
 						>
@@ -741,7 +754,9 @@
 
 	<!-- Quick Add / Quick Edit Modal -->
 	{#if addOpen}
+		<!-- Backdrop click closes the modal; Escape is handled by the window keydown listener. -->
 		<div
+			role="presentation"
 			style="position:fixed;inset:0;background:rgba(0,0,0,0.6);display:flex;align-items:center;justify-content:center;z-index:50;"
 			onclick={(e) => {
 				if (e.target === e.currentTarget) closeModal();
@@ -769,7 +784,7 @@
 				<div
 					style="display:inline-flex;background:var(--surface);border:1px solid var(--border);border-radius:0.5rem;padding:0.25rem;margin-bottom:1.25rem;"
 				>
-					{#each ['quick', 'full'] as const as m}
+					{#each ['quick', 'full'] as const as m (m)}
 						<button
 							type="button"
 							onclick={() => (modalMode = m)}
@@ -802,8 +817,9 @@
 					{#if modalMode === 'quick'}
 						<div style="display:grid;grid-template-columns:1fr 1fr;gap:0.875rem;">
 							<div>
-								<label class="form-label">Coin</label>
+								<label class="form-label" for="trade-coin">Coin</label>
 								<input
+									id="trade-coin"
 									name="coin"
 									required
 									value={editTrade?.coin ?? ''}
@@ -812,16 +828,17 @@
 								/>
 							</div>
 							<div>
-								<label class="form-label">Position</label>
-								<select name="position" class="input">
-									{#each ['Long', 'Short'] as const as p}
+								<label class="form-label" for="trade-position">Position</label>
+								<select id="trade-position" name="position" class="input">
+									{#each ['Long', 'Short'] as const as p (p)}
 										<option value={p} selected={editTrade?.position === p}>{p}</option>
 									{/each}
 								</select>
 							</div>
 							<div>
-								<label class="form-label">Date</label>
+								<label class="form-label" for="trade-date">Date</label>
 								<input
+									id="trade-date"
 									type="date"
 									name="date"
 									value={editTrade?.date ?? new Date().toISOString().split('T')[0]}
@@ -830,8 +847,9 @@
 								/>
 							</div>
 							<div>
-								<label class="form-label">Time</label>
+								<label class="form-label" for="trade-time">Time</label>
 								<input
+									id="trade-time"
 									type="time"
 									name="time"
 									step="any"
@@ -840,8 +858,9 @@
 								/>
 							</div>
 							<div>
-								<label class="form-label">Entry Price</label>
+								<label class="form-label" for="trade-entry-price">Entry Price</label>
 								<input
+									id="trade-entry-price"
 									type="number"
 									name="entry_price"
 									value={editTrade?.entry_price ?? ''}
@@ -851,8 +870,9 @@
 								/>
 							</div>
 							<div>
-								<label class="form-label">PnL ($)</label>
+								<label class="form-label" for="trade-pnl">PnL ($)</label>
 								<input
+									id="trade-pnl"
 									type="number"
 									name="pnl"
 									value={editTrade?.pnl ?? ''}
@@ -862,8 +882,9 @@
 								/>
 							</div>
 							<div>
-								<label class="form-label">Strategy</label>
+								<label class="form-label" for="trade-strategy">Strategy</label>
 								<input
+									id="trade-strategy"
 									name="strategy"
 									value={editTrade?.strategy ?? ''}
 									placeholder="Breakout, Retest…"
@@ -871,8 +892,9 @@
 								/>
 							</div>
 							<div>
-								<label class="form-label">Reason</label>
+								<label class="form-label" for="trade-reason">Reason</label>
 								<input
+									id="trade-reason"
 									name="reason"
 									value={editTrade?.reason ?? ''}
 									placeholder="Setup notes…"
@@ -883,8 +905,9 @@
 					{:else}
 						<div style="display:grid;grid-template-columns:1fr 1fr;gap:0.875rem;">
 							<div>
-								<label class="form-label">Coin</label>
+								<label class="form-label" for="trade-coin">Coin</label>
 								<input
+									id="trade-coin"
 									name="coin"
 									required
 									value={editTrade?.coin ?? ''}
@@ -893,16 +916,17 @@
 								/>
 							</div>
 							<div>
-								<label class="form-label">Position</label>
-								<select name="position" class="input">
-									{#each ['Long', 'Short'] as const as p}
+								<label class="form-label" for="trade-position">Position</label>
+								<select id="trade-position" name="position" class="input">
+									{#each ['Long', 'Short'] as const as p (p)}
 										<option value={p} selected={editTrade?.position === p}>{p}</option>
 									{/each}
 								</select>
 							</div>
 							<div>
-								<label class="form-label">Date</label>
+								<label class="form-label" for="trade-date">Date</label>
 								<input
+									id="trade-date"
 									type="date"
 									name="date"
 									value={editTrade?.date ?? new Date().toISOString().split('T')[0]}
@@ -911,12 +935,19 @@
 								/>
 							</div>
 							<div>
-								<label class="form-label">Time</label>
-								<input type="time" name="time" value={editTrade?.time ?? ''} class="input" />
+								<label class="form-label" for="trade-time">Time</label>
+								<input
+									id="trade-time"
+									type="time"
+									name="time"
+									value={editTrade?.time ?? ''}
+									class="input"
+								/>
 							</div>
 							<div>
-								<label class="form-label">Entry Price</label>
+								<label class="form-label" for="trade-entry-price">Entry Price</label>
 								<input
+									id="trade-entry-price"
 									type="number"
 									name="entry_price"
 									value={editTrade?.entry_price ?? ''}
@@ -926,8 +957,9 @@
 								/>
 							</div>
 							<div>
-								<label class="form-label">Exit Price</label>
+								<label class="form-label" for="trade-exit-price">Exit Price</label>
 								<input
+									id="trade-exit-price"
 									type="number"
 									name="exit_price"
 									value={editTrade?.exit_price ?? ''}
@@ -937,8 +969,9 @@
 								/>
 							</div>
 							<div>
-								<label class="form-label">Stop Loss</label>
+								<label class="form-label" for="trade-stop-loss">Stop Loss</label>
 								<input
+									id="trade-stop-loss"
 									type="number"
 									name="stop_loss"
 									value={editTrade?.stop_loss ?? ''}
@@ -948,8 +981,9 @@
 								/>
 							</div>
 							<div>
-								<label class="form-label">Quantity</label>
+								<label class="form-label" for="trade-quantity">Quantity</label>
 								<input
+									id="trade-quantity"
 									type="number"
 									name="quantity"
 									value={editTrade?.quantity ?? ''}
@@ -959,8 +993,9 @@
 								/>
 							</div>
 							<div>
-								<label class="form-label">PnL ($)</label>
+								<label class="form-label" for="trade-pnl">PnL ($)</label>
 								<input
+									id="trade-pnl"
 									type="number"
 									name="pnl"
 									value={editTrade?.pnl ?? ''}
@@ -970,8 +1005,9 @@
 								/>
 							</div>
 							<div>
-								<label class="form-label">Fee ($)</label>
+								<label class="form-label" for="trade-fee">Fee ($)</label>
 								<input
+									id="trade-fee"
 									type="number"
 									name="fee"
 									value={editTrade?.fee ?? ''}
@@ -981,8 +1017,9 @@
 								/>
 							</div>
 							<div>
-								<label class="form-label">Strategy</label>
+								<label class="form-label" for="trade-strategy">Strategy</label>
 								<input
+									id="trade-strategy"
 									name="strategy"
 									value={editTrade?.strategy ?? ''}
 									placeholder="e.g. Breakout, Retest"
@@ -990,8 +1027,9 @@
 								/>
 							</div>
 							<div>
-								<label class="form-label">Leverage</label>
+								<label class="form-label" for="trade-leverage">Leverage</label>
 								<input
+									id="trade-leverage"
 									name="leverage"
 									value={editTrade?.leverage ?? ''}
 									placeholder="e.g. 10x"
@@ -999,8 +1037,9 @@
 								/>
 							</div>
 							<div>
-								<label class="form-label">Confidence (1-5)</label>
+								<label class="form-label" for="trade-confidence">Confidence (1-5)</label>
 								<input
+									id="trade-confidence"
 									type="number"
 									name="confidence"
 									min="1"
@@ -1011,8 +1050,9 @@
 								/>
 							</div>
 							<div>
-								<label class="form-label">Risk %</label>
+								<label class="form-label" for="trade-risk-pct">Risk %</label>
 								<input
+									id="trade-risk-pct"
 									type="number"
 									name="risk_pct"
 									value={editTrade?.risk_pct ?? ''}
@@ -1022,8 +1062,9 @@
 								/>
 							</div>
 							<div>
-								<label class="form-label">Range %</label>
+								<label class="form-label" for="trade-range-pct">Range %</label>
 								<input
+									id="trade-range-pct"
 									type="number"
 									name="range_pct"
 									value={editTrade?.range_pct ?? ''}
@@ -1033,8 +1074,9 @@
 								/>
 							</div>
 							<div>
-								<label class="form-label">Limit Type</label>
+								<label class="form-label" for="trade-limit-type">Limit Type</label>
 								<input
+									id="trade-limit-type"
 									name="limit_type"
 									value={editTrade?.limit_type ?? ''}
 									placeholder="Limit / Market / Stop"
@@ -1042,8 +1084,9 @@
 								/>
 							</div>
 							<div>
-								<label class="form-label">Duration</label>
+								<label class="form-label" for="trade-duration">Duration</label>
 								<input
+									id="trade-duration"
 									name="duration"
 									value={editTrade?.duration ?? ''}
 									placeholder="e.g. 2h 30m"
@@ -1051,8 +1094,9 @@
 								/>
 							</div>
 							<div>
-								<label class="form-label">Date Closed</label>
+								<label class="form-label" for="trade-date-closed">Date Closed</label>
 								<input
+									id="trade-date-closed"
 									type="date"
 									name="date_closed"
 									value={editTrade?.date_closed ?? ''}
@@ -1060,8 +1104,9 @@
 								/>
 							</div>
 							<div>
-								<label class="form-label">Closed Reason</label>
+								<label class="form-label" for="trade-closed-reason">Closed Reason</label>
 								<input
+									id="trade-closed-reason"
 									name="closed_reason"
 									value={editTrade?.closed_reason ?? ''}
 									placeholder="Why closed…"
@@ -1072,9 +1117,13 @@
 							<input type="hidden" name="timeframes_present" value="1" />
 							<!-- Timeframes -->
 							<div class="span-full">
-								<label class="form-label">Timeframes</label>
-								<div style="display:flex;flex-wrap:wrap;gap:0.375rem;margin-top:0.25rem;">
-									{#each tfOptions as tf}
+								<span class="form-label" id="trade-timeframes-label">Timeframes</span>
+								<div
+									role="group"
+									aria-labelledby="trade-timeframes-label"
+									style="display:flex;flex-wrap:wrap;gap:0.375rem;margin-top:0.25rem;"
+								>
+									{#each tfOptions as tf (tf)}
 										{@const active = tfSel.includes(tf)}
 										<label
 											style="padding:0.25rem 0.625rem;border-radius:0.375rem;border:1px solid {active
@@ -1100,8 +1149,9 @@
 							</div>
 
 							<div class="span-full">
-								<label class="form-label">Reason / Setup</label>
+								<label class="form-label" for="trade-reason">Reason / Setup</label>
 								<textarea
+									id="trade-reason"
 									name="reason"
 									rows="3"
 									placeholder="Why did you take this trade?"
@@ -1110,8 +1160,9 @@
 								>
 							</div>
 							<div class="span-full">
-								<label class="form-label">Pre Notes</label>
+								<label class="form-label" for="trade-pre-notes">Pre Notes</label>
 								<textarea
+									id="trade-pre-notes"
 									name="pre_notes"
 									rows="3"
 									placeholder="Before entry thoughts…"
@@ -1121,8 +1172,9 @@
 								>
 							</div>
 							<div class="span-full">
-								<label class="form-label">Post Notes</label>
+								<label class="form-label" for="trade-post-notes">Post Notes</label>
 								<textarea
+									id="trade-post-notes"
 									name="post_notes"
 									rows="3"
 									placeholder="After exit thoughts…"

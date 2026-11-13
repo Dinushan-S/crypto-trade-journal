@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
+	import { resolve } from '$app/paths';
 
 	let { data, form } = $props();
 
@@ -39,7 +40,7 @@
 		selectedTradeId = tId;
 
 		if (tId) {
-			const found = data.trades.find((t: any) => t.id === tId);
+			const found = data.trades.find((t) => t.id === tId);
 			if (found) {
 				tradeDate = found.date;
 				coin = found.coin || '';
@@ -65,7 +66,7 @@
 			</p>
 		</div>
 		<a
-			href="/mistakes"
+			href={resolve('/mistakes')}
 			style="color:var(--text-muted);text-decoration:none;font-size:0.875rem;padding:0.5rem 0.875rem;border:1px solid var(--border);border-radius:0.5rem;"
 		>
 			Cancel
@@ -96,7 +97,7 @@
 				class="input-wide"
 			>
 				<option value="">-- Standalone Mistake (No Trade Linked) --</option>
-				{#each data.trades as t}
+				{#each data.trades as t (t.id)}
 					<option value={t.id}>
 						{t.date} | {t.coin || 'Trade'} ({t.position}) - PnL: {t.pnl !== null
 							? `$${t.pnl}`
@@ -146,14 +147,19 @@
 
 		<!-- Category Selector -->
 		<div>
-			<label
+			<span
+				id="category-label"
 				style="display:block;font-size:0.8125rem;font-weight:600;color:var(--text-muted);margin-bottom:0.5rem;"
 			>
 				Mistake Category *
-			</label>
+			</span>
 			<input type="hidden" name="category" value={category} />
-			<div style="display:flex;flex-wrap:wrap;gap:0.5rem;">
-				{#each categories as cat}
+			<div
+				role="group"
+				aria-labelledby="category-label"
+				style="display:flex;flex-wrap:wrap;gap:0.5rem;"
+			>
+				{#each categories as cat (cat)}
 					<button
 						type="button"
 						onclick={() => (category = cat)}
@@ -172,14 +178,15 @@
 
 		<!-- Severity Selector -->
 		<div>
-			<label
+			<span
+				id="severity-label"
 				style="display:block;font-size:0.8125rem;font-weight:600;color:var(--text-muted);margin-bottom:0.5rem;"
 			>
 				Severity Rating
-			</label>
+			</span>
 			<input type="hidden" name="severity" value={severity} />
-			<div style="display:flex;gap:0.75rem;">
-				{#each severities as s}
+			<div role="group" aria-labelledby="severity-label" style="display:flex;gap:0.75rem;">
+				{#each severities as s (s.value)}
 					<button
 						type="button"
 						onclick={() => (severity = s.value)}
@@ -257,7 +264,7 @@
 		<div
 			style="display:flex;align-items:center;justify-content:flex-end;gap:1rem;margin-top:0.5rem;"
 		>
-			<a href="/mistakes" class="link-muted"> Cancel </a>
+			<a href={resolve('/mistakes')} class="link-muted"> Cancel </a>
 			<button
 				type="submit"
 				style="padding:0.625rem 1.5rem;background:var(--accent);border:none;border-radius:0.5rem;color:#fff;font-size:0.875rem;font-weight:600;cursor:pointer;"

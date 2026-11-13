@@ -1,23 +1,32 @@
 <script lang="ts">
 	import { goto, invalidateAll } from '$app/navigation';
 	import { enhance } from '$app/forms';
+	import { resolve } from '$app/paths';
 	import { formatDate } from '$lib/utils';
+	import type { Doc } from '../../../../../convex/_generated/dataModel';
+	import type { ActionData, PageData } from './$types';
 
-	let { data, form } = $props();
+	type LedgerField = keyof Doc<'ledger'>;
+	type DetailRow = [label: string, value: string | null | undefined];
+
+	let { data, form }: { data: PageData; form: ActionData } = $props();
 	let editing = $state(false);
 	let saving = $state(false);
+	// TODO: no confirmation dialog is rendered yet, so the Delete button is currently a no-op.
+	// eslint-disable-next-line @typescript-eslint/no-unused-vars -- kept until the confirm dialog is built
 	let showDeleteConfirm = $state(false);
 
-	const entry = $derived(data.entry as any);
-	const tracking = $derived((data as any).tracking as any);
-	const allocations = $derived(((data as any).allocations ?? []) as any[]);
+	const entry = $derived(data.entry);
+	// Lock tracking only exists for deposits; withdrawals carry `{ balanceUsd }` instead.
+	const tracking = $derived(data.tracking && 'lockedUsd' in data.tracking ? data.tracking : null);
+	const allocations = $derived(data.allocations ?? []);
 	const isDeposit = $derived(entry?.type === 'deposit');
 
 	// Rebalance state: map depositId → USD amount
 	let rebalanceInputs = $state<Record<string, string>>({});
 	let newDepositId = $state('');
 	let newDepositUsd = $state('');
-	const availableDeposits = $derived(((data as any).availableDeposits ?? []) as any[]);
+	const availableDeposits = $derived(data.availableDeposits ?? []);
 	$effect(() => {
 		const map: Record<string, string> = {};
 		for (const a of allocations) map[a.depositId] = String(a.releasedUsd);
@@ -37,28 +46,28 @@
 	);
 
 	$effect(() => {
-		if (form?.deleted) goto('/ledger');
+		if (form?.deleted) goto(resolve('/ledger'));
 		if (form?.success) {
 			editing = false;
 		}
 	});
 
 	// Computed values for display
-	function lkrTotalSent(e: any) {
+	function lkrTotalSent(e: Doc<'ledger'>) {
 		return (e.fiat_sent ?? 0) + (e.usd_fee ?? 0) * (e.usd_rate ?? 0);
 	}
-	function usdReleased(e: any) {
+	function usdReleased(e: Doc<'ledger'>) {
 		return (e.usd_quantity ?? 0) - (e.fee ?? 0.07);
 	}
-	function expectedFiat(e: any) {
+	function expectedFiat(e: Doc<'ledger'>) {
 		return usdReleased(e) * (e.usd_rate ?? 0);
 	}
-	function effectiveRate(e: any) {
+	function effectiveRate(e: Doc<'ledger'>) {
 		if (!e.usd_received || !e.fiat_sent) return null;
 		return e.fiat_sent / e.usd_received;
 	}
 
-	const depositFields: [string, string, string][] = [
+	const depositFields: [string, LedgerField, string][] = [
 		['Date', 'date', 'date'],
 		['Time', 'time', 'time'],
 		['My Bank', 'my_bank', 'text'],
@@ -69,7 +78,7 @@
 		['USD Received', 'usd_received', 'number']
 	];
 
-	const withdrawalFields: [string, string, string][] = [
+	const withdrawalFields: [string, LedgerField, string][] = [
 		['Date', 'date', 'date'],
 		['Time', 'time', 'time'],
 		['Sender (P2P)', 'sender_bank', 'text'],
@@ -80,12 +89,12 @@
 		['Actual LKR Received', 'fiat_amount', 'number']
 	];
 
-	const detailRows = $derived<any[]>([
+	const detailRows = $derived<DetailRow[]>([
 		['Type', entry.type ? (isDeposit ? '↓ Deposit' : '↑ Withdrawal') : null],
 		['Date', formatDate(entry.date)],
 		['Time', entry.time ?? null],
 		...(isDeposit
-			? [
+			? ([
 					['My Bank', entry.my_bank ?? null],
 					['Recipient (P2P)', entry.recipient_bank ?? entry.counterparty ?? null],
 					['LKR Sent', entry.fiat_sent != null ? entry.fiat_sent.toLocaleString('en-US') : null],
@@ -97,8 +106,8 @@
 					['USD Received', entry.usd_received != null ? `$${entry.usd_received.toFixed(2)}` : null],
 					['Rate', entry.usd_rate != null ? entry.usd_rate.toFixed(2) : null],
 					['Eff. Rate', effectiveRate(entry) != null ? effectiveRate(entry)?.toFixed(2) : null]
-				]
-			: [
+				] satisfies DetailRow[])
+			: ([
 					['Sender (P2P)', entry.sender_bank ?? entry.counterparty ?? null],
 					['Receiver Bank', entry.receiver_bank ?? null],
 					['USD Quantity', entry.usd_quantity != null ? `$${entry.usd_quantity.toFixed(2)}` : null],
@@ -113,7 +122,7 @@
 						'Actual LKR',
 						entry.fiat_amount != null ? entry.fiat_amount.toLocaleString('en-US') : null
 					]
-				]),
+				] satisfies DetailRow[])),
 		['Source', entry.source === 'c2c_import' ? '📥 Import' : '✏️ Manual'],
 		['Order Number', entry.order_number ?? null]
 	]);
@@ -125,7 +134,7 @@
 	<!-- Header -->
 	<div class="page-header">
 		<div style="display:flex;align-items:center;gap:1rem;">
-			<a href="/ledger" class="link-muted">← Ledger</a>
+			<a href={resolve('/ledger')} class="link-muted">← Ledger</a>
 			<div>
 				<div style="display:flex;align-items:center;gap:0.75rem;">
 					<h1 class="stat-value-lg">
@@ -181,10 +190,16 @@
 				style="background:var(--surface);border:1px solid var(--border);border-radius:0.75rem;padding:1.5rem;"
 			>
 				<div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1rem;">
-					{#each isDeposit ? depositFields : withdrawalFields as [label, name, type]}
+					{#each isDeposit ? depositFields : withdrawalFields as [label, name, type] (name)}
 						<div>
-							<label class="form-label">{label}</label>
-							<input {type} {name} value={entry[name] ?? ''} class="input-inline" />
+							<label class="form-label" for="edit-{name}">{label}</label>
+							<input
+								id="edit-{name}"
+								{type}
+								{name}
+								value={entry[name] ?? ''}
+								class="input-inline"
+							/>
 						</div>
 					{/each}
 				</div>
@@ -193,24 +208,24 @@
 				{#if isDeposit}
 					<div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1rem;">
 						<div>
-							<label class="form-label">Total LKR Sent (computed)</label>
+							<div class="form-label">Total LKR Sent (computed)</div>
 							<div class="computed-field">
 								{lkrTotalSent(entry).toLocaleString('en-US', { maximumFractionDigits: 2 })}
 							</div>
 						</div>
 						<div>
-							<label class="form-label">Effective Rate (computed)</label>
+							<div class="form-label">Effective Rate (computed)</div>
 							<div class="computed-field">{effectiveRate(entry)?.toFixed(2) ?? '—'}</div>
 						</div>
 					</div>
 				{:else}
 					<div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1rem;">
 						<div>
-							<label class="form-label">USD Released (computed)</label>
+							<div class="form-label">USD Released (computed)</div>
 							<div class="computed-field">${usdReleased(entry).toFixed(2)}</div>
 						</div>
 						<div>
-							<label class="form-label">Expected LKR (computed)</label>
+							<div class="form-label">Expected LKR (computed)</div>
 							<div class="computed-field">
 								{expectedFiat(entry).toLocaleString('en-US', { maximumFractionDigits: 0 })}
 							</div>
@@ -220,18 +235,23 @@
 
 				<!-- Notes -->
 				<div style="margin-bottom:1rem;">
-					<label class="form-label">Notes</label>
-					<textarea name="notes" rows="3" class="input-inline" style="resize:vertical;"
-						>{entry.notes ?? ''}</textarea
+					<label class="form-label" for="edit-notes">Notes</label>
+					<textarea
+						id="edit-notes"
+						name="notes"
+						rows="3"
+						class="input-inline"
+						style="resize:vertical;">{entry.notes ?? ''}</textarea
 					>
 				</div>
 
 				<!-- Optional fields -->
 				<div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1rem;">
 					<div>
-						<label class="form-label">Order Number</label>
+						<label class="form-label" for="edit-order_number">Order Number</label>
 						<input
 							type="text"
+							id="edit-order_number"
 							name="order_number"
 							value={entry.order_number ?? ''}
 							class="input-inline"
@@ -239,9 +259,10 @@
 						/>
 					</div>
 					<div>
-						<label class="form-label">Counterparty</label>
+						<label class="form-label" for="edit-counterparty">Counterparty</label>
 						<input
 							type="text"
+							id="edit-counterparty"
 							name="counterparty"
 							value={entry.counterparty ?? ''}
 							class="input-inline"
@@ -270,7 +291,7 @@
 			style="background:var(--surface);border:1px solid var(--border);border-radius:0.75rem;padding:1.5rem;"
 		>
 			<div style="display:grid;grid-template-columns:1fr 1fr;gap:1.5rem;">
-				{#each detailRows as [label, val]}
+				{#each detailRows as [label, val] (label)}
 					<div>
 						<div class="field-label-tight">{label}</div>
 						<div
@@ -312,7 +333,7 @@
 								method="POST"
 								action="?/reset"
 								use:enhance={() =>
-									async ({ update }: any) => {
+									async ({ update }) => {
 										await update();
 										await invalidateAll();
 									}}
@@ -332,13 +353,13 @@
 							method="POST"
 							action="?/rebalance"
 							use:enhance={() =>
-								async ({ update }: any) => {
+								async ({ update }) => {
 									await update();
 									await invalidateAll();
 								}}
 						>
 							<div style="display:flex;flex-direction:column;gap:0.5rem;margin-bottom:0.75rem;">
-								{#each allocations as a}
+								{#each allocations as a (a._id)}
 									<div style="display:flex;align-items:center;gap:0.5rem;">
 										<span style="font-size:0.85rem;color:var(--text-primary);flex:1;"
 											>Deposit <span
@@ -373,7 +394,7 @@
 											style="padding:0.4rem 0.625rem;background:var(--bg);border:1px solid var(--border);border-radius:0.375rem;color:var(--text-primary);font-size:0.8rem;"
 										>
 											<option value="">—</option>
-											{#each availableDeposits as d}
+											{#each availableDeposits as d (d.id)}
 												<option value={d.id}
 													>{formatDate(d.date)} (${(d.remainingUsd ?? 0).toFixed(0)} left)</option
 												>
@@ -402,7 +423,7 @@
 							method="POST"
 							action="?/rebalance"
 							use:enhance={() =>
-								async ({ update }: any) => {
+								async ({ update }) => {
 									await update();
 									await invalidateAll();
 								}}
@@ -415,7 +436,7 @@
 									style="padding:0.4rem 0.625rem;background:var(--bg);border:1px solid var(--border);border-radius:0.375rem;color:var(--text-primary);font-size:0.8rem;"
 								>
 									<option value="">—</option>
-									{#each availableDeposits as d}
+									{#each availableDeposits as d (d.id)}
 										<option value={d.id}
 											>{formatDate(d.date)} (${(d.remainingUsd ?? 0).toFixed(0)} left)</option
 										>
@@ -496,9 +517,11 @@
 							<div
 								style="font-family:'JetBrains Mono',monospace;font-size:0.95rem;font-weight:700;color:var(--text-primary);"
 							>
-								{tracking?.releasedUsd > 0 ? `$${tracking.releasedUsd.toFixed(2)}` : '—'}
+								{tracking && tracking.releasedUsd > 0 ? `$${tracking.releasedUsd.toFixed(2)}` : '—'}
 							</div>
-							{#if tracking?.releasedLkr > 0}<div style="font-size:0.7rem;color:var(--text-muted);">
+							{#if tracking && tracking.releasedLkr > 0}<div
+									style="font-size:0.7rem;color:var(--text-muted);"
+								>
 									LKR {tracking.releasedLkr.toLocaleString('en-US', { maximumFractionDigits: 0 })}
 								</div>{/if}
 						</div>
@@ -530,7 +553,7 @@
 							method="POST"
 							action="?/lock"
 							use:enhance={() =>
-								async ({ update }: any) => {
+								async ({ update }) => {
 									await update();
 									await invalidateAll();
 								}}
@@ -549,7 +572,7 @@
 								method="POST"
 								action="?/reset"
 								use:enhance={() =>
-									async ({ update }: any) => {
+									async ({ update }) => {
 										await update();
 										await invalidateAll();
 									}}

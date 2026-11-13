@@ -1,10 +1,12 @@
 <script lang="ts">
+	import { SvelteSet } from 'svelte/reactivity';
+	import { resolve } from '$app/paths';
 	import { parseC2CCSV, type C2CEntry } from '$lib/utils/c2c-parser';
 
 	let step = $state<1 | 2 | 3>(1);
 	let fileName = $state('');
 	let parsedEntries = $state<C2CEntry[]>([]);
-	let selected = $state<Set<number>>(new Set());
+	const selected = new SvelteSet<number>();
 	let importing = $state(false);
 	let importResult = $state<{ imported: number; skipped: number } | null>(null);
 	let error = $state('');
@@ -34,7 +36,8 @@
 				return;
 			}
 			parsedEntries = entries;
-			selected = new Set(entries.map((_, i) => i));
+			selected.clear();
+			entries.forEach((_, i) => selected.add(i));
 			step = 2;
 		} catch (e: unknown) {
 			error = `Parse error: ${e instanceof Error ? e.message : String(e)}`;
@@ -42,10 +45,8 @@
 	}
 
 	function toggleSelect(i: number) {
-		const s = new Set(selected);
-		if (s.has(i)) s.delete(i);
-		else s.add(i);
-		selected = s;
+		if (selected.has(i)) selected.delete(i);
+		else selected.add(i);
 	}
 
 	async function confirmImport() {
@@ -67,8 +68,8 @@
 				skipped: toImport.length - (data.inserted ?? toImport.length)
 			};
 			step = 3;
-		} catch (err: any) {
-			error = err.message;
+		} catch (err) {
+			error = err instanceof Error ? err.message : String(err);
 		} finally {
 			importing = false;
 		}
@@ -79,14 +80,14 @@
 
 <div class="page">
 	<div style="display:flex;align-items:center;gap:1rem;margin-bottom:1.5rem;">
-		<a href="/ledger" class="link-muted">← Ledger</a>
+		<a href={resolve('/ledger')} class="link-muted">← Ledger</a>
 		<h1 class="stat-value">Import C2C Orders</h1>
 	</div>
 
 	<div
 		style="display:flex;gap:0;margin-bottom:1.5rem;background:var(--surface);border:1px solid var(--border);border-radius:0.5rem;overflow:hidden;"
 	>
-		{#each [[1, 'Upload'], [2, 'Preview'], [3, 'Done']] as [s, label]}
+		{#each [[1, 'Upload'], [2, 'Preview'], [3, 'Done']] as [s, label] (s)}
 			<div
 				style="flex:1;padding:0.625rem;text-align:center;font-size:0.8rem;font-weight:{step >=
 				(s as number)
@@ -121,6 +122,8 @@
 			style="background:var(--surface);border:2px dashed {dragOver
 				? 'var(--accent)'
 				: 'var(--border)'};border-radius:0.75rem;padding:3rem;text-align:center;transition:border-color 0.15s;cursor:pointer;"
+			role="region"
+			aria-label="CSV file drop zone"
 			ondragover={(e) => {
 				e.preventDefault();
 				dragOver = true;
@@ -173,7 +176,7 @@
 							<th
 								style="padding:0.5rem 0.75rem;text-align:left;font-size:0.7rem;color:var(--text-muted);text-transform:uppercase;width:40px;"
 							></th>
-							{#each ['Date', 'Type', 'LKR Sent', 'Rate', 'USDT', 'Counterparty'] as col}
+							{#each ['Date', 'Type', 'LKR Sent', 'Rate', 'USDT', 'Counterparty'] as col (col)}
 								<th
 									style="padding:0.5rem 0.75rem;text-align:left;font-size:0.7rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;"
 									>{col}</th
@@ -182,7 +185,7 @@
 						</tr>
 					</thead>
 					<tbody>
-						{#each parsedEntries as entry, i}
+						{#each parsedEntries as entry, i (i)}
 							<tr class="row-divider">
 								<td class="td">
 									<input
@@ -254,7 +257,7 @@
 			</p>
 			<div style="display:flex;gap:0.75rem;justify-content:center;margin-top:1.5rem;">
 				<a
-					href="/ledger"
+					href={resolve('/ledger')}
 					style="padding:0.625rem 1.5rem;background:var(--accent);color:#fff;border-radius:0.5rem;text-decoration:none;font-size:0.875rem;font-weight:500;"
 					>View Ledger</a
 				>

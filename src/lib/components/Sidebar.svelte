@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { page } from '$app/stores';
+	import { resolve } from '$app/paths';
 	import ThemeToggle from './ThemeToggle.svelte';
 
 	let collapsed = $state(false);
@@ -12,36 +13,73 @@
 		{ href: '/sessions', label: 'Sessions', icon: calendarIcon },
 		{ href: '/mistakes', label: 'Mistakes', icon: mistakeIcon },
 		{ href: '/settings', label: 'Settings', icon: settingsIcon }
-	];
+	] as const;
 
 	function isActive(href: string) {
 		if (href === '/') return $page.url.pathname === '/';
 		return $page.url.pathname.startsWith(href);
 	}
-
-	// SVG icon strings
-	function gridIcon() {
-		return `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>`;
-	}
-	function trendingIcon() {
-		return `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>`;
-	}
-	function walletIcon() {
-		return `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 12V22H4V12"/><path d="M22 7H2v5h20V7z"/><path d="M12 22V7"/><path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z"/><path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"/></svg>`;
-	}
-	function alertIcon() {
-		return `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>`;
-	}
-	function calendarIcon() {
-		return `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>`;
-	}
-	function mistakeIcon() {
-		return `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 9v4"/><path d="M12 17h.01"/><path d="M3.88 18.88 10.94 4.76a1.2 1.2 0 0 1 2.12 0l7.06 14.12A1.2 1.2 0 0 1 19.06 20.5H4.94a1.2 1.2 0 0 1-1.06-1.62z"/></svg>`;
-	}
-	function settingsIcon() {
-		return `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>`;
-	}
 </script>
+
+{#snippet gridIcon()}
+	<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+		><rect x="3" y="3" width="7" height="7" /><rect x="14" y="3" width="7" height="7" /><rect
+			x="14"
+			y="14"
+			width="7"
+			height="7"
+		/><rect x="3" y="14" width="7" height="7" /></svg
+	>
+{/snippet}
+
+{#snippet trendingIcon()}
+	<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+		><polyline points="23 6 13.5 15.5 8.5 10.5 1 18" /><polyline points="17 6 23 6 23 12" /></svg
+	>
+{/snippet}
+
+{#snippet walletIcon()}
+	<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+		><path d="M20 12V22H4V12" /><path d="M22 7H2v5h20V7z" /><path d="M12 22V7" /><path
+			d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z"
+		/><path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z" /></svg
+	>
+{/snippet}
+
+{#snippet alertIcon()}
+	<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+		><path
+			d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"
+		/><line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" /></svg
+	>
+{/snippet}
+
+{#snippet calendarIcon()}
+	<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+		><rect x="3" y="4" width="18" height="18" rx="2" ry="2" /><line
+			x1="16"
+			y1="2"
+			x2="16"
+			y2="6"
+		/><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" /></svg
+	>
+{/snippet}
+
+{#snippet mistakeIcon()}
+	<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+		><path d="M12 9v4" /><path d="M12 17h.01" /><path
+			d="M3.88 18.88 10.94 4.76a1.2 1.2 0 0 1 2.12 0l7.06 14.12A1.2 1.2 0 0 1 19.06 20.5H4.94a1.2 1.2 0 0 1-1.06-1.62z"
+		/></svg
+	>
+{/snippet}
+
+{#snippet settingsIcon()}
+	<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+		><circle cx="12" cy="12" r="3" /><path
+			d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"
+		/></svg
+	>
+{/snippet}
 
 <aside
 	style="
@@ -57,10 +95,11 @@
 "
 >
 	<!-- Logo (click to toggle collapse) -->
-	<div
+	<button
+		type="button"
 		style="padding: {collapsed
 			? '1rem 0.75rem'
-			: '1.25rem 1rem'};border-bottom: 1px solid var(--border);display:flex;align-items:center;gap:0.75rem;cursor:pointer;"
+			: '1.25rem 1rem'};border:none;border-bottom: 1px solid var(--border);background:none;font:inherit;text-align:left;width:100%;display:flex;align-items:center;gap:0.75rem;cursor:pointer;"
 		onclick={() => (collapsed = !collapsed)}
 		title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
 	>
@@ -78,14 +117,14 @@
 				>Qulem-Trade</span
 			>
 		{/if}
-	</div>
+	</button>
 
 	<!-- Nav links -->
 	<nav style="flex:1;padding:0.5rem 0.5rem;display:flex;flex-direction:column;gap:0.125rem;">
-		{#each navItems as item}
+		{#each navItems as item (item.href)}
 			{@const active = isActive(item.href)}
 			<a
-				href={item.href}
+				href={resolve(item.href)}
 				style="
           display:flex;align-items:center;gap:0.75rem;
           padding:0.5rem {collapsed ? '0.625rem' : '0.75rem'};
@@ -104,7 +143,7 @@
 				title={collapsed ? item.label : ''}
 			>
 				<span style="flex-shrink:0;color:{active ? 'var(--accent)' : 'var(--text-muted)'};"
-					>{@html item.icon()}</span
+					>{@render item.icon()}</span
 				>
 				{#if !collapsed}
 					<span>{item.label}</span>

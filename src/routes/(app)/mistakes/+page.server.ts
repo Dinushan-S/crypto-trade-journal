@@ -4,13 +4,13 @@ import { api } from '../../../../convex/_generated/api';
 import type { Id } from '../../../../convex/_generated/dataModel';
 
 export const load: PageServerLoad = async ({ locals: { convex } }) => {
-	const mistakes: any[] = await convex.query(api.mistakes.getMistakes, {}).catch(() => []);
-	const allMistakes = mistakes.map((m: any) => ({ ...m, id: m._id }));
+	const mistakes = await convex.query(api.mistakes.getMistakes, {}).catch(() => []);
+	const allMistakes = mistakes.map((m) => ({ ...m, id: m._id }));
 
 	const totalMistakes = allMistakes.length;
 
 	const categoryCounts: Record<string, number> = {};
-	allMistakes.forEach((m: any) => {
+	allMistakes.forEach((m) => {
 		if (m.category) {
 			categoryCounts[m.category] = (categoryCounts[m.category] || 0) + 1;
 		}
@@ -26,7 +26,7 @@ export const load: PageServerLoad = async ({ locals: { convex } }) => {
 	});
 
 	const lessonsCount = allMistakes.filter(
-		(m: any) => m.lesson_learned && m.lesson_learned.trim().length > 0
+		(m) => m.lesson_learned && m.lesson_learned.trim().length > 0
 	).length;
 
 	return {
@@ -48,8 +48,10 @@ export const actions: Actions = {
 		try {
 			await convex.mutation(api.mistakes.deleteMistake, { id: id as Id<'mistakes'> });
 			return { success: true };
-		} catch (error: any) {
-			return fail(500, { error: error.message });
+		} catch (error) {
+			return fail(500, {
+				error: error instanceof Error ? error.message : 'Failed to delete mistake.'
+			});
 		}
 	}
 };

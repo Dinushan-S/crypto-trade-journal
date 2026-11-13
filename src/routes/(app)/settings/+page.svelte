@@ -8,6 +8,13 @@
 	let confirmingClear = $state<'trades' | 'ledger' | null>(null);
 	let clearing = $state(false);
 
+	const memberSince = $derived.by(() => {
+		const user = data.user;
+		return user && 'created_at' in user && typeof user.created_at === 'string'
+			? user.created_at
+			: null;
+	});
+
 	$effect(() => {
 		if (form?.success) {
 			saved = true;
@@ -15,7 +22,7 @@
 				saved = false;
 			}, 2500);
 		}
-		if ((form as any)?.clearSuccess) {
+		if (form?.clearSuccess) {
 			confirmingClear = null;
 			clearing = false;
 		}
@@ -59,8 +66,8 @@
 			<div style="display:flex;justify-content:space-between;align-items:center;">
 				<span style="font-size:0.875rem;color:var(--text-muted);">Member since</span>
 				<span style="font-size:0.875rem;color:var(--text-primary);">
-					{(data.user as any)?.created_at
-						? new Date((data.user as any).created_at).toLocaleDateString('en-US', {
+					{memberSince
+						? new Date(memberSince).toLocaleDateString('en-US', {
 								year: 'numeric',
 								month: 'long',
 								day: 'numeric'
@@ -111,11 +118,13 @@
 			<div style="display:flex;flex-direction:column;gap:0.75rem;">
 				<div>
 					<label
+						for="new-password"
 						style="display:block;font-size:0.8rem;color:var(--text-muted);margin-bottom:0.375rem;"
 						>New Password</label
 					>
 					<input
 						type="password"
+						id="new-password"
 						name="password"
 						placeholder="Min. 6 characters"
 						style="width:100%;background:var(--bg);border:1px solid var(--border);border-radius:0.5rem;padding:0.5rem 0.75rem;color:var(--text-primary);font-size:0.875rem;box-sizing:border-box;"
@@ -123,11 +132,13 @@
 				</div>
 				<div>
 					<label
+						for="confirm-password"
 						style="display:block;font-size:0.8rem;color:var(--text-muted);margin-bottom:0.375rem;"
 						>Confirm Password</label
 					>
 					<input
 						type="password"
+						id="confirm-password"
 						name="confirm"
 						placeholder="Repeat new password"
 						style="width:100%;background:var(--bg);border:1px solid var(--border);border-radius:0.5rem;padding:0.5rem 0.75rem;color:var(--text-primary);font-size:0.875rem;box-sizing:border-box;"
@@ -173,12 +184,14 @@
 			<div style="display:flex;gap:0.75rem;flex-wrap:wrap;align-items:flex-end;">
 				<div>
 					<label
+						for="my-session-start"
 						style="display:block;font-size:0.8rem;color:var(--text-muted);margin-bottom:0.375rem;"
 						>Start (UTC HH:MM)</label
 					>
 					<input
+						id="my-session-start"
 						name="my_start"
-						value={(data as any).mySession?.start ?? '04:30'}
+						value={data.mySession?.start ?? '04:30'}
 						pattern="\d{2}:\d{2}"
 						placeholder="04:30"
 						style="width:110px;background:var(--bg);border:1px solid var(--border);border-radius:0.5rem;padding:0.5rem 0.75rem;color:var(--text-primary);font-size:0.875rem;"
@@ -186,12 +199,14 @@
 				</div>
 				<div>
 					<label
+						for="my-session-end"
 						style="display:block;font-size:0.8rem;color:var(--text-muted);margin-bottom:0.375rem;"
 						>End (UTC HH:MM)</label
 					>
 					<input
+						id="my-session-end"
 						name="my_end"
-						value={(data as any).mySession?.end ?? '12:30'}
+						value={data.mySession?.end ?? '12:30'}
 						pattern="\d{2}:\d{2}"
 						placeholder="12:30"
 						style="width:110px;background:var(--bg);border:1px solid var(--border);border-radius:0.5rem;padding:0.5rem 0.75rem;color:var(--text-primary);font-size:0.875rem;"
@@ -199,17 +214,18 @@
 				</div>
 				<div>
 					<label
+						for="my-session-tz"
 						style="display:block;font-size:0.8rem;color:var(--text-muted);margin-bottom:0.375rem;"
 						>Display TZ</label
 					>
 					<select
+						id="my-session-tz"
 						name="view_tz"
 						style="padding:0.5rem 0.75rem;background:var(--bg);border:1px solid var(--border);border-radius:0.5rem;color:var(--text-primary);font-size:0.875rem;"
 					>
-						<option value="utc" selected={(data as any).mySession?.tz === 'utc'}
-							>UTC (global-correct)</option
+						<option value="utc" selected={data.mySession?.tz === 'utc'}>UTC (global-correct)</option
 						>
-						<option value="colombo" selected={(data as any).mySession?.tz === 'colombo'}
+						<option value="colombo" selected={data.mySession?.tz === 'colombo'}
 							>Colombo (+05:30)</option
 						>
 					</select>
@@ -223,9 +239,7 @@
 				>
 			</div>
 		</form>
-		{#if (form as any)?.mySessionSaved}<p
-				style="font-size:0.775rem;color:var(--win);margin-top:0.625rem;"
-			>
+		{#if form?.mySessionSaved}<p style="font-size:0.775rem;color:var(--win);margin-top:0.625rem;">
 				My Session saved.
 			</p>{/if}
 	</div>
@@ -248,13 +262,12 @@
 				<input type="hidden" name="tz" value="local" />
 				<button
 					type="submit"
-					style="padding:0.5rem 1.125rem;border-radius:0.5rem;font-size:0.8rem;font-weight:600;cursor:pointer;border:1px solid {(
-						data as any
-					).calendarTz === 'local'
+					style="padding:0.5rem 1.125rem;border-radius:0.5rem;font-size:0.8rem;font-weight:600;cursor:pointer;border:1px solid {data.calendarTz ===
+					'local'
 						? 'var(--accent)'
-						: 'var(--border)'};background:{(data as any).calendarTz === 'local'
+						: 'var(--border)'};background:{data.calendarTz === 'local'
 						? 'color-mix(in srgb,var(--accent) 15%,var(--bg))'
-						: 'var(--bg)'};color:{(data as any).calendarTz === 'local'
+						: 'var(--bg)'};color:{data.calendarTz === 'local'
 						? 'var(--accent)'
 						: 'var(--text-muted)'};"
 				>
@@ -265,13 +278,12 @@
 				<input type="hidden" name="tz" value="utc" />
 				<button
 					type="submit"
-					style="padding:0.5rem 1.125rem;border-radius:0.5rem;font-size:0.8rem;font-weight:600;cursor:pointer;border:1px solid {(
-						data as any
-					).calendarTz === 'utc'
+					style="padding:0.5rem 1.125rem;border-radius:0.5rem;font-size:0.8rem;font-weight:600;cursor:pointer;border:1px solid {data.calendarTz ===
+					'utc'
 						? 'var(--accent)'
-						: 'var(--border)'};background:{(data as any).calendarTz === 'utc'
+						: 'var(--border)'};background:{data.calendarTz === 'utc'
 						? 'color-mix(in srgb,var(--accent) 15%,var(--bg))'
-						: 'var(--bg)'};color:{(data as any).calendarTz === 'utc'
+						: 'var(--bg)'};color:{data.calendarTz === 'utc'
 						? 'var(--accent)'
 						: 'var(--text-muted)'};"
 				>
@@ -279,7 +291,7 @@
 				</button>
 			</form>
 		</div>
-		{#if (form as any)?.tzUpdated}
+		{#if form?.tzUpdated}
 			<p style="font-size:0.775rem;color:var(--win);margin-top:0.625rem;">Timezone updated.</p>
 		{/if}
 	</div>
@@ -330,19 +342,19 @@
 			These actions are permanent and cannot be undone.
 		</p>
 
-		{#if (form as any)?.clearError}
+		{#if form?.clearError}
 			<div
 				style="padding:0.625rem 0.875rem;background:color-mix(in srgb,var(--loss) 10%,transparent);border:1px solid color-mix(in srgb,var(--loss) 30%,transparent);border-radius:0.5rem;color:var(--loss);font-size:0.8rem;margin-bottom:1rem;"
 			>
-				{(form as any).clearError}
+				{form?.clearError}
 			</div>
 		{/if}
 
-		{#if (form as any)?.clearSuccess}
+		{#if form?.clearSuccess}
 			<div
 				style="padding:0.625rem 0.875rem;background:color-mix(in srgb,var(--win) 10%,transparent);border:1px solid color-mix(in srgb,var(--win) 30%,transparent);border-radius:0.5rem;color:var(--win);font-size:0.8rem;margin-bottom:1rem;"
 			>
-				{(form as any).clearSuccess === 'trades'
+				{form?.clearSuccess === 'trades'
 					? 'All trade history deleted.'
 					: 'All ledger entries deleted.'}
 			</div>

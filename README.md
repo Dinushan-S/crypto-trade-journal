@@ -8,7 +8,7 @@ Built with **SvelteKit 2 (Svelte 5 runes)** on the front end and **Convex** as a
 
 - **Dashboard**: PnL calendar with daily totals that match Binance, win rate and equity stats, and a UTC/local timezone toggle that re-buckets trades into the right calendar day.
 - **Trades**
-  - Import Binance Futures *Trade History* CSV exports. Partial fills are merged into one position and duplicates are skipped by order ID.
+  - Import Binance Futures _Trade History_ CSV exports. Partial fills are merged into one position and duplicates are skipped by order ID.
   - Combine partial closes into a single trade group with net PnL and remaining quantity.
   - Journal fields for strategy, timeframes, confidence, risk %, and pre-/post-trade notes.
 - **P2P Ledger**
@@ -22,14 +22,14 @@ Built with **SvelteKit 2 (Svelte 5 runes)** on the front end and **Convex** as a
 
 ## Tech stack
 
-| Layer    | Choice                                                 |
-| -------- | ------------------------------------------------------ |
-| Frontend | SvelteKit 2, Svelte 5, Tailwind CSS 4, Chart.js         |
-| Backend  | Convex (database, server functions, auth)              |
+| Layer    | Choice                                                    |
+| -------- | --------------------------------------------------------- |
+| Frontend | SvelteKit 2, Svelte 5, Tailwind CSS 4, Chart.js           |
+| Backend  | Convex (database, server functions, auth)                 |
 | Auth     | `@convex-dev/auth` (Password provider) + httpOnly cookies |
-| Parsing  | PapaParse                                              |
-| Testing  | Vitest + `convex-test` (in-memory backend)             |
-| Hosting  | Vercel (`adapter-vercel`)                              |
+| Parsing  | PapaParse                                                 |
+| Testing  | Vitest + `convex-test` (in-memory backend)                |
+| Hosting  | Vercel (`adapter-vercel`)                                 |
 
 ## Project structure
 
@@ -79,23 +79,23 @@ npm install
 
 ## Importing data
 
-| Data             | Where to export it in Binance                          | Import page      |
-| ---------------- | ------------------------------------------------------ | ---------------- |
-| Futures trades   | Orders → Futures → Trade History → Export (CSV)        | `/trades/import` |
-| P2P / C2C orders | Orders → P2P → Order History → Export (CSV)            | `/ledger/import` |
+| Data             | Where to export it in Binance                   | Import page      |
+| ---------------- | ----------------------------------------------- | ---------------- |
+| Futures trades   | Orders → Futures → Trade History → Export (CSV) | `/trades/import` |
+| P2P / C2C orders | Orders → P2P → Order History → Export (CSV)     | `/ledger/import` |
 
 Imports run in your browser, and the parsed rows are sent to your own Convex deployment. You can re-import the same file safely, because rows whose order ID already exists are skipped.
 
 ## Scripts
 
-| Command          | Purpose                          |
-| ---------------- | -------------------------------- |
-| `npm run dev`    | Start the dev server             |
-| `npm run build`  | Production build                 |
-| `npm test`       | Run backend and parser tests     |
-| `npm run check`  | Type-check (svelte-check)        |
-| `npm run lint`   | Prettier + ESLint                |
-| `npm run format` | Format with Prettier             |
+| Command          | Purpose                      |
+| ---------------- | ---------------------------- |
+| `npm run dev`    | Start the dev server         |
+| `npm run build`  | Production build             |
+| `npm test`       | Run backend and parser tests |
+| `npm run check`  | Type-check (svelte-check)    |
+| `npm run lint`   | Prettier + ESLint            |
+| `npm run format` | Format with Prettier         |
 
 ## Deployment
 
@@ -111,6 +111,10 @@ Imports run in your browser, and the parsed rows are sent to your own Convex dep
    ```sh
    npx convex env set SITE_URL https://your-app.vercel.app --prod
    ```
+
+## License
+
+[MIT](LICENSE)
 
 ## Disclaimer
 

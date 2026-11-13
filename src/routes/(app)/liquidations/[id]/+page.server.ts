@@ -8,11 +8,11 @@ export const load: PageServerLoad = async ({ params, locals: { convex }, url }) 
 	if (!id) redirect(303, '/liquidations');
 
 	const detail = await convex
-		.query(api.liquidations.getLiquidationDetail, { id: id as any })
+		.query(api.liquidations.getLiquidationDetail, { id: id as Id<'liquidations'> })
 		.catch(() => null);
 	if (!detail) redirect(303, '/liquidations');
 
-	const availableTrades: any[] = await convex
+	const availableTrades = await convex
 		.query(api.liquidations.getAvailableTrades, {})
 		.catch(() => []);
 
@@ -51,7 +51,9 @@ export const actions: Actions = {
 		const id = formData.get('id') as string;
 		if (!id || typeof id !== 'string') return fail(400, { error: 'Invalid ID' });
 		try {
-			await convex.mutation(api.liquidations.deleteLiquidation, { id: id as any });
+			await convex.mutation(api.liquidations.deleteLiquidation, {
+				id: id as Id<'liquidations'>
+			});
 		} catch {
 			return fail(400, { error: 'Failed to delete liquidation' });
 		}
@@ -64,8 +66,8 @@ export const actions: Actions = {
 		if (!liquidationId || !tradeId) return fail(400, { error: 'Missing IDs' });
 		try {
 			await convex.mutation(api.liquidations.unlinkTradeFromLiquidation, {
-				liquidationId: liquidationId as any,
-				tradeId: tradeId as any
+				liquidationId: liquidationId as Id<'liquidations'>,
+				tradeId: tradeId as Id<'trades'>
 			});
 		} catch {
 			return fail(400, { error: 'Failed to unlink trade' });
@@ -84,8 +86,8 @@ export const actions: Actions = {
 		if (tradeIds.length === 0) return fail(400, { error: 'No trades selected' });
 		try {
 			await convex.mutation(api.liquidations.updateLiquidationLinkedTrades, {
-				liquidationId: liquidationId as any,
-				tradeIds: tradeIds as any[]
+				liquidationId: liquidationId as Id<'liquidations'>,
+				tradeIds: tradeIds as Id<'trades'>[]
 			});
 		} catch {
 			return fail(400, { error: 'Failed to add trades' });

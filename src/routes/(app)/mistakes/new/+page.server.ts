@@ -6,12 +6,12 @@ import type { Id } from '../../../../../convex/_generated/dataModel';
 export const load: PageServerLoad = async ({ url, locals: { convex } }) => {
 	const tradeIdParam = url.searchParams.get('trade_id');
 
-	const trades: any[] = await convex.query(api.trades.getTrades, {}).catch(() => []);
-	const mappedTrades = trades.map((t: any) => ({ ...t, id: t._id }));
+	const trades = await convex.query(api.trades.getTrades, {}).catch(() => []);
+	const mappedTrades = trades.map((t) => ({ ...t, id: t._id }));
 
 	let selectedTrade = null;
 	if (tradeIdParam) {
-		const trade: any = await convex
+		const trade = await convex
 			.query(api.trades.getTradeById, { id: tradeIdParam as Id<'trades'> })
 			.catch(() => null);
 		if (trade) selectedTrade = { ...trade, id: trade._id };
@@ -53,8 +53,10 @@ export const actions: Actions = {
 				category,
 				severity
 			});
-		} catch (err: any) {
-			return fail(500, { error: err.message });
+		} catch (err) {
+			return fail(500, {
+				error: err instanceof Error ? err.message : 'Failed to save mistake.'
+			});
 		}
 
 		redirect(303, '/mistakes');

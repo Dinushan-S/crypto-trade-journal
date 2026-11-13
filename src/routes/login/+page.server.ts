@@ -1,20 +1,12 @@
 import { fail, redirect } from '@sveltejs/kit';
 import { api } from '../../../convex/_generated/api';
-import { setAuthCookies } from '$lib/auth';
+import { safeRedirectTo, setAuthCookies } from '$lib/auth';
 import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ locals }) => {
 	if (locals.user) redirect(303, '/');
 	return {};
 };
-
-/** Resolves redirectTo against our own origin so an attacker can't bounce the user off-site. */
-function safeRedirectTo(url: URL): string {
-	const target = url.searchParams.get('redirectTo');
-	if (!target) return '/';
-	const dest = new URL(target, url.origin);
-	return dest.origin === url.origin ? dest.pathname + dest.search : '/';
-}
 
 export const actions: Actions = {
 	default: async ({ request, cookies, locals, url }) => {

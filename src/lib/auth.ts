@@ -20,6 +20,16 @@ export function clearAuthCookies(cookies: Cookies) {
 	cookies.delete(REFRESH_COOKIE, opts);
 }
 
+/** Resolves `redirectTo` against our own origin so an attacker can't bounce the user off-site. */
+export function safeRedirectTo(url: URL): string {
+	const target = url.searchParams.get('redirectTo');
+	if (!target) return '/';
+	const dest = new URL(target, url.origin);
+	// A path like "//evil.com" is protocol-relative in the browser, so reject it too.
+	if (dest.origin !== url.origin || /^[/\\]{2}/.test(dest.pathname)) return '/';
+	return dest.pathname + dest.search;
+}
+
 /** Reads `exp` from a JWT without verifying it — Convex verifies for real on every call. */
 export function isExpired(token: string, skewSeconds = 60): boolean {
 	try {

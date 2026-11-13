@@ -1,6 +1,10 @@
 import { fail } from '@sveltejs/kit';
 import type { PageServerLoad, Actions } from './$types';
+import type { FunctionArgs } from 'convex/server';
 import { api } from '../../../../convex/_generated/api';
+import type { Id } from '../../../../convex/_generated/dataModel';
+
+type TradeUpdates = Omit<FunctionArgs<typeof api.trades.updateTrade>, 'id'>;
 
 export const load: PageServerLoad = async ({ locals: { convex }, url }) => {
 	const coin = url.searchParams.get('coin') ?? '';
@@ -15,24 +19,21 @@ export const load: PageServerLoad = async ({ locals: { convex }, url }) => {
 
 	const allTrades = await convex.query(api.trades.getTrades, {}).catch(() => []);
 
-	let filtered: any[] = allTrades.map((t: any) => ({ ...t, id: t._id }));
+	let filtered = allTrades.map((t) => ({ ...t, id: t._id }));
 
-	if (coin)
-		filtered = filtered.filter((t: any) => t.coin?.toLowerCase().includes(coin.toLowerCase()));
-	if (position !== 'all') filtered = filtered.filter((t: any) => t.position === position);
+	if (coin) filtered = filtered.filter((t) => t.coin?.toLowerCase().includes(coin.toLowerCase()));
+	if (position !== 'all') filtered = filtered.filter((t) => t.position === position);
 	if (strategy)
-		filtered = filtered.filter((t: any) =>
-			t.strategy?.toLowerCase().includes(strategy.toLowerCase())
-		);
+		filtered = filtered.filter((t) => t.strategy?.toLowerCase().includes(strategy.toLowerCase()));
 	if (source !== 'all')
 		filtered = filtered.filter(
-			(t: any) => t.source === (source === 'imported' ? 'futures_import' : 'manual')
+			(t) => t.source === (source === 'imported' ? 'futures_import' : 'manual')
 		);
-	if (dateFrom) filtered = filtered.filter((t: any) => t.date >= dateFrom);
-	if (dateTo) filtered = filtered.filter((t: any) => t.date <= dateTo);
-	if (result === 'win') filtered = filtered.filter((t: any) => t.win === true);
-	if (result === 'loss') filtered = filtered.filter((t: any) => t.loss === true);
-	if (result === 'be') filtered = filtered.filter((t: any) => t.be === true);
+	if (dateFrom) filtered = filtered.filter((t) => t.date >= dateFrom);
+	if (dateTo) filtered = filtered.filter((t) => t.date <= dateTo);
+	if (result === 'win') filtered = filtered.filter((t) => t.win === true);
+	if (result === 'loss') filtered = filtered.filter((t) => t.loss === true);
+	if (result === 'be') filtered = filtered.filter((t) => t.be === true);
 
 	const total = filtered.length;
 	const offset = (page - 1) * limit;
@@ -110,8 +111,8 @@ export const actions: Actions = {
 				liquidated: form.get('liquidated') === 'on'
 			});
 			return { success: true };
-		} catch (err: any) {
-			return fail(500, { error: err.message || 'Failed to add trade.' });
+		} catch (err) {
+			return fail(500, { error: (err instanceof Error && err.message) || 'Failed to add trade.' });
 		}
 	},
 
@@ -120,7 +121,7 @@ export const actions: Actions = {
 		const id = form.get('id') as string;
 		if (!id) return fail(400, { error: 'Missing trade id.' });
 
-		const updates: Record<string, any> = {};
+		const updates: Record<string, unknown> = {};
 		const numFields = [
 			'entry_price',
 			'exit_price',
@@ -160,7 +161,7 @@ export const actions: Actions = {
 			}
 		}
 		if (form.has('liquidated_present')) updates.liquidated = form.get('liquidated') === 'on';
-		if (updates.coin) updates.coin = updates.coin.toUpperCase();
+		if (typeof updates.coin === 'string') updates.coin = updates.coin.toUpperCase();
 
 		const tf = form.getAll('timeframes');
 		if (form.has('timeframes_present')) updates.timeframes = tf as string[];
@@ -172,10 +173,16 @@ export const actions: Actions = {
 		}
 
 		try {
-			await convex.mutation(api.trades.updateTrade, { id: id as any, ...updates });
+			// Field values are validated by the Convex mutation's argument validators.
+			await convex.mutation(api.trades.updateTrade, {
+				id: id as Id<'trades'>,
+				...(updates as TradeUpdates)
+			});
 			return { success: true };
-		} catch (err: any) {
-			return fail(500, { error: err.message || 'Failed to update trade.' });
+		} catch (err) {
+			return fail(500, {
+				error: (err instanceof Error && err.message) || 'Failed to update trade.'
+			});
 		}
 	},
 
@@ -185,10 +192,12 @@ export const actions: Actions = {
 		if (!id) return fail(400, { error: 'Missing trade id.' });
 
 		try {
-			await convex.mutation(api.trades.deleteTrade, { id: id as any });
+			await convex.mutation(api.trades.deleteTrade, { id: id as Id<'trades'> });
 			return { success: true };
-		} catch (err: any) {
-			return fail(500, { error: err.message || 'Failed to delete trade.' });
+		} catch (err) {
+			return fail(500, {
+				error: (err instanceof Error && err.message) || 'Failed to delete trade.'
+			});
 		}
 	}
 };

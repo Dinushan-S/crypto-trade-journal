@@ -1,23 +1,19 @@
 <script lang="ts">
 	import { formatCurrency, formatDate } from '$lib/utils';
 	import { type ViewTz } from '$lib/utils/sessions';
-	import { onMount } from 'svelte';
+	import { onMount, untrack } from 'svelte';
+	import { resolve } from '$app/paths';
+	import type { Chart } from 'chart.js';
+	import type { PageData } from './$types';
 
-	let { data } = $props();
+	type DayStat = PageData['chartData']['dailyStats'][string];
+
+	let { data }: { data: PageData } = $props();
 	const stats = $derived(data.stats);
 	const recentTrades = $derived(data.recentTrades);
 	const recentLedger = $derived(data.recentLedger);
-	const chartData = $derived(
-		(data as any).chartData ?? {
-			monthlyPnl: [],
-			coinPnl: [],
-			winCount: 0,
-			lossCount: 0,
-			beCount: 0,
-			dailyStats: {}
-		}
-	);
-	const monthlyLedger = $derived((data as any).monthlyLedger ?? []);
+	const chartData = $derived(data.chartData);
+	const monthlyLedger = $derived(data.monthlyLedger);
 
 	// Stored trade date/time are Colombo (LKR, UTC+05:30). Re-bucket to UTC day and clock for the UTC view.
 	function utcDateFromColombo(dateStr: string, timeStr: string | null): string {
@@ -35,16 +31,16 @@
 		const ss = p[2] != null && !Number.isNaN(p[2]) ? `:${String(p[2]).padStart(2, '0')}` : '';
 		return `${hh}:${mm}${ss}`;
 	}
-	const dailyStats = $derived((data as any).chartData?.dailyStats ?? {});
+	const dailyStats = $derived(data.chartData.dailyStats);
 	const dailyStatsView = $derived.by(() => {
 		if (dayTz !== 'utc') return dailyStats;
-		const out: Record<string, any> = {};
-		for (const [day, stat] of Object.entries(dailyStats as Record<string, any>)) {
-			for (const tr of stat.trades ?? []) {
+		const out: Record<string, DayStat> = {};
+		for (const [day, stat] of Object.entries(dailyStats)) {
+			for (const tr of stat.trades) {
 				const uDay = utcDateFromColombo(tr.date_closed ?? tr.date_opened ?? day, tr.time);
 				if (!out[uDay]) out[uDay] = { netPnl: 0, tradeCount: 0, trades: [] };
 				out[uDay].netPnl += tr.pnl ?? 0;
-				if (!out[uDay].trades.some((t: any) => t.id === tr.id)) out[uDay].tradeCount += 1;
+				if (!out[uDay].trades.some((t) => t.id === tr.id)) out[uDay].tradeCount += 1;
 				out[uDay].trades.push({ ...tr, time: utcClockFromColombo(tr.time) });
 			}
 		}
@@ -56,10 +52,10 @@
 	const ledgerTotalPages = $derived(Math.ceil(monthlyLedger.length / 6));
 
 	const ledgerAllTime = $derived({
-		totalIn: monthlyLedger.reduce((s: number, m: any) => s + m.depositedUsd, 0),
-		totalOut: monthlyLedger.reduce((s: number, m: any) => s + m.withdrawnUsd, 0),
-		totalInLkr: monthlyLedger.reduce((s: number, m: any) => s + m.depositedLkr, 0),
-		totalOutLkr: monthlyLedger.reduce((s: number, m: any) => s + m.withdrawnLkr, 0),
+		totalIn: monthlyLedger.reduce((s, m) => s + m.depositedUsd, 0),
+		totalOut: monthlyLedger.reduce((s, m) => s + m.withdrawnUsd, 0),
+		totalInLkr: monthlyLedger.reduce((s, m) => s + m.depositedLkr, 0),
+		totalOutLkr: monthlyLedger.reduce((s, m) => s + m.withdrawnLkr, 0),
 		months: monthlyLedger.length
 	});
 
@@ -79,9 +75,9 @@
 	let monthlyCanvas = $state<HTMLCanvasElement | null>(null);
 	let coinCanvas = $state<HTMLCanvasElement | null>(null);
 	let wlbCanvas = $state<HTMLCanvasElement | null>(null);
-	let monthlyChart: any;
-	let coinChart: any;
-	let wlbChart: any;
+	let monthlyChart: Chart<'line'> | undefined;
+	let coinChart: Chart<'bar'> | undefined;
+	let wlbChart: Chart<'doughnut'> | undefined;
 
 	// Calendar state
 	const _now = new Date();
@@ -89,7 +85,7 @@
 		`${_now.getFullYear()}-${String(_now.getMonth() + 1).padStart(2, '0')}`
 	); // YYYY-MM (local time)
 	let expandedDay = $state<string | null>(null);
-	let dayTz = $state<ViewTz>(((data as any).calendarTz === 'utc' ? 'utc' : 'colombo') as ViewTz);
+	let dayTz = $state<ViewTz>(untrack(() => (data.calendarTz === 'utc' ? 'utc' : 'colombo')));
 
 	onMount(() => {
 		let destroyed = false;
@@ -105,18 +101,17 @@
 			const textColor = isDark ? '#8b949e' : '#6b7280';
 			const accentColor = '#3b82f6';
 			const winColor = '#22c55e';
-			const lossColor = '#ef4444';
 
 			// Monthly PnL (line)
 			if (monthlyCanvas && chartData.monthlyPnl.length > 0) {
 				monthlyChart = new Chart(monthlyCanvas, {
 					type: 'line',
 					data: {
-						labels: chartData.monthlyPnl.map((m: any) => m.month),
+						labels: chartData.monthlyPnl.map((m) => m.month),
 						datasets: [
 							{
 								label: 'Cumulative PnL',
-								data: chartData.monthlyPnl.map((m: any) => m.cumulative),
+								data: chartData.monthlyPnl.map((m) => m.cumulative),
 								borderColor: accentColor,
 								backgroundColor: 'rgba(59,130,246,0.1)',
 								fill: true,
@@ -126,7 +121,7 @@
 							},
 							{
 								label: 'Monthly PnL',
-								data: chartData.monthlyPnl.map((m: any) => m.monthly),
+								data: chartData.monthlyPnl.map((m) => m.monthly),
 								borderColor: winColor,
 								backgroundColor: 'transparent',
 								borderDash: [4, 4],
@@ -143,7 +138,7 @@
 							x: { grid: { color: gridColor }, ticks: { color: textColor, font: { size: 10 } } },
 							y: {
 								grid: { color: gridColor },
-								ticks: { color: textColor, font: { size: 10 }, callback: (v: any) => `$${v}` }
+								ticks: { color: textColor, font: { size: 10 }, callback: (v) => `$${v}` }
 							}
 						}
 					}
@@ -155,12 +150,12 @@
 				coinChart = new Chart(coinCanvas, {
 					type: 'bar',
 					data: {
-						labels: chartData.coinPnl.map((c: any) => c[0]),
+						labels: chartData.coinPnl.map((c) => c[0]),
 						datasets: [
 							{
 								label: 'PnL ($)',
-								data: chartData.coinPnl.map((c: any) => c[1]),
-								backgroundColor: chartData.coinPnl.map((c: any) =>
+								data: chartData.coinPnl.map((c) => c[1]),
+								backgroundColor: chartData.coinPnl.map((c) =>
 									c[1] >= 0 ? 'rgba(34,197,94,0.7)' : 'rgba(239,68,68,0.7)'
 								),
 								borderRadius: 4
@@ -175,7 +170,7 @@
 							x: { grid: { color: gridColor }, ticks: { color: textColor, font: { size: 10 } } },
 							y: {
 								grid: { color: gridColor },
-								ticks: { color: textColor, font: { size: 10 }, callback: (v: any) => `$${v}` }
+								ticks: { color: textColor, font: { size: 10 }, callback: (v) => `$${v}` }
 							}
 						}
 					}
@@ -293,7 +288,7 @@
 		// Actual days
 		for (let d = 1; d <= daysInMonth; d++) {
 			const date = `${calendarMonth}-${String(d).padStart(2, '0')}`;
-			const stat = (dailyStatsView as Record<string, any>)[date] ?? null;
+			const stat = dailyStatsView[date] ?? null;
 			days.push({ blank: false, date, dayNum: d, stat });
 		}
 		return days;
@@ -303,9 +298,9 @@
 		const days = calendarDays.filter((d) => !d.blank && d.stat);
 		const netPnl = days.reduce((s, d) => s + (d.stat?.netPnl ?? 0), 0);
 		const allTrades = days.flatMap((d) => d.stat?.trades ?? []);
-		const trades = new Set(allTrades.map((t: any) => t.id)).size;
-		const completed = allTrades.filter((t: any) => t.completed);
-		const wins = completed.filter((t: any) => t.outcome_win).length;
+		const trades = new Set(allTrades.map((t) => t.id)).size;
+		const completed = allTrades.filter((t) => t.completed);
+		const wins = completed.filter((t) => t.outcome_win).length;
 		const winRate = completed.length > 0 ? (wins / completed.length) * 100 : 0;
 		const dayPnls = days.map((d) => d.stat?.netPnl ?? 0);
 		const bestDay = dayPnls.length > 0 ? Math.max(...dayPnls) : 0;
@@ -349,12 +344,12 @@
 			</p>
 			<div style="display:flex;gap:0.75rem;justify-content:center;flex-wrap:wrap;">
 				<a
-					href="/trades/import"
+					href={resolve('/trades/import')}
 					style="padding:0.625rem 1.25rem;background:var(--accent);color:#fff;border-radius:0.5rem;text-decoration:none;font-size:0.875rem;font-weight:500;"
 					>Import CSV</a
 				>
 				<a
-					href="/trades?add"
+					href="{resolve('/trades')}?add"
 					style="padding:0.625rem 1.25rem;border:1px solid var(--border);color:var(--text-muted);border-radius:0.5rem;text-decoration:none;font-size:0.875rem;"
 					>Add Trade</a
 				>
@@ -365,7 +360,7 @@
 		<div
 			style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:0.75rem;margin-bottom:1.5rem;"
 		>
-			{#each statCards as card}
+			{#each statCards as card (card.label)}
 				<div
 					style="background:var(--surface);border:1px solid var(--border);border-radius:0.75rem;padding:1rem;"
 				>
@@ -595,7 +590,7 @@
 
 			<!-- Day-of-week headers -->
 			<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-bottom:4px;">
-				{#each ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'] as dow}
+				{#each ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'] as dow (dow)}
 					<div
 						style="text-align:center;font-size:0.6rem;color:var(--text-muted);padding:3px 0;font-weight:600;letter-spacing:0.04em;"
 					>
@@ -606,7 +601,7 @@
 
 			<!-- Calendar grid -->
 			<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-bottom:0.75rem;">
-				{#each calendarDays as day}
+				{#each calendarDays as day, i (day.date || `blank-${i}`)}
 					{#if day.blank}
 						<div style="height:56px;"></div>
 					{:else if !day.stat}
@@ -662,8 +657,8 @@
 			</div>
 
 			<!-- Expanded day trade panel -->
-			{#if expandedDay && (dailyStatsView as Record<string, any>)[expandedDay]}
-				{@const dayStat = (dailyStatsView as Record<string, any>)[expandedDay]}
+			{#if expandedDay && dailyStatsView[expandedDay]}
+				{@const dayStat = dailyStatsView[expandedDay]}
 				{@const [, , dd] = expandedDay.split('-')}
 				{@const dayLabel = `${formatMonthLabel(calendarMonth).split(' ')[0]} ${parseInt(dd)}`}
 				<div
@@ -718,7 +713,7 @@
 									</tr>
 								</thead>
 								<tbody>
-									{#each dayStat.trades as trade}
+									{#each dayStat.trades as trade, i (i)}
 										<tr class="row-divider">
 											<td
 												style="padding:5px 8px;font-family:'JetBrains Mono',monospace;color:var(--text-muted);font-size:0.7rem;"
@@ -808,7 +803,7 @@
 			{#if monthlyLedger.length === 0}
 				<div style="text-align:center;padding:2rem;color:var(--text-muted);font-size:0.8rem;">
 					No ledger entries yet. <a
-						href="/ledger?add"
+						href="{resolve('/ledger')}?add"
 						style="color:var(--accent);text-decoration:none;">Add a deposit →</a
 					>
 				</div>
@@ -817,7 +812,7 @@
 				<div
 					style="display:grid;grid-template-columns:repeat(4,1fr);gap:0.5rem;margin-bottom:1rem;"
 				>
-					{#each [{ label: 'Total Deposited', usd: ledgerAllTime.totalIn, lkr: ledgerAllTime.totalInLkr, color: 'var(--loss)' }, { label: 'Total Withdrawn', usd: ledgerAllTime.totalOut, lkr: ledgerAllTime.totalOutLkr, color: 'var(--win)' }, { label: 'Net Flow', usd: ledgerAllTime.totalIn - ledgerAllTime.totalOut, lkr: null, color: ledgerAllTime.totalIn - ledgerAllTime.totalOut >= 0 ? 'var(--win)' : 'var(--loss)' }, { label: 'Months', usd: null, lkr: null, months: ledgerAllTime.months, color: 'var(--text-primary)' }] as s}
+					{#each [{ label: 'Total Deposited', usd: ledgerAllTime.totalIn, lkr: ledgerAllTime.totalInLkr, color: 'var(--loss)' }, { label: 'Total Withdrawn', usd: ledgerAllTime.totalOut, lkr: ledgerAllTime.totalOutLkr, color: 'var(--win)' }, { label: 'Net Flow', usd: ledgerAllTime.totalIn - ledgerAllTime.totalOut, lkr: null, color: ledgerAllTime.totalIn - ledgerAllTime.totalOut >= 0 ? 'var(--win)' : 'var(--loss)' }, { label: 'Months', usd: null, lkr: null, months: ledgerAllTime.months, color: 'var(--text-primary)' }] as s (s.label)}
 						<div
 							style="background:var(--bg);border:1px solid var(--border);border-radius:0.5rem;padding:0.625rem 0.75rem;"
 						>
@@ -852,7 +847,7 @@
 
 				<!-- Monthly cards — 6 per row -->
 				<div style="display:grid;grid-template-columns:repeat(6,1fr);gap:0.5rem;">
-					{#each ledgerPageMonths as m}
+					{#each ledgerPageMonths as m (m.month)}
 						{@const isInflow = m.netUsd >= 0}
 						<div
 							style="background:var(--bg);border:1px solid var(--border);border-left:3px solid {isInflow
@@ -944,8 +939,9 @@
 					<span style="font-size:0.8rem;font-weight:600;color:var(--text-primary);"
 						>Recent Trades</span
 					>
-					<a href="/trades" style="font-size:0.75rem;color:var(--accent);text-decoration:none;"
-						>View all →</a
+					<a
+						href={resolve('/trades')}
+						style="font-size:0.75rem;color:var(--accent);text-decoration:none;">View all →</a
 					>
 				</div>
 				{#if recentTrades.length === 0}
@@ -953,9 +949,9 @@
 						No trades yet
 					</div>
 				{:else}
-					{#each recentTrades as trade}
+					{#each recentTrades as trade (trade.id)}
 						<a
-							href="/trades/{trade.id}"
+							href={resolve('/(app)/trades/[id]', { id: trade.id })}
 							style="display:flex;align-items:center;justify-content:space-between;padding:0.75rem 1rem;border-bottom:1px solid var(--border);text-decoration:none;transition:background 0.1s;"
 							onmouseenter={(e) =>
 								((e.currentTarget as HTMLElement).style.background =
@@ -1000,8 +996,9 @@
 					<span style="font-size:0.8rem;font-weight:600;color:var(--text-primary);"
 						>Recent Ledger</span
 					>
-					<a href="/ledger" style="font-size:0.75rem;color:var(--accent);text-decoration:none;"
-						>View all →</a
+					<a
+						href={resolve('/ledger')}
+						style="font-size:0.75rem;color:var(--accent);text-decoration:none;">View all →</a
 					>
 				</div>
 				{#if recentLedger.length === 0}
@@ -1009,7 +1006,7 @@
 						No entries yet
 					</div>
 				{:else}
-					{#each recentLedger as entry}
+					{#each recentLedger as entry (entry.id)}
 						<div
 							style="display:flex;align-items:center;justify-content:space-between;padding:0.75rem 1rem;border-bottom:1px solid var(--border);"
 						>

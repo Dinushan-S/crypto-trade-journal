@@ -2,10 +2,21 @@ import { fail } from '@sveltejs/kit';
 import type { PageServerLoad, Actions } from './$types';
 import { api } from '../../../../convex/_generated/api';
 import type { Id } from '../../../../convex/_generated/dataModel';
+import type { FunctionReturnType } from 'convex/server';
+
+type LedgerRow = FunctionReturnType<typeof api.ledger.getLedgerWithTracking>[number];
+type DepositTracking = Extract<LedgerRow['tracking'], { lockedUsd: unknown }>;
+/** Deposit and withdrawal tracking flattened into one shape so the page can read either side. */
+type Tracking = Partial<Omit<DepositTracking, 'balanceUsd'>> & { balanceUsd?: number | null };
 
 export const load: PageServerLoad = async ({ locals: { convex } }) => {
-	const entries: any[] = await convex.query(api.ledger.getLedgerWithTracking, {}).catch(() => []);
-	return { entries: entries.map((e: any) => ({ ...e, id: e._id })) };
+	const entries = await convex.query(api.ledger.getLedgerWithTracking, {}).catch(() => []);
+	return {
+		entries: entries.map((e) => {
+			const tracking: Tracking = e.tracking;
+			return { ...e, id: e._id, tracking };
+		})
+	};
 };
 
 export const actions: Actions = {
@@ -17,8 +28,8 @@ export const actions: Actions = {
 				depositId: depositId as Id<'ledger'>
 			});
 			return { success: true };
-		} catch (err: any) {
-			return { error: err.message };
+		} catch (err) {
+			return { error: err instanceof Error ? err.message : String(err) };
 		}
 	},
 
@@ -38,8 +49,8 @@ export const actions: Actions = {
 				}))
 			});
 			return { success: true };
-		} catch (err: any) {
-			return { error: err.message };
+		} catch (err) {
+			return { error: err instanceof Error ? err.message : String(err) };
 		}
 	},
 
@@ -81,8 +92,10 @@ export const actions: Actions = {
 				source: 'manual'
 			});
 			return { success: true };
-		} catch (err: any) {
-			return fail(500, { error: err.message || 'Failed to add ledger entry.' });
+		} catch (err) {
+			return fail(500, {
+				error: (err instanceof Error && err.message) || 'Failed to add ledger entry.'
+			});
 		}
 	},
 
@@ -91,7 +104,7 @@ export const actions: Actions = {
 		const id = form.get('id') as string;
 		if (!id) return fail(400, { error: 'Missing ledger entry id.' });
 
-		const updates: Record<string, any> = {};
+		const updates: Record<string, string | number> = {};
 		const numFields = [
 			'fiat_sent',
 			'usd_fee',
@@ -123,8 +136,10 @@ export const actions: Actions = {
 		try {
 			await convex.mutation(api.ledger.updateLedgerEntry, { id: id as Id<'ledger'>, ...updates });
 			return { success: true };
-		} catch (err: any) {
-			return fail(500, { error: err.message || 'Failed to update ledger entry.' });
+		} catch (err) {
+			return fail(500, {
+				error: (err instanceof Error && err.message) || 'Failed to update ledger entry.'
+			});
 		}
 	},
 
@@ -145,8 +160,8 @@ export const actions: Actions = {
 				});
 			}
 			return { success: true };
-		} catch (err: any) {
-			return fail(500, { error: err.message || 'Failed to reset.' });
+		} catch (err) {
+			return fail(500, { error: (err instanceof Error && err.message) || 'Failed to reset.' });
 		}
 	}
 };

@@ -3,6 +3,7 @@
 		parseTradeHistoryCSV,
 		type TradeHistoryTrade
 	} from '$lib/utils/binance-trade-history-parser';
+	import { resolve } from '$app/paths';
 	import TradeLoader from '$lib/components/TradeLoader.svelte';
 
 	let step = $state<1 | 2 | 3>(1);
@@ -48,10 +49,9 @@
 	}
 
 	function toggleSelect(i: number) {
-		const s = new Set(selected);
-		if (s.has(i)) s.delete(i);
-		else s.add(i);
-		selected = s;
+		selected = selected.has(i)
+			? new Set([...selected].filter((x) => x !== i))
+			: new Set([...selected, i]);
 	}
 
 	async function confirmImport() {
@@ -74,8 +74,8 @@
 				skipped: data.skipped ?? 0
 			};
 			step = 3;
-		} catch (err: any) {
-			error = err.message;
+		} catch (err) {
+			error = err instanceof Error ? err.message : String(err);
 		} finally {
 			importing = false;
 		}
@@ -86,14 +86,14 @@
 
 <div class="page">
 	<div style="display:flex;align-items:center;gap:1rem;margin-bottom:1.5rem;">
-		<a href="/trades" class="link-muted">← Trades</a>
+		<a href={resolve('/trades')} class="link-muted">← Trades</a>
 		<h1 class="stat-value">Import Trade History CSV</h1>
 	</div>
 
 	<div
 		style="display:flex;gap:0;margin-bottom:1.5rem;background:var(--surface);border:1px solid var(--border);border-radius:0.5rem;overflow:hidden;"
 	>
-		{#each [[1, 'Upload'], [2, 'Preview'], [3, 'Done']] as [s, label]}
+		{#each [[1, 'Upload'], [2, 'Preview'], [3, 'Done']] as [s, label] (s)}
 			<div
 				style="flex:1;padding:0.625rem;text-align:center;font-size:0.8rem;font-weight:{step >=
 				(s as number)
@@ -132,6 +132,8 @@
 			</div>
 		{:else}
 			<div
+				role="region"
+				aria-label="CSV file drop zone"
 				style="background:var(--surface);border:2px dashed {dragOver
 					? 'var(--accent)'
 					: 'var(--border)'};border-radius:0.75rem;padding:3rem;text-align:center;transition:border-color 0.15s;cursor:pointer;"
@@ -222,7 +224,7 @@
 									}}
 								/>
 							</th>
-							{#each ['Date', 'Coin', 'Side', 'Entry', 'Exit', 'Qty', 'PnL', 'Liquidated'] as col}
+							{#each ['Date', 'Coin', 'Side', 'Entry', 'Exit', 'Qty', 'PnL', 'Liquidated'] as col (col)}
 								<th
 									style="padding:0.5rem 0.75rem;text-align:left;font-size:0.7rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;"
 									>{col}</th
@@ -231,7 +233,7 @@
 						</tr>
 					</thead>
 					<tbody>
-						{#each parsedTrades as trade, i}
+						{#each parsedTrades as trade, i (i)}
 							<tr class="row-divider">
 								<td class="td">
 									<input
@@ -324,7 +326,7 @@
 			</p>
 			<div style="display:flex;gap:0.75rem;justify-content:center;margin-top:1.5rem;">
 				<a
-					href="/trades"
+					href={resolve('/trades')}
 					style="padding:0.625rem 1.5rem;background:var(--accent);color:#fff;border-radius:0.5rem;text-decoration:none;font-size:0.875rem;font-weight:500;"
 					>View Trades</a
 				>

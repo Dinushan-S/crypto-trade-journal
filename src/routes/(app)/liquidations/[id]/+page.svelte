@@ -1,6 +1,8 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
+	import { resolve } from '$app/paths';
 	import { untrack } from 'svelte';
+	import { SvelteSet } from 'svelte/reactivity';
 	import { formatCurrency, formatDate } from '$lib/utils';
 
 	let { data, form } = $props();
@@ -32,11 +34,11 @@
 	const MODAL_PAGE_SIZE = 30;
 
 	// Selection within modal
-	let selectedModalIds = $state(new Set<string>());
+	const selectedModalIds = new SvelteSet<string>();
 
 	// Filtered trades from modal
 	const filteredTrades = $derived(
-		allUserTrades.filter((t: any) => {
+		allUserTrades.filter((t) => {
 			if (modalCoinFilter && !(t.coin ?? '').toLowerCase().includes(modalCoinFilter.toLowerCase()))
 				return false;
 			if (modalResultFilter === 'win' && !t.win) return false;
@@ -54,14 +56,14 @@
 		filteredTrades.slice((modalSearchPage - 1) * MODAL_PAGE_SIZE, modalSearchPage * MODAL_PAGE_SIZE)
 	);
 
-	const alreadyLinkedIds = $derived(new Set(linkedTrades.map((t: any) => t._id)));
+	const alreadyLinkedIds = $derived(new Set(linkedTrades.map((t) => t._id)));
 
 	const allModalSelected = $derived(
-		pagedTrades.length > 0 && pagedTrades.every((t: any) => selectedModalIds.has(t._id))
+		pagedTrades.length > 0 && pagedTrades.every((t) => selectedModalIds.has(t._id))
 	);
 
-	function getAvailableTrades(): any[] {
-		return allUserTrades.filter((t: any) => !alreadyLinkedIds.has(t._id));
+	function getAvailableTrades() {
+		return allUserTrades.filter((t) => !alreadyLinkedIds.has(t._id));
 	}
 
 	function openModal() {
@@ -81,11 +83,11 @@
 
 	function toggleModalSelectAll(checked: boolean) {
 		if (checked) {
-			pagedTrades.forEach((t: any) => {
+			pagedTrades.forEach((t) => {
 				if (!alreadyLinkedIds.has(t._id)) selectedModalIds.add(t._id);
 			});
 		} else {
-			pagedTrades.forEach((t: any) => {
+			pagedTrades.forEach((t) => {
 				if (!alreadyLinkedIds.has(t._id)) selectedModalIds.delete(t._id);
 			});
 		}
@@ -123,7 +125,7 @@
 	<!-- Header -->
 	<div class="page-header">
 		<div style="display:flex;align-items:center;gap:1rem;">
-			<a href="/liquidations" class="link-muted">← Liquidations</a>
+			<a href={resolve('/liquidations')} class="link-muted">← Liquidations</a>
 			<h1 class="stat-value">Liquidation Details</h1>
 		</div>
 		<div style="display:flex;gap:0.5rem;">
@@ -227,19 +229,19 @@
 	>
 		<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:1.25rem;">
 			<div>
-				<label class="form-label">Date</label>
+				<span class="form-label">Date</span>
 				<div style="font-size:0.9rem;color:var(--text-primary);">
 					{formatDate(liquidation.date)}
 				</div>
 			</div>
 			<div>
-				<label class="form-label">Coin</label>
+				<span class="form-label">Coin</span>
 				<div style="font-size:0.9rem;font-weight:600;color:var(--text-primary);">
 					{liquidation.coin ?? '—'}
 				</div>
 			</div>
 			<div>
-				<label class="form-label">Position</label>
+				<span class="form-label">Position</span>
 				<div>
 					{#if liquidation.position}
 						<span
@@ -257,28 +259,28 @@
 				</div>
 			</div>
 			<div>
-				<label class="form-label">Strategy</label>
+				<span class="form-label">Strategy</span>
 				<div style="font-size:0.9rem;color:var(--text-muted);">{liquidation.strategy ?? '—'}</div>
 			</div>
 			<div>
-				<label class="form-label">Amount Lost ($)</label>
+				<span class="form-label">Amount Lost ($)</span>
 				<div style="font-size:1rem;font-weight:700;color:var(--loss);">
 					{liquidation.amount_lost != null ? `$${liquidation.amount_lost.toFixed(2)}` : '—'}
 				</div>
 			</div>
 			<div>
-				<label class="form-label">Reason</label>
+				<span class="form-label">Reason</span>
 				<div style="font-size:0.9rem;color:var(--text-muted);">{liquidation.reason ?? '—'}</div>
 			</div>
 			{#if liquidation.mistake}
 				<div class="span-full">
-					<label class="form-label">Mistake</label>
+					<span class="form-label">Mistake</span>
 					<div style="font-size:0.9rem;color:var(--loss);">{liquidation.mistake}</div>
 				</div>
 			{/if}
 			{#if liquidation.notes}
 				<div class="span-full">
-					<label class="form-label">Notes</label>
+					<span class="form-label">Notes</span>
 					<div style="font-size:0.9rem;color:var(--text-muted);white-space:pre-wrap;">
 						{liquidation.notes}
 					</div>
@@ -336,7 +338,7 @@
 						</tr>
 					</thead>
 					<tbody>
-						{#each linkedTrades as trade}
+						{#each linkedTrades as trade (trade._id)}
 							<tr class="row-divider">
 								<td
 									style="padding:0.625rem 0.75rem;font-family:'JetBrains Mono',monospace;color:var(--text-muted);white-space:nowrap;"
@@ -407,6 +409,7 @@
 	<!-- Delete confirmation dialog -->
 	{#if showDeleteDialog}
 		<div
+			role="presentation"
 			style="position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:100;display:flex;align-items:center;justify-content:center;"
 			onclick={(e) => {
 				if (e.target === e.currentTarget) showDeleteDialog = false;
@@ -454,6 +457,7 @@
 	<!-- Trade picker modal -->
 	{#if showModal}
 		<div
+			role="presentation"
 			style="position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:100;display:flex;align-items:flex-start;justify-content:center;overflow-y:auto;padding:2rem 1rem;"
 			onclick={(e) => {
 				if (e.target === e.currentTarget) closeModal();
@@ -481,9 +485,10 @@
 					style="padding:0.875rem 1.25rem;border-bottom:1px solid var(--border);display:flex;gap:0.75rem;flex-wrap:wrap;align-items:flex-end;"
 				>
 					<div>
-						<label class="form-label">Coin</label>
+						<label class="form-label" for="modal-coin-filter">Coin</label>
 						<input
 							type="text"
+							id="modal-coin-filter"
 							bind:value={modalCoinFilter}
 							oninput={() => (modalSearchPage = 1)}
 							placeholder="BTC, ETH…"
@@ -492,8 +497,9 @@
 						/>
 					</div>
 					<div>
-						<label class="form-label">Result</label>
+						<label class="form-label" for="modal-result-filter">Result</label>
 						<select
+							id="modal-result-filter"
 							bind:value={modalResultFilter}
 							onchange={() => (modalSearchPage = 1)}
 							class="input"
@@ -564,7 +570,7 @@
 								</tr>
 							</thead>
 							<tbody>
-								{#each pagedTrades as trade}
+								{#each pagedTrades as trade (trade._id)}
 									<tr
 										style="border-bottom:1px solid var(--border);background:{alreadyLinkedIds.has(
 											trade._id
